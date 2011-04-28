@@ -555,7 +555,6 @@ doc/Makefile
 doc/examples/Makefile
 doc/man/Makefile
 modules/Makefile
-debian/Makefile
 scripts/Makefile
 tests/Makefile
 tests/python/Makefile
