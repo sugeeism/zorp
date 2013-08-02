@@ -7,10 +7,10 @@
 ##
 ############################################################################
 
+import sys
+sys.dont_write_bytecode = True
+
 # All modules referenced from C have to be imported here
 import Zorp.Zorp, Zorp.SockAddr, Zorp.Stream
-#Zorp.Satyr
-
-#import Zorp.Zorp
 
 #print "Policy bootstrapping..."

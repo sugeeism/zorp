@@ -735,7 +735,7 @@ z_policy_event(PyObject *handler, char *name, PyObject *args, gchar *session_id)
 
 /* loadable policies */
 
-GStaticMutex policy_ref_lock = G_STATIC_MUTEX_INIT;
+G_LOCK_DEFINE_STATIC(policy_ref_lock);
 
 struct _ZPolicyThread
 {
@@ -976,11 +976,11 @@ z_policy_free(ZPolicy *self)
 ZPolicy * 
 z_policy_ref(ZPolicy *self)
 {
-  g_static_mutex_lock(&policy_ref_lock);
+  G_LOCK(policy_ref_lock);
   g_assert(self->ref_cnt > 0);
   
   self->ref_cnt++;
-  g_static_mutex_unlock(&policy_ref_lock);
+  G_UNLOCK(policy_ref_lock);
   return self;
 }
 
@@ -994,7 +994,7 @@ z_policy_ref(ZPolicy *self)
 void
 z_policy_unref(ZPolicy *self)
 {
-  g_static_mutex_lock(&policy_ref_lock);
+  G_LOCK(policy_ref_lock);
   g_assert(self->ref_cnt > 0);
   
   --self->ref_cnt;
@@ -1022,12 +1022,12 @@ z_policy_unref(ZPolicy *self)
   if (self->ref_cnt == ZPOLICY_BASE_REFCOUNT)
     {
       /* ok, only the notification thread & main thread remains, start destructing them now */
-      g_static_mutex_unlock(&policy_ref_lock);
+      G_UNLOCK(policy_ref_lock);
       z_policy_free(self);
     }
   else
     {
-      g_static_mutex_unlock(&policy_ref_lock);
+      G_UNLOCK(policy_ref_lock);
     }
 }
 

@@ -5,7 +5,7 @@
 #define BROCHURE_VERSION "3.9"
 
 /* Enable debugging */
-#define ENABLE_DEBUG 1
+#define ENABLE_DEBUG 0
 
 /* Enable IP option processing */
 #define ENABLE_IPOPTIONS 0
@@ -17,7 +17,7 @@
 #define ENABLE_PREFORK 0
 
 /* Enable trace messages */
-#define ENABLE_TRACE 1
+#define ENABLE_TRACE 0
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -126,34 +126,39 @@
 #define STDC_HEADERS 1
 
 /* Zorp package version */
-#define VERSION "3.9.5"
+#define VERSION "3.9.6"
 
 /* Configuration date */
-#define ZORP_CONFIG_DATE "2012/03/06"
+#define ZORP_CONFIG_DATE "2013/08/02"
 
 /* datadir */
-#define ZORP_DATADIR "/home/hidden/zwa/install/zorp-4.0/share/zorp"
+#define ZORP_DATADIR "/home/coroner/zwa/install/zorp-gpl-5.0/share/zorp"
 
 /* libdir */
-#define ZORP_LIBDIR "/home/hidden/zwa/install/zorp-4.0/lib/zorp"
+#define ZORP_LIBDIR "/home/coroner/zwa/install/zorp-gpl-5.0/lib/zorp"
 
 /* Required license version */
 #define ZORP_LICENSE_VERSION "3.4"
 
 /* pidfiledir */
-#define ZORP_PIDFILEDIR "/home/hidden/zwa/install/zorp-4.0/var/run/zorp/"
+#define ZORP_PIDFILEDIR "/home/coroner/zwa/install/zorp-gpl-5.0/var/run/zorp/"
 
 /* Required product name in license */
 #define ZORP_PRODUCT_NAME "Zorp Professional"
 
 /* Zorp source revision number */
-#define ZORP_SOURCE_REVISION "ssh+git://hidden@git.balabit//var/scm/git/zorp/zorp-core--mainline--4.0#master#e027ddb760607ae05caf8ac3526415a43669eeb3"
+#define ZORP_SOURCE_REVISION "ssh+git://coroner@git.balabit/var/scm/git/zorp/zorp-core--mainline--5.0#master#7dfaca370e9600837826edce93efaaf50b792c2f"
 
 /* localstatedir */
-#define ZORP_STATEDIR "/home/hidden/zwa/install/zorp-4.0/var"
+#define ZORP_STATEDIR "/home/coroner/zwa/install/zorp-gpl-5.0/var"
 
 /* sysconfdir */
-#define ZORP_SYSCONFDIR "/home/hidden/zwa/install/zorp-4.0/etc/zorp"
+#define ZORP_SYSCONFDIR "/home/coroner/zwa/install/zorp-gpl-5.0/etc/zorp"
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */

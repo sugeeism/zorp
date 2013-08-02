@@ -626,7 +626,7 @@ Dispatcher(bindto=SockAddrInet('192.168.2.1', 50080), service="demo_http_service
                                 rule_port = [(bindto.sa.port, bindto.sa.port)]
                         else:
                                 rule_port = self.rule_port
-                        if (bindto.sa.get_family() == socket.AF_INET):
+                        if (bindto.sa.family == socket.AF_INET):
                           messages.append((kznf.KZNL_MSG_ADD_DISPATCHER, kznf.create_add_dispatcher_sabind_msg(bindto.format(), flags, convertDBProtoToIPProto(bindto.protocol), bindto.sa.port, socket.ntohl(bindto.sa.ip), rule_port)))
                         else:
                           log(None, CORE_ERROR, 2, "KZorp does not support SockAddr bind dispatchers bound to a non-IPv4 socket")

@@ -6,6 +6,8 @@ EXTRA_DIST = changelog compat control copyright rules instances.conf \
 	zorp@PACKAGE_SUFFIX@.files \
 	zorp@PACKAGE_SUFFIX@.init \
 	zorp@PACKAGE_SUFFIX@.postinst \
+	zorp@PACKAGE_SUFFIX@-modules.files \
+	zorp@PACKAGE_SUFFIX@-modules.conffiles \
 	zorp@PACKAGE_SUFFIX@-modules.postrm \
 	zorp@PACKAGE_SUFFIX@-doc.files \
 	zorp@PACKAGE_SUFFIX@-doc.doc-base.reference \
@@ -27,6 +29,12 @@ zorp@PACKAGE_SUFFIX@.init: zorp.init.in
 	cp $< $@
 
 zorp@PACKAGE_SUFFIX@-modules.postrm: zorp-modules.postrm.in
+	cp $< $@
+
+zorp@PACKAGE_SUFFIX@-modules.files: zorp-modules.files.in
+	cp $< $@
+
+zorp@PACKAGE_SUFFIX@-modules.conffiles: zorp-modules.conffiles.in
 	cp $< $@
 
 zorp@PACKAGE_SUFFIX@-doc.files: zorp-doc.files.in

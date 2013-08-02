@@ -5,7 +5,6 @@ LIBS = @LIBZORP_LIBS@
 lib_LTLIBRARIES = libzorp.la
 
 libzorp_la_LDFLAGS = \
-	-version-info $(LIBZORP_LT_CURRENT):0:$(LIBZORP_LT_AGE) \
 	-release $(LIBZORP_LT_RELEASE) \
 	-export-dynamic
 

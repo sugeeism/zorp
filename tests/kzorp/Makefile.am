@@ -1,8 +1,9 @@
 pkglibdir=$(libdir)/zorp/tests
+pkglibexecdir=$(libdir)/zorp/tests
 
 
 check_PROGRAMS = get_kzorp_result
-pkglib_PROGRAMS = get_kzorp_result
+pkglibexec_PROGRAMS = get_kzorp_result
 
 get_kzorp_result_SOURCES = get_kzorp_result.c
 

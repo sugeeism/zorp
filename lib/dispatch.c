@@ -81,7 +81,7 @@ struct _ZDispatchEntry
 
 /* Global dispatch table and its mutex */
 GHashTable *dispatch_table;
-GStaticMutex dispatch_lock = G_STATIC_MUTEX_INIT;
+G_LOCK_DEFINE_STATIC(dispatch_lock);
 
 /*
  * Locking within the Dispatch module
@@ -1115,7 +1115,7 @@ z_dispatch_register(gchar *session_id,
 
   z_session_enter(session_id);  
 
-  g_static_mutex_lock(&dispatch_lock);
+  G_LOCK(dispatch_lock);
 
   if (z_dispatch_bind_is_wildcard(key))
     chain = NULL;
@@ -1130,7 +1130,7 @@ z_dispatch_register(gchar *session_id,
       if (!z_dispatch_bind_listener(chain, &bound_key))
         {
           z_dispatch_chain_unref(chain);
-          g_static_mutex_unlock(&dispatch_lock);
+          G_UNLOCK(dispatch_lock);
           z_session_leave(session_id);
           return NULL;
         }
@@ -1176,7 +1176,7 @@ z_dispatch_register(gchar *session_id,
   z_dispatch_chain_unlock(chain);
 
  error:
-  g_static_mutex_unlock(&dispatch_lock);
+  G_UNLOCK(dispatch_lock);
   
   z_session_leave(session_id);
   return entry;
@@ -1199,7 +1199,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
   gpointer orig_key, orig_chain;
   
   z_enter();
-  g_static_mutex_lock(&dispatch_lock);
+  G_LOCK(dispatch_lock);
   found = g_hash_table_lookup_extended(dispatch_table, entry->chain_key, &orig_key, &orig_chain);
   key = (ZDispatchBind *) orig_key;
   chain = (ZDispatchChain *) orig_chain;
@@ -1252,7 +1252,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
             "Internal error, dispatch entry not found (no chain); dispatch='%s', entry='%p'", 
             z_dispatch_bind_format(entry->chain_key, buf, sizeof(buf)), entry);
     }
-  g_static_mutex_unlock(&dispatch_lock);
+  G_UNLOCK(dispatch_lock);
   z_return();
 }
 

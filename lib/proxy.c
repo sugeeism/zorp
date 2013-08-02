@@ -130,7 +130,7 @@
  * It is used by the SZIG code to look be able to communicate with actual
  * proxies.
  */
-static GStaticMutex proxy_hash_mutex = G_STATIC_MUTEX_INIT;
+G_LOCK_DEFINE_STATIC(proxy_hash_mutex);
 static GHashTable *proxy_hash = NULL;
 
 /**
@@ -181,7 +181,7 @@ z_proxy_register(ZProxy *self)
 
   session_id = z_proxy_get_service_session_id(self);
 
-  g_static_mutex_lock(&proxy_hash_mutex);
+  G_LOCK(proxy_hash_mutex);
 
   list = g_hash_table_lookup(proxy_hash, session_id);
 
@@ -196,7 +196,7 @@ z_proxy_register(ZProxy *self)
   else
     g_free(session_id);
 
-  g_static_mutex_unlock(&proxy_hash_mutex);
+  G_UNLOCK(proxy_hash_mutex);
 }
 
 /**
@@ -213,7 +213,7 @@ z_proxy_unregister(ZProxy *self)
 
   session_id = z_proxy_get_service_session_id(self);
 
-  g_static_mutex_lock(&proxy_hash_mutex);
+  G_LOCK(proxy_hash_mutex);
   list = g_hash_table_lookup(proxy_hash, session_id);
   list_new = g_list_remove(list, self);
   z_proxy_unref(self);
@@ -232,7 +232,7 @@ z_proxy_unregister(ZProxy *self)
       g_free(session_id);
     }
 
-  g_static_mutex_unlock(&proxy_hash_mutex);
+  G_UNLOCK(proxy_hash_mutex);
 }
 
 
@@ -267,7 +267,7 @@ z_proxy_stop_request(const gchar *session_id)
   GList *list;
   gboolean verdict = FALSE;
 
-  g_static_mutex_lock(&proxy_hash_mutex);
+  G_LOCK(proxy_hash_mutex);
   
   list = g_hash_table_lookup(proxy_hash, session_id);
 
@@ -276,7 +276,7 @@ z_proxy_stop_request(const gchar *session_id)
       g_list_foreach(list, z_proxy_stop_req_cb, NULL);
       verdict = TRUE;
     }
-  g_static_mutex_unlock(&proxy_hash_mutex);
+  G_UNLOCK(proxy_hash_mutex);
 
   return verdict;
 }
@@ -312,9 +312,9 @@ z_proxy_hash_unref_proxy(gpointer key G_GNUC_UNUSED, gpointer value, gpointer us
 void
 z_proxy_hash_init(void)
 {
-  g_static_mutex_lock(&proxy_hash_mutex);
+  G_LOCK(proxy_hash_mutex);
   proxy_hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-  g_static_mutex_unlock(&proxy_hash_mutex);
+  G_UNLOCK(proxy_hash_mutex);
 }
 
 /**
@@ -325,14 +325,14 @@ z_proxy_hash_init(void)
 void
 z_proxy_hash_destroy(void)
 {
-  g_static_mutex_lock(&proxy_hash_mutex);
+  G_LOCK(proxy_hash_mutex);
   if (proxy_hash)
     {
       g_hash_table_foreach(proxy_hash, z_proxy_hash_unref_proxy, NULL);
       g_hash_table_destroy(proxy_hash);
       proxy_hash = NULL;
     }
-  g_static_mutex_unlock(&proxy_hash_mutex);
+  G_UNLOCK(proxy_hash_mutex);
 }
 
 /**

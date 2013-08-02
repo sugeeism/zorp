@@ -177,8 +177,8 @@ static ZSzigEventDesc event_desc[Z_SZIG_MAX + 1];
 /* result tree root */
 static ZSzigNode *result_tree_root;
 /* protects tree structure changes (adding/removing nodes, but not value changes) */
-static GStaticMutex result_tree_structure_lock = G_STATIC_MUTEX_INIT;
-static GStaticMutex result_node_gstring_lock = G_STATIC_MUTEX_INIT;
+G_LOCK_DEFINE_STATIC(result_tree_structure_lock);
+G_LOCK_DEFINE_STATIC(result_node_gstring_lock);
 /* queue to serialize requests through */
 static GAsyncQueue *szig_queue = NULL;
 
@@ -212,12 +212,12 @@ z_szig_value_repr(ZSzigValue *v, gchar *buf, gsize buflen)
       break;
       
     case Z_SZIG_TYPE_STRING:
-      g_static_mutex_lock(&result_node_gstring_lock);
+      G_LOCK(result_node_gstring_lock);
       if (v->u.string_value)
         g_strlcpy(buf, v->u.string_value->str, buflen);
       else
         g_strlcpy(buf, "", buflen);
-      g_static_mutex_unlock(&result_node_gstring_lock);
+      G_UNLOCK(result_node_gstring_lock);
       break;
 
     default:
@@ -1293,9 +1293,9 @@ z_szig_agr_append_string(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZS
     }
   else
     {
-      g_static_mutex_lock(&result_node_gstring_lock);
+      G_LOCK(result_node_gstring_lock);
       g_string_sprintfa(z_szig_value_as_gstring(&target_node->value), ":%s", z_szig_value_as_string(p));
-      g_static_mutex_unlock(&result_node_gstring_lock);
+      G_UNLOCK(result_node_gstring_lock);
     }
   z_return();
 }
@@ -1391,12 +1391,12 @@ z_szig_agr_per_zone_count(ZSzigNode *service, ZSzigNode *related)
   outbound_zone_name = client_zone_node->value.u.string_value->str;
 
   /* find or create stat nodes */
-  g_static_mutex_lock(&result_tree_structure_lock);
+  G_LOCK(result_tree_structure_lock);
   inbound_zones_node = z_szig_node_add_named_child(service, "inbound_zones");
   inbound_zones_node->value.type = Z_SZIG_TYPE_STRING;
   outbound_zones_node = z_szig_node_add_named_child(service, "outbound_zones");
   outbound_zones_node->value.type = Z_SZIG_TYPE_STRING;
-  g_static_mutex_unlock(&result_tree_structure_lock);
+  G_UNLOCK(result_tree_structure_lock);
 
   /* get or create hash tables (state) */
   inbound_hash = (GHashTable *)z_szig_node_get_data(inbound_zones_node);
@@ -1437,21 +1437,21 @@ z_szig_agr_per_zone_count(ZSzigNode *service, ZSzigNode *related)
   inbound_print_state.printout = inbound_stats_string;
   inbound_print_state.first = TRUE;
   g_hash_table_foreach(inbound_hash, z_szig_agr_per_zone_count_print_entry, &inbound_print_state);
-  g_static_mutex_lock(&result_node_gstring_lock);
+  G_LOCK(result_node_gstring_lock);
   if (inbound_zones_node->value.u.string_value)
     g_string_free(inbound_zones_node->value.u.string_value, TRUE);
   inbound_zones_node->value.u.string_value = inbound_print_state.printout;
-  g_static_mutex_unlock(&result_node_gstring_lock);
+  G_UNLOCK(result_node_gstring_lock);
 
   outbound_stats_string = g_string_sized_new(32); /* perhaps worth finetuning */
   outbound_print_state.printout = outbound_stats_string;
   outbound_print_state.first = TRUE;
   g_hash_table_foreach(outbound_hash, z_szig_agr_per_zone_count_print_entry, &outbound_print_state);
-  g_static_mutex_lock(&result_node_gstring_lock);
+  G_LOCK(result_node_gstring_lock);
   if (outbound_zones_node->value.u.string_value)
     g_string_free(outbound_zones_node->value.u.string_value, TRUE);
   outbound_zones_node->value.u.string_value = outbound_print_state.printout;
-  g_static_mutex_unlock(&result_node_gstring_lock);
+  G_UNLOCK(result_node_gstring_lock);
 }
 
 /**
@@ -1477,7 +1477,7 @@ z_szig_agr_flat_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UN
   props = &p->u.service_props;
   
   /* create service node */
-  g_static_mutex_lock(&result_tree_structure_lock);
+  G_LOCK(result_tree_structure_lock);
   service = z_szig_node_add_named_child(target_node, props->name);
   g_snprintf(buf, sizeof(buf), "%d", props->instance_id);
   instance = z_szig_node_add_named_child(service, buf);
@@ -1495,7 +1495,7 @@ z_szig_agr_flat_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UN
       node->value.type = Z_SZIG_TYPE_STRING;
       node->value.u.string_value = g_string_new(props->string_list[i * 2 + 1]);
     }
-  g_static_mutex_unlock(&result_tree_structure_lock);
+  G_UNLOCK(result_tree_structure_lock);
 
   /* called here so that up-to-date data is already available in the tree */
   z_szig_agr_per_zone_count(service, related);
@@ -1533,9 +1533,9 @@ z_szig_agr_del_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNU
       z_log(NULL, CORE_ERROR, 0, "Internal error, end-of-service notification referred to a non-existent service; service='%s:%d'", props->name, props->instance_id);
       z_return();
     }
-  g_static_mutex_lock(&result_tree_structure_lock);
+  G_LOCK(result_tree_structure_lock);
   z_szig_node_remove_child(service, ndx);
-  g_static_mutex_unlock(&result_tree_structure_lock);
+  G_UNLOCK(result_tree_structure_lock);
   z_return();
 }
 
@@ -1567,14 +1567,14 @@ z_szig_agr_flat_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSzig
   props = &p->u.props_value;
 
   /* create service node */
-  g_static_mutex_lock(&result_tree_structure_lock);
+  G_LOCK(result_tree_structure_lock);
   root = z_szig_node_add_named_child(target_node, props->name);
   for (i = 0; i < props->value_count; i++)
     {
       node = z_szig_node_add_named_child(root, props->name_list[i]);
       z_szig_value_copy(&node->value, props->value_list[i]);
     }
-  g_static_mutex_unlock(&result_tree_structure_lock);
+  G_UNLOCK(result_tree_structure_lock);
   z_return();
 }
 
@@ -1800,12 +1800,12 @@ z_szig_thread_stopped(ZThread *self G_GNUC_UNUSED, gpointer user_data G_GNUC_UNU
  * @param[in] source GSource instance
  **/
 static gboolean
-z_szig_tick_callback(GSource *source)
+z_szig_tick_callback(GSource *source G_GNUC_UNUSED)
 {
   GTimeVal current_time;
   static guint ticks = 0;
   
-  g_source_get_current_time(source, &current_time);
+  g_get_current_time(&current_time);
   z_szig_event(Z_SZIG_TICK, z_szig_value_new_time(&current_time));
 
   ticks++;
@@ -1903,7 +1903,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
       strcmp(cmd, "GETSBLNG") == 0)
     {
       name = argv[1];
-      g_static_mutex_lock(&result_tree_structure_lock);
+      G_LOCK(result_tree_structure_lock);
       node = z_szig_tree_lookup(name, FALSE, &node_parent, &node_ndx);
       if (strcmp(cmd, "GETVALUE") == 0)
         {
@@ -1936,7 +1936,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
               z_szig_node_print_full_name(response, sizeof(response), name, node);
             }
         }
-      g_static_mutex_unlock(&result_tree_structure_lock);
+      G_UNLOCK(result_tree_structure_lock);
     }
   else if (strcmp(cmd, "LOGGING") == 0)
     {

@@ -405,7 +405,7 @@ pop3_command_parse(Pop3Proxy *self)
     command[i] = self->request_line[i];
   command[i++] = 0;
   g_string_assign(self->command, command);
-  g_string_up(self->command);
+  g_string_ascii_up(self->command);
   
   if (self->request_length > i)
     {
