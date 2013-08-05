@@ -1721,7 +1721,7 @@ ftp_command_parse(FtpProxy *self)
     This message reports that a valid request is fetched from the client.
    */
   z_proxy_log(self, FTP_REQUEST, 6, "Request fetched; req='%s' req_prm='%s'", self->request_cmd->str, self->request_param->str);
-  g_string_up(self->request_cmd);
+  g_string_ascii_up(self->request_cmd);
   self->command_desc = ftp_command_hash_get(self->request_cmd->str);
 
   if (!self->request_cmd->len && !self->permit_empty_command)

@@ -55,7 +55,7 @@ static gchar *smuggle_headers[] =
 gboolean
 http_header_equal(gconstpointer k1, gconstpointer k2)
 {
-  return g_strcasecmp(k1, k2) == 0;
+  return g_ascii_strcasecmp(k1, k2) == 0;
 }
 
 guint

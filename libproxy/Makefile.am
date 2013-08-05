@@ -10,6 +10,10 @@ else
 libzorpproxy_la_PRO_SOURCES =
 endif
 
+libzorpproxy_la_LDFLAGS =	\
+	-release $(LIBZORP_LT_RELEASE)	\
+	-export-dynamic
+
 libzorpproxy_la_SOURCES = 		\
 	dottransfer.c			\
 	errorloader.c			\

@@ -1,6 +1,7 @@
 pkglibdir=$(libdir)/zorp/tests
+pkglibexecdir=$(libdir)/zorp/tests
 
-pkglib_PROGRAMS = tos_receive udp_accept udp6_accept
+pkglibexec_PROGRAMS = tos_receive udp_accept udp6_accept
 
 tos_receive_SOURCES = tos_receive.c
 udp_accept_SOURCES = udp_accept.c

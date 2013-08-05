@@ -1,3 +1,0 @@
-Description: HTTP test suite
-Min-Version: 0.6
-Base-Class: HttpProxy

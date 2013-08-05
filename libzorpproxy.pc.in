@@ -2,12 +2,12 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
-datadir=@datadir@
 datarootdir=@datarootdir@
+datadir=@datadir@
 
 Name: ZorpLibProxy
 Description: Zorp Lib for Proxies
 Requires: libzorp
 Version: @VERSION@
-Libs: -lzorp -lzorpproxy -L@libdir@
+Libs: -lzorpproxy -L@libdir@
 Cflags: -I@includedir@

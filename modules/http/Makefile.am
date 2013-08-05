@@ -1,4 +1,4 @@
-SUBDIRS = . messages  tests
+SUBDIRS = . messages tests
 
 pkgdatadir = @datadir@/zorp/pylib/Zorp
 pkglibdir = @libdir@/zorp

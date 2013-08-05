@@ -72,7 +72,7 @@ if test -n "$SNAPSHOT_VERSION"; then
 fi
 
 if test -z "$RELEASE_TAG"; then
-        RELEASE_TAG=zorp30dbg
+        RELEASE_TAG=zorp40dbg
 fi
 
 AM_CONFIG_HEADER(lib/zorp/zorpconfig.h)
@@ -409,13 +409,9 @@ VERSION_NOSNAPSHOT="`echo $VERSION | cut -d '+' -f 1`"
 VERSION_MAJOR=`echo $VERSION_NOSNAPSHOT |  cut -d '.' -f 1`
 VERSION_MINOR=`echo $VERSION_NOSNAPSHOT |  cut -d '.' -f 2`
 VERSION_COMPAT=`echo $VERSION_NOSNAPSHOT |  cut -d '.' -f 3`
-VERSION_AGE=0
 
 LIBZORP_LT_RELEASE="$VERSION_MAJOR.$VERSION_MINOR"
-LIBZORP_LT_CURRENT=$@<:@ $VERSION_COMPAT + $VERSION_AGE @:>@
 LIBZORP_LT_COMPAT_BRANCH="$VERSION_MAJOR.$VERSION_MINOR-$VERSION_COMPAT"
-LIBZORP_LT_COMPAT_PL="$VERSION_COMPAT"
-LIBZORP_LT_AGE="$VERSION_AGE"
 
 dnl ***************************************************************************
 dnl Size check of pointers
@@ -455,7 +451,7 @@ DEPS_LIBS="$SOCK_LIBS $ZORPLL_LIBS $ZORPLIC_LIBS $ZORPMISC_LIBS $PYTHON_LIBS $CO
 # zorp library libs
 LIBZORP_LIBS="$DEPS_LIBS $GLIB_LIBS $GMODULE_LIBS $GTHREAD_LIBS $PYTHON_LIBS $OPENSSL_LIBS $PCAP_LIBS"
 # Zorp main program
-ZORP_LIBS="-L\$(top_builddir)/lib/ -lzorp $ZORPLL_LIBS"
+ZORP_LIBS="-L\$(top_builddir)/lib/ -lzorp $ZORPLL_LIBS $ZORPMISC_LIBS"
 # libraries to link the zorp modules against (implicitly linked 
 # against the main binary, those does not need to be listed here
 MODULES_LIBS="-L\$(top_builddir)/lib/ -lzorp -L\$(top_builddir)/libproxy/ -lzorpproxy $ZORPLL_LIBS $PYTHON_LIBS"
@@ -525,10 +521,7 @@ EOF
 AC_CONFIG_COMMANDS([runtest-exe], [chmod +x tests/python/runtest.sh])
 
 AC_SUBST(LIBZORP_LT_RELEASE)
-AC_SUBST(LIBZORP_LT_CURRENT)
 AC_SUBST(LIBZORP_LT_COMPAT_BRANCH)
-AC_SUBST(LIBZORP_LT_COMPAT_PL)
-AC_SUBST(LIBZORP_LT_AGE)
 
 AC_SUBST(GLIB_MIN_VERSION)
 AC_SUBST(ZORPLL_MIN_VERSION)
@@ -584,4 +577,5 @@ modules/whois/Makefile
 modules/ftp/Makefile
 modules/ftp/tests/Makefile
 modules/plug/Makefile
+
 )

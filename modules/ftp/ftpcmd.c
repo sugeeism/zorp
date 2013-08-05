@@ -784,7 +784,7 @@ ftp_command_parse_TYPE(FtpProxy *self)
         case 'I':
           g_string_truncate(self->request_param, 0);
           g_string_append_c(self->request_param, toupper(mytype));
-          g_string_up(self->request_param);
+          g_string_ascii_up(self->request_param);
           break;
           
         case 'l':
