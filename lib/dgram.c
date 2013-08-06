@@ -76,7 +76,7 @@ static ZDgramSocketFuncs *dgram_socket_funcs;
  *
  * Generic dgram_socket_open, will use the enabled one of _l22_, _nf_ or _ipf_.
  */
-static gint 
+static gint
 z_dgram_socket_open(guint flags, ZSockAddr *remote, ZSockAddr *local, guint32 sock_flags, gint tos, GError **error)
 {
   return dgram_socket_funcs->open(flags, remote, local, sock_flags, tos, error);
@@ -98,12 +98,11 @@ z_dgram_socket_setup(gint fd, guint flags, gint tos, gint family)
  *
  * Generic dgram_socket_recv, will use the enabled one of _l22_, _nf_ or _ipf_.
  */
-GIOStatus 
+GIOStatus
 z_dgram_socket_recv(gint fd, ZPktBuf **pack, ZSockAddr **from, ZSockAddr **to, gint *tos, gboolean peek, GError **error)
 {
   return dgram_socket_funcs->recv(fd, pack, from, to, tos, peek, error);
 }
-
 
 /**
  * z_nf_dgram_socket_open:
@@ -123,7 +122,7 @@ gint
 z_nf_dgram_socket_open(guint flags, ZSockAddr *remote, ZSockAddr *local, guint32 sock_flags, gint tos, GError **error G_GNUC_UNUSED)
 {
   gint fd;
-  
+
   z_enter();
 
   g_assert(local != NULL);
@@ -146,7 +145,7 @@ z_nf_dgram_socket_open(guint flags, ZSockAddr *remote, ZSockAddr *local, guint32
       close(fd);
       z_return(-1);
     }
-  
+
   if (flags & ZDS_LISTEN)
     {
       if (z_bind(fd, local, sock_flags) != G_IO_STATUS_NORMAL)
@@ -293,7 +292,7 @@ z_nf_dgram_socket_recv(gint fd, ZPktBuf **packet, ZSockAddr **from_addr, ZSockAd
   struct cmsghdr *cmsg;
   struct iovec iov;
   gint rc;
-  
+
   z_enter();
 
   memset(&msg, 0, sizeof(msg));
@@ -310,7 +309,7 @@ z_nf_dgram_socket_recv(gint fd, ZPktBuf **packet, ZSockAddr **from_addr, ZSockAd
       rc = recvmsg(fd, &msg, peek ? MSG_PEEK : 0);
     }
   while (rc < 0 && errno == EINTR);
-  
+
   if (rc < 0)
     z_return(errno == EAGAIN ? G_IO_STATUS_AGAIN : G_IO_STATUS_ERROR);
 
@@ -365,7 +364,7 @@ z_nf_dgram_socket_recv(gint fd, ZPktBuf **packet, ZSockAddr **from_addr, ZSockAd
         {
           struct sockaddr to;
           socklen_t tolen = sizeof(to);
-                             
+
           getsockname(fd, &to, &tolen);
           *to_addr = z_sockaddr_new(&to, tolen);
         }
@@ -376,10 +375,10 @@ z_nf_dgram_socket_recv(gint fd, ZPktBuf **packet, ZSockAddr **from_addr, ZSockAd
         }
     }
   z_return(G_IO_STATUS_NORMAL);
-  
+
 }
 
-ZDgramSocketFuncs z_nf_dgram_socket_funcs = 
+ZDgramSocketFuncs z_nf_dgram_socket_funcs =
 {
   z_nf_dgram_socket_open,
   z_nf_dgram_socket_setup,
@@ -404,11 +403,11 @@ z_dgram_init(void)
   dgram_socket_funcs = &z_nf_dgram_socket_funcs;
 
   z_return(TRUE);
-} 
+}
 
 /* Datagram listener */
 
-typedef struct _ZDGramListener 
+typedef struct _ZDGramListener
 {
   ZListener super;
   gint rcvbuf;
@@ -596,17 +595,17 @@ z_dgram_listener_new(const gchar *session_id,
                      gpointer user_data)
 {
   ZDGramListener *self;
-  
+
   self = Z_CAST(z_listener_new(Z_CLASS(ZDGramListener), session_id, local, sock_flags, callback, user_data), ZDGramListener);
   if (self)
-    {  
+    {
       self->rcvbuf = rcvbuf;
       self->session_limit = 10;
     }
   return &self->super;
 }
 
-ZListenerFuncs z_dgram_listener_funcs = 
+ZListenerFuncs z_dgram_listener_funcs =
 {
   {
     Z_FUNCS_COUNT(ZListener),

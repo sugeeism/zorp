@@ -50,7 +50,7 @@ static PyObject *z_policy_stream_write(PyObject *o, PyObject *args);
 static PyObject *z_policy_stream_close(PyObject *o, PyObject *args);
 static PyObject *z_policy_stream_readline(PyObject *o, PyObject *args);
 
-static PyObject *z_policy_stream_exception = NULL; 
+static PyObject *z_policy_stream_exception = NULL;
 
 PyMethodDef z_policy_stream_funcs[] =
 {
@@ -67,7 +67,7 @@ static PyMethodDef py_zorp_stream_methods[] =
   { NULL,          NULL, 0, NULL }   /* sentinel*/
 };
 
-PyTypeObject z_policy_stream_type = 
+PyTypeObject z_policy_stream_type =
 {
   PyVarObject_HEAD_INIT(&PyType_Type, 0)
   .tp_name = "ZPolicyStream",
@@ -86,7 +86,7 @@ PyTypeObject z_policy_stream_type =
  * This function allocates a Python object representing the Zorp stream
  * @str. It is to be called from C code, the Python version of this
  * constructor is below.
- * 
+ *
  * Returns: the newly allocated Python object
  **/
 PyObject *
@@ -217,7 +217,7 @@ z_policy_stream_getattr(PyObject *o, char *name)
  *
  * Returns: 1 to indicate failure, 0 for success
  **/
-static gint 
+static gint
 z_policy_stream_setattr(PyObject *o, char *name,
 			 PyObject *value)
 {
@@ -260,7 +260,7 @@ z_policy_stream_setattr(PyObject *o, char *name,
     }
   else if (strcmp(name, "keepalive") == 0)
     {
-      gint keepalive; 
+      gint keepalive;
       if (!PyArg_Parse(value, "i", &keepalive))
         {
           PyErr_SetString(PyExc_TypeError, "Stream keepalive value is not an integer");
@@ -291,7 +291,6 @@ z_policy_stream_repr(PyObject *o)
   return PyString_FromString(self->stream->name);
 }
 
-
 /**
  * z_policy_stream_readline
  * @o: Python self, ZPolicyStream object
@@ -302,7 +301,7 @@ z_policy_stream_repr(PyObject *o)
  *
  * gets a line from the stream
  */
- 
+
 static PyObject *
 z_policy_stream_readline(PyObject *o, PyObject *args G_GNUC_UNUSED)
 {
@@ -311,7 +310,7 @@ z_policy_stream_readline(PyObject *o, PyObject *args G_GNUC_UNUSED)
   PyObject *pybuf;
   gsize bytes_read;
   gint res;
-  
+
   Py_BEGIN_ALLOW_THREADS
   res = z_stream_line_get(self->stream, &buf, &bytes_read, NULL);
   Py_END_ALLOW_THREADS
@@ -324,13 +323,12 @@ z_policy_stream_readline(PyObject *o, PyObject *args G_GNUC_UNUSED)
   return NULL;
 }
 
-
 /**
  * z_policy_stream_read:
  * @o: Python self, ZPolicyStream object
  * @args: Python args argument
  *
- * read method exported to Python with this declaration: 
+ * read method exported to Python with this declaration:
  *   def read(length):
  *
  * the length argument specifies how many bytes need to be read.
@@ -344,7 +342,7 @@ z_policy_stream_read(PyObject *o, PyObject *args)
   guint length;
   gsize bytes_read;
   gint res;
-  
+
   if (!PyArg_ParseTuple(args, "i", &length))
     return NULL;
 
@@ -368,7 +366,7 @@ z_policy_stream_read(PyObject *o, PyObject *args)
  * @o: Python self, ZPolicyStream object
  * @args: Python args argument
  *
- * read method exported to Python with this declaration: 
+ * read method exported to Python with this declaration:
  *   def read(buf):
  *
  * the buf argument is a Python string which contains the byte sequence to
@@ -378,18 +376,18 @@ static PyObject *
 z_policy_stream_write(PyObject *o, PyObject *args)
 {
   ZPolicyStream *self = (ZPolicyStream *) o;
-  gchar *buf; 
+  gchar *buf;
   guint length;
   gsize bytes_written;
   gint res;
-  
+
   if (!PyArg_ParseTuple(args, "s#", &buf, &length))
     return NULL;
-    
+
   Py_BEGIN_ALLOW_THREADS
   res = z_stream_write(self->stream, buf, length, &bytes_written, NULL);
   Py_END_ALLOW_THREADS
-  
+
   if (res != G_IO_STATUS_NORMAL)
     {
       PyErr_SetString(PyExc_IOError, "I/O error writing stream.");
@@ -399,13 +397,12 @@ z_policy_stream_write(PyObject *o, PyObject *args)
   z_return(z_policy_none_ref());
 }
 
-
 /**
  * z_policy_stream_close:
  * @o: Python self argument, ZPolicyStream object
  * @args: Python args argument
  *
- * Close method exported to Python. 
+ * Close method exported to Python.
  **/
 static PyObject *
 z_policy_stream_close(PyObject *o, PyObject *args G_GNUC_UNUSED)
@@ -419,7 +416,7 @@ z_policy_stream_close(PyObject *o, PyObject *args G_GNUC_UNUSED)
 
 /**
  * z_policy_stream_init:
- * 
+ *
  * This function is called at Python initialization to export ZPolicyStream
  * related functions.
  **/
@@ -430,7 +427,7 @@ z_policy_stream_module_init(void)
 
   PyImport_AddModule("Zorp.Stream");
   module = Py_InitModule("Zorp.Stream", z_policy_stream_funcs);
-  
+
   z_policy_stream_exception = PyErr_NewException("Zorp.Stream.StreamException", NULL, NULL);
   Py_INCREF(z_policy_stream_exception);
   PyModule_AddObject(module, "StreamException", z_policy_stream_exception);

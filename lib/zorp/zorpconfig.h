@@ -1,8 +1,11 @@
 /* lib/zorp/zorpconfig.h.  Generated from zorpconfig.h.in by configure.  */
 /* lib/zorp/zorpconfig.h.in.  Generated from configure.in by autoheader.  */
 
+/* ADP Alerting framework is found */
+/* #undef ALERTING_ENABLED */
+
 /* Zorp brochure version */
-#define BROCHURE_VERSION "3.9"
+#define BROCHURE_VERSION "3 F5"
 
 /* Enable debugging */
 #define ENABLE_DEBUG 0
@@ -88,6 +91,9 @@
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #define HAVE_SYS_STAT_H 1
 
+/* Define to 1 if you have the <sys/syscall.h> header file. */
+#define HAVE_SYS_SYSCALL_H 1
+
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
 
@@ -126,10 +132,10 @@
 #define STDC_HEADERS 1
 
 /* Zorp package version */
-#define VERSION "3.9.6"
+#define VERSION "3.9.7"
 
 /* Configuration date */
-#define ZORP_CONFIG_DATE "2013/08/02"
+#define ZORP_CONFIG_DATE "2013/08/06"
 
 /* datadir */
 #define ZORP_DATADIR "/home/coroner/zwa/install/zorp-gpl-5.0/share/zorp"
@@ -147,7 +153,7 @@
 #define ZORP_PRODUCT_NAME "Zorp Professional"
 
 /* Zorp source revision number */
-#define ZORP_SOURCE_REVISION "ssh+git://coroner@git.balabit/var/scm/git/zorp/zorp-core--mainline--5.0#master#7dfaca370e9600837826edce93efaaf50b792c2f"
+#define ZORP_SOURCE_REVISION "ssh+git://coroner@git.balabit/var/scm/git/zorp/zorp-core--mainline--5.0#f/B-09003-gpl-release-3.9.7-fixes#db388b718364ea910a63582c3bad3a2cedd65a3a"
 
 /* localstatedir */
 #define ZORP_STATEDIR "/home/coroner/zwa/install/zorp-gpl-5.0/var"

@@ -43,5 +43,4 @@ void z_proxy_group_orphan(ZProxyGroup *self);
 ZProxyGroup *z_proxy_group_ref(ZProxyGroup *self);
 void z_proxy_group_unref(ZProxyGroup *self);
 
-
 #endif

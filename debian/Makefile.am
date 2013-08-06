@@ -11,7 +11,10 @@ EXTRA_DIST = changelog compat control copyright rules instances.conf \
 	zorp@PACKAGE_SUFFIX@-modules.postrm \
 	zorp@PACKAGE_SUFFIX@-doc.files \
 	zorp@PACKAGE_SUFFIX@-doc.doc-base.reference \
-	zorp@PACKAGE_SUFFIX@-doc.doc-base.tutorial
+	zorp@PACKAGE_SUFFIX@-doc.doc-base.tutorial \
+	zorp@PACKAGE_SUFFIX@-munin-plugins.files \
+	zorp@PACKAGE_SUFFIX@-munin-plugins.postinst \
+	zorp@PACKAGE_SUFFIX@-nagios-plugins.files
 
 libzorp@PACKAGE_SUFFIX@@LIBZORP_LT_COMPAT_BRANCH@.files: libzorp.files.in
 	cp $< $@
@@ -44,6 +47,15 @@ zorp@PACKAGE_SUFFIX@-doc.doc-base.reference: zorp-doc.doc-base.reference.in
 	cp $< $@
 
 zorp@PACKAGE_SUFFIX@-doc.doc-base.tutorial: zorp-doc.doc-base.tutorial.in
+	cp $< $@
+
+zorp@PACKAGE_SUFFIX@-munin-plugins.files: zorp-munin-plugins.files.in
+	cp $< $@
+
+zorp@PACKAGE_SUFFIX@-munin-plugins.postinst: zorp-munin-plugins.postinst.in
+	cp $< $@
+
+zorp@PACKAGE_SUFFIX@-nagios-plugins.files: zorp-nagios-plugins.files.in
 	cp $< $@
 
 changelog: changelog.in

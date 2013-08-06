@@ -53,6 +53,10 @@ ZCredentialList *z_proxy_get_credential_list(ZProxy *self, const gchar *username
 
 gchar *z_proxy_get_credential_password(ZProxy *self, const gchar *username, const gchar *domain, const gchar *target_host, gushort port);
 
+GSList *z_proxy_get_credential_password_list(ZProxy *self, const gchar *username, const gchar *domain, const gchar *target_host, gushort port);
+
+void z_credential_password_list_free(GSList *l);
+
 void z_credential_list_free(ZCredentialList *self);
 
 #endif

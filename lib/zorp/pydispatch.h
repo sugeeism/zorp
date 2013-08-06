@@ -45,4 +45,3 @@ z_policy_dispatch_bind_check(ZPolicyObj *self)
 void z_policy_dispatch_module_init(void);
 
 #endif
-

@@ -6,7 +6,7 @@
  * Author  : bazsi
  * Auditor : kisza
  * Last version : 1.24
- * Notes   : 
+ * Notes   :
  *
  ***************************************************************************/
 
@@ -43,7 +43,7 @@
 
 #include <sys/time.h>
 #include <unistd.h>
-                     
+
 #include <sys/ioctl.h>
 
 #ifdef USE_DMALLOC
@@ -58,11 +58,11 @@
 
 #include "logtags_gperf.c"
 
-static gint 
+static gint
 z_logtag_lookup(const gchar *tag, gsize len)
 {
   const struct tagid *p = NULL;
-  
+
   p = z_logtag_lookup_gperf(tag, len);
   if (G_LIKELY(p))
     return p->id;
@@ -76,7 +76,7 @@ z_sigterm_handler(int signo G_GNUC_UNUSED)
   z_main_loop_initiate_termination(TRUE);
 }
 
-void 
+void
 z_ignore_signal_handler(int signo G_GNUC_UNUSED)
 {
 }
@@ -131,10 +131,9 @@ z_setup_signals(void)
 {
   struct sigaction  act;
   sigset_t          ss;
-  
+
   sigemptyset(&ss);
 
-  
   memset(&act, 0, sizeof(act));
   act.sa_handler = z_ignore_signal_handler;
   sigaction(SIGPIPE, &act, NULL);
@@ -142,11 +141,11 @@ z_setup_signals(void)
 
   memset(&act, 0, sizeof(act));
   act.sa_handler = z_sigterm_handler;
-  sigaction(SIGTERM, &act, NULL); 
+  sigaction(SIGTERM, &act, NULL);
   sigaddset(&ss, SIGTERM);
   sigaction(SIGINT, &act, NULL);
   sigaddset(&ss, SIGINT);
-  
+
   memset(&act, 0, sizeof(act));
   act.sa_handler = z_fatal_signal_handler;
   sigaction(SIGSEGV, &act, NULL);
@@ -155,7 +154,7 @@ z_setup_signals(void)
   sigaddset(&ss, SIGABRT);
   sigaction(SIGILL, &act, NULL);
   sigaddset(&ss, SIGILL);
-  
+
   memset(&act, 0, sizeof(act));
   act.sa_handler = z_ignore_signal_handler;
   sigaction(SIGTRAP, &act, NULL);
@@ -165,7 +164,7 @@ z_setup_signals(void)
   act.sa_handler = z_sigchild_handler;
   sigaction(SIGCHLD, &act, NULL);
   sigaddset(&ss, SIGCHLD);
-  
+
   memset(&act, 0, sizeof(act));
   act.sa_handler = z_sighup_handler;
   sigaction(SIGHUP, &act, NULL);
@@ -175,12 +174,12 @@ z_setup_signals(void)
   act.sa_handler = z_sigusr1_handler;
   sigaction(SIGUSR1, &act, NULL);
   sigaddset(&ss, SIGUSR1);
-  
+
   memset(&act, 0, sizeof(act));
   act.sa_handler = z_sigusr2_handler;
   sigaction(SIGUSR2, &act, NULL);
   sigaddset(&ss, SIGUSR2);
-  
+
   sigprocmask(SIG_UNBLOCK, &ss, NULL);
 }
 
@@ -195,9 +194,9 @@ z_version(void)
          "Config-Date: %s\n"
          "Trace: %s\n"
          "Debug: %s\n"
-         "IPOptions: %s\n"
+         "IPOptions: %s\n\n"
          "%s\n"
-         , 
+         ,
          BROCHURE_VERSION, VERSION,
          ZORP_SOURCE_REVISION,
          __DATE__, __TIME__,
@@ -227,6 +226,7 @@ z_set_instance_name(const gchar *option_name G_GNUC_UNUSED, const gchar *value, 
   instance_name = g_strdup(value);
   instance_policy_list[0] = (gchar *) instance_name;
   instance_count = 1;
+  g_clear_error(error);
   return TRUE;
 }
 
@@ -245,7 +245,7 @@ z_set_virtual_instance_name(const char *option_name, const gchar *value,
 }
 
 static gint deadlock_checker_timeout = DEADLOCK_CHECKER_DEFAULT_TIMEOUT;
-static GOptionEntry zorp_options[] = 
+static GOptionEntry zorp_options[] =
 {
   { "as",           'a',                     0, G_OPTION_ARG_CALLBACK, z_set_instance_name, "Set instance name", "<instance>" },
   { "master",       0,                       0, G_OPTION_ARG_CALLBACK, z_set_virtual_instance_name, "Run in master mode with the virtual instance name specified", "<virtual-instance>"},
@@ -311,7 +311,7 @@ zorp_deadlock_checker(void)
       g_assert_not_reached();
       break;
     }
-    
+
   if ((len = read(fd, response, sizeof(response) - 1)) < 0)
     {
       z_process_message("Error reading SZIG response; reason='%s'\n", strerror(errno));
@@ -331,7 +331,7 @@ finish:
   return res;
 }
 
-int 
+int
 main(int argc, char *argv[])
 {
   gchar log_progname[128];
@@ -340,6 +340,7 @@ main(int argc, char *argv[])
   GOptionContext *ctx;
   gboolean foreground = FALSE;
   GError *error = NULL;
+  gboolean session_lic_initated = FALSE;
 
   z_mem_trace_init("zorp-memtrace.txt");
   instance_name = "zorp";
@@ -348,7 +349,7 @@ main(int argc, char *argv[])
   z_log_set_defaults(3, TRUE, TRUE, "");
 
   z_thread_set_max_threads(1000);       /* set our own default value for max_threads in ZThread */
-  
+
   z_process_set_argv_space((gint) argc, (gchar **) argv);
   z_process_set_caps("cap_net_admin,cap_net_bind_service,cap_net_raw=p");
 
@@ -361,7 +362,7 @@ main(int argc, char *argv[])
       exit(1);
     }
   g_option_context_free(ctx);
-  
+
   if (argc > 1)
     {
       fprintf(stderr, "%s: Invalid arguments.\n", instance_name);
@@ -371,7 +372,7 @@ main(int argc, char *argv[])
 
   if (!virtual_instance_name)
     virtual_instance_name = g_strdup(instance_name);
-  
+
   if (display_version)
     {
       z_version();
@@ -386,7 +387,7 @@ main(int argc, char *argv[])
       g_snprintf(pid_file_buf, sizeof(pid_file_buf), "zorp-%s.pid", virtual_instance_name);
       pid_file = pid_file_buf;
     }
-    
+
   /* NOTE: these do not override the values set by the user using command line arguments */
   z_process_set_pidfile_dir(ZORP_PID_FILE_DIR);
   z_process_set_working_dir(ZORP_WORKING_DIR);
@@ -402,10 +403,9 @@ main(int argc, char *argv[])
       z_process_set_user("zorp");
       z_process_set_group("zorp");
     }
-  
+
   if (foreground)
     z_process_set_mode(Z_PM_FOREGROUND);
-    
 
   /* NOTE: if startup fails, z_process_start() prints an appropriate
    * error to stderr and exits the process */
@@ -419,7 +419,7 @@ main(int argc, char *argv[])
 
   z_thread_init();
   g_main_context_acquire(NULL);
-  
+
   g_snprintf(log_progname, sizeof(log_progname), "zorp/%s", instance_name);
 
   /*NOLOG*/
@@ -444,6 +444,8 @@ main(int argc, char *argv[])
   z_szig_init(virtual_instance_name);
 
   z_main_loop_init();
+
+
   z_ifmon_init();
   z_dispatch_init();
   z_registry_init();
@@ -452,7 +454,7 @@ main(int argc, char *argv[])
   z_proxy_hash_init();
 
   /* only used for PORT allocation within a given range */
-  srand(time(NULL) ^ getpid()); 
+  srand(time(NULL) ^ getpid());
 
   if (!z_python_init())
     {
@@ -465,22 +467,25 @@ main(int argc, char *argv[])
       exit_code = 1;
       goto deinit_exit;
     }
-  
+
   z_setup_signals();
 
   /*NOLOG*/
   z_main_loop(policy_file, instance_name, instance_policy_list, virtual_instance_name, zorp_process_master_mode);
 
  deinit_exit:
- 
-  /*NOLOG*/ 
+
+  /*NOLOG*/
   z_llog(CORE_INFO, 3, "Shutting down; version='%s (%s)'",
          BROCHURE_VERSION, VERSION);
 
   z_thread_destroy();
-  z_python_destroy();
-  z_dispatch_destroy();
-  z_ifmon_destroy();
+  if (session_lic_initated)
+    {
+      z_python_destroy();
+      z_dispatch_destroy();
+      z_ifmon_destroy();
+    }
   z_main_loop_destroy();
   z_ssl_destroy();
   z_log_destroy();

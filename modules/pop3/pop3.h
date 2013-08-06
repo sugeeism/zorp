@@ -89,68 +89,68 @@ typedef struct _Pop3InternalCommands
 typedef struct _Pop3Proxy
 {
   ZProxy super;
-  
+
   gint timeout;                    /* Timeout value in milisec */
 
   gboolean policy_enable_longline; /* With this switch you may disable long line */
-  
+
   guint max_username_length;       /* Max acceptable username length */
   guint max_password_length;       /* Max acceptable password length */
-  
+
   GHashTable *commands_policy;     /* Command normative hash */
-  
+
   GHashTable *command_stack;       /* What to stack for this command */
-  
+
   guint max_request_length;        /* Max length of a client request */
   guint max_reply_length;          /* Max length of a server response */
-  
+
   gboolean permit_unknown_command; /* Permit commands not known to proxy */
-  
+
   guint buffer_length;             /* Length of read buffer */
 
   guint max_authline_count;        /* maximum number of auth lines */
 
   gboolean reject_by_mail;         /* If stacked proxy reject, reject it with error or a speical formatted mail */
-  
+
   /* State of pop3 session */
   gint pop3_state;
 
   /* State of Pop3 Proxy */
   gint state;
-  
+
   GString *username;
   GString *password;
-  
+
   GString *command;
   GString *command_param;
-  
+
   GString *response;
   GString *response_param;
 
   gboolean response_multiline;
-  
+
   gchar *request_line;
   gchar *reply_line;
-  
+
   gsize request_length;
   gsize reply_length;
-    
+
   GHashTable *pop3_commands;
   Pop3InternalCommands *command_desc;
-  
+
   GString *timestamp;
-  
+
   ZStackedProxy *stacked;
-  
+
   ZPoll *poll;
-  
+
   /* This variable holds the number of arrived auth lines */
   guint auth_lines;
-  
+
   GString *from;
   GString *to;
   GString *subject;
-  
+
 } Pop3Proxy;
 
 extern ZClass Pop3Proxy__class;

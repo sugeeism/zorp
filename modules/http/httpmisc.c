@@ -23,8 +23,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author: Balazs Scheidler <bazsi@balabit.hu>
- * Auditor: 
- * Last audited version: 
+ * Auditor:
+ * Last audited version:
  * Notes:
  *   Based on the code by: Viktor Peter Kovacs <vps__@freemail.hu>
  *
@@ -50,14 +50,16 @@
  *
  * Return the hexadecimal value of @c or return -1 if not a hexadecimal character.
  **/
-static inline gint 
+static inline gint
 xdigit_value(char c)
 {
   c = tolower(c);
+
   if (c >= '0' && c <= '9')
     return c - '0';
   else if (c >= 'a' && c <= 'f')
     return c - 'a' + 10;
+
   return -1;
 }
 
@@ -74,9 +76,9 @@ xdigit_char(gint nibble)
     return nibble + '0';
   else if (nibble >= 10 && nibble <= 15)
     return nibble - 10 + 'A';
+
   return '?';
 }
-
 
 /**
  * http_string_url_decode_hex_byte:
@@ -89,18 +91,18 @@ xdigit_char(gint nibble)
 static inline gboolean
 http_string_url_decode_hex_byte(guchar *dst, const gchar *src, const gchar **reason)
 {
-  if (isxdigit(*src) && isxdigit(*(src+1)))
+  if (isxdigit(*src) && isxdigit(*(src + 1)))
     {
-      *dst = (xdigit_value(*src) << 4) + xdigit_value(*(src+1));
+      *dst = (xdigit_value(*src) << 4) + xdigit_value(*(src + 1));
     }
   else
     {
       *reason = "Invalid hexadecimal encoding";
       return FALSE;
     }
+
   return TRUE;
 }
-
 
 /**
  * http_string_assign_url_decode:
@@ -119,18 +121,20 @@ http_string_assign_url_decode(GString *part, gboolean permit_invalid_hex_escape,
 {
   gchar *dst;
   gint left = len;
-  
+
   /* url decoding shrinks the string, using len is a good bet */
   g_string_set_size(part, len);
   dst = part->str;
+
   while (left)
     {
-      guchar c = (guchar) *src;
-      
+      guchar c = (guchar) * src;
+
       if (*src == '%')
         {
           *reason = "Hexadecimal encoding too short";
-          if (left < 2 || !http_string_url_decode_hex_byte(&c, src+1, reason))
+
+          if (left < 2 || !http_string_url_decode_hex_byte(&c, src + 1, reason))
             {
               if (permit_invalid_hex_escape)
                 {
@@ -150,14 +154,16 @@ http_string_assign_url_decode(GString *part, gboolean permit_invalid_hex_escape,
               left -= 2;
             }
         }
+
       *dst = c;
-      dst++; 
+      dst++;
       src++;
       left--;
     }
+
   *dst = 0;
   part->len = dst - part->str;
-  /* some space might still be allocated at the end of the string 
+  /* some space might still be allocated at the end of the string
    * but we don't care to avoid reallocing and possible data copy */
   return TRUE;
 }
@@ -179,25 +185,27 @@ http_string_assign_url_decode_unicode(GString *part, gboolean permit_invalid_hex
   const guchar *src = (const guchar *) str;
   gchar *dst;
   gint left = len;
-  
+
   /* possible maximum utf8 length is 6 times the amount of UCS2 chars, note
    * that real unicode characters can only be encoded by the %uXXXX encoding
    * which in turn decreases the number of needed bytes */
 
   g_string_set_size(part, (len + 1) * 6);
   dst = part->str;
+
   while (left)
     {
-      gunichar c = (gunichar) *src;
-      
+      gunichar c = (gunichar) * src;
+
       if (*src == '%')
         {
-          if (*(src+1) != 'u')
+          if (*(src + 1) != 'u')
             {
               guchar cb;
-              
+
               *reason = "Hexadecimal encoding too short";
-              if (left < 2 || !http_string_url_decode_hex_byte(&cb, src+1, reason))
+
+              if (left < 2 || !http_string_url_decode_hex_byte(&cb, src + 1, reason))
                 {
                   if (permit_invalid_hex_escape)
                     {
@@ -216,9 +224,10 @@ http_string_assign_url_decode_unicode(GString *part, gboolean permit_invalid_hex
           else
             {
               guchar cbhi, cblo;
-              
+
               *reason = "Unicode hexa encoding too short";
-              if (left < 4 || 
+
+              if (left < 4 ||
                   !http_string_url_decode_hex_byte(&cbhi, src + 2, reason) ||
                   !http_string_url_decode_hex_byte(&cblo, src + 4, reason))
                 {
@@ -239,15 +248,16 @@ http_string_assign_url_decode_unicode(GString *part, gboolean permit_invalid_hex
                 }
             }
         }
-      
+
       dst += g_unichar_to_utf8(c, dst);
       src++;
       left--;
     }
+
   *dst = 0;
-  
+
   part->len = dst - part->str;
-  /* some space might still be allocated at the end of the string 
+  /* some space might still be allocated at the end of the string
    * but we don't care to avoid reallocing and possible data copy */
   return TRUE;
 }
@@ -269,26 +279,29 @@ http_string_append_url_encode(GString *result, const gchar *unsafe_chars, const 
   const guchar *src;
   gchar *dst;
   gsize orig_len = result->len;
-  
-  g_string_set_size(result, orig_len + (len+1) * 3);
+
+  g_string_set_size(result, orig_len + (len + 1) * 3);
   src = (const guchar *) str;
   dst = result->str + orig_len;
+
   while (*src)
     {
       if (*src <= 0x1F || *src > 0x7F || strchr(unsafe_chars, *src))
         {
           *dst = '%';
-          *(dst+1) = xdigit_char((*src & 0xf0) >> 4);
-          *(dst+2) = xdigit_char((*src & 0x0f));
+          *(dst + 1) = xdigit_char((*src & 0xf0) >> 4);
+          *(dst + 2) = xdigit_char((*src & 0x0f));
           dst += 2;
         }
       else
         {
           *dst = *src;
         }
+
       src++;
       dst++;
     }
+
   *dst = 0;
   result->len = dst - result->str;
   return TRUE;
@@ -311,29 +324,30 @@ http_string_append_url_encode_unicode(GString *result, const gchar *unsafe_chars
   const guchar *src;
   gchar *dst;
   gsize orig_len = result->len;
-  
-  g_string_set_size(result, orig_len + (len+1) * 6);
+
+  g_string_set_size(result, orig_len + (len + 1) * 6);
   src = (const guchar *) str;
   dst = result->str + orig_len;
+
   while (*src)
     {
       gunichar c = g_utf8_get_char(src);
-      
+
       if (c <= 0x1F || (c > 0x7F && c < 0x100) || strchr(unsafe_chars, (gchar) c))
         {
           *dst = '%';
-          *(dst+1) = xdigit_char((c & 0xf0) >> 4);
-          *(dst+2) = xdigit_char((c & 0x0f));
+          *(dst + 1) = xdigit_char((c & 0xf0) >> 4);
+          *(dst + 2) = xdigit_char((c & 0x0f));
           dst += 2;
         }
       else if (c > 0xFF && c < 0x10000)
         {
           *dst = '%';
-          *(dst+1) = 'u';
-          *(dst+2) = xdigit_char((c & 0xf000) >> 12);
-          *(dst+3) = xdigit_char((c & 0x0f00) >> 8);
-          *(dst+4) = xdigit_char((c & 0x00f0) >> 4);
-          *(dst+5) = xdigit_char((c & 0x000f));
+          *(dst + 1) = 'u';
+          *(dst + 2) = xdigit_char((c & 0xf000) >> 12);
+          *(dst + 3) = xdigit_char((c & 0x0f00) >> 8);
+          *(dst + 4) = xdigit_char((c & 0x00f0) >> 4);
+          *(dst + 5) = xdigit_char((c & 0x000f));
           dst += 5;
         }
       else if (c > 0xFFFF)
@@ -345,9 +359,11 @@ http_string_append_url_encode_unicode(GString *result, const gchar *unsafe_chars
         {
           *dst = (gchar) c;
         }
+
       src = g_utf8_next_char(src);
       dst++;
     }
+
   *dst = 0;
   result->len = dst - result->str;
   return TRUE;
@@ -371,7 +387,7 @@ http_string_assign_url_canonicalize(GString *result, gboolean permit_invalid_hex
   gchar *dst;
   const gchar *src;
   gint left = len;
-  
+
   /* possible maximum utf8 length is 6 times the amount of utf16 chars, note
    * that real unicode characters can only be encoded by the %uXXXX encoding
    * which in turn decreases the number of needed bytes */
@@ -379,14 +395,16 @@ http_string_assign_url_canonicalize(GString *result, gboolean permit_invalid_hex
   g_string_set_size(result, (len + 1) * 6);
   dst = result->str;
   src = str;
+
   while (left)
     {
-      guchar c = (guchar) *src;
+      guchar c = (guchar) * src;
       gboolean was_encoded = FALSE;
-      
+
       if (*src == '%')
         {
           *reason = "Hexadecimal encoding too short";
+
           if (left < 2 || !http_string_url_decode_hex_byte(&c, src + 1, reason))
             {
               if (permit_invalid_hex_escape)
@@ -407,28 +425,29 @@ http_string_assign_url_canonicalize(GString *result, gboolean permit_invalid_hex
         }
 
       /* ok, character to store is in c, encode it again */
-      
+
       if (c <= 0x1F || (c > 0x7F) || (was_encoded && strchr(unsafe_chars, (gchar) c)))
         {
           /* these characters must be encoded regardless of their original form */
           *dst = '%';
-          *(dst+1) = xdigit_char((c & 0xf0) >> 4);
-          *(dst+2) = xdigit_char((c & 0x0f));
+          *(dst + 1) = xdigit_char((c & 0xf0) >> 4);
+          *(dst + 2) = xdigit_char((c & 0x0f));
           dst += 2;
         }
       else
         {
           *dst = (gchar) c;
         }
-      
+
       dst++;
       src++;
       left--;
     }
+
   *dst = 0;
-  
+
   result->len = dst - result->str;
-  /* some space might still be allocated at the end of the string 
+  /* some space might still be allocated at the end of the string
    * but we don't care to avoid reallocing and possible data copy */
   return TRUE;
 }
@@ -452,7 +471,7 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
   gchar *dst;
   const guchar *src;
   gint left = len;
-  
+
   /* possible maximum utf8 length is 6 times the amount of utf16 chars, note
    * that real unicode characters can only be encoded by the %uXXXX encoding
    * which in turn decreases the number of needed bytes */
@@ -460,19 +479,21 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
   g_string_set_size(result, (len + 1) * 6);
   dst = result->str;
   src = (const guchar *) str;
+
   while (left)
     {
-      gunichar c = (gunichar) *src;
+      gunichar c = (gunichar) * src;
       gboolean was_encoded = FALSE;
-      
+
       if (*src == '%')
         {
-          if (*(src+1) != 'u')
+          if (*(src + 1) != 'u')
             {
               guchar cb;
-              
+
               *reason = "Hexadecimal encoding too short";
-              if (left < 2 || !http_string_url_decode_hex_byte(&cb, src+1, reason))
+
+              if (left < 2 || !http_string_url_decode_hex_byte(&cb, src + 1, reason))
                 {
                   if (permit_invalid_hex_escape)
                     {
@@ -493,9 +514,10 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
           else
             {
               guchar cbhi, cblo;
-              
+
               *reason = "Unicode hexa encoding too short";
-              if (left < 4 || 
+
+              if (left < 4 ||
                   !http_string_url_decode_hex_byte(&cbhi, src + 2, reason) ||
                   !http_string_url_decode_hex_byte(&cblo, src + 4, reason))
                 {
@@ -515,18 +537,18 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
                   left -= 5;
                 }
             }
-            
+
           was_encoded = TRUE;
         }
 
       /* ok, character to store is in c, encode it again */
-      
+
       if (c <= 0x1F || (c > 0x7F && c < 0x100))
         {
           /* these characters must be encoded regardless of their original form */
           *dst = '%';
-          *(dst+1) = xdigit_char((c & 0xf0) >> 4);
-          *(dst+2) = xdigit_char((c & 0x0f));
+          *(dst + 1) = xdigit_char((c & 0xf0) >> 4);
+          *(dst + 2) = xdigit_char((c & 0x0f));
           dst += 2;
         }
       else if (c < 0x100 && strchr(unsafe_chars, (gchar) c))
@@ -535,8 +557,8 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
           if (was_encoded)
             {
               *dst = '%';
-              *(dst+1) = xdigit_char((c & 0xf0) >> 4);
-              *(dst+2) = xdigit_char((c & 0x0f));
+              *(dst + 1) = xdigit_char((c & 0xf0) >> 4);
+              *(dst + 2) = xdigit_char((c & 0x0f));
               dst += 2;
             }
           else
@@ -547,11 +569,11 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
       else if (c > 0xFF && c < 0x10000)
         {
           *dst = '%';
-          *(dst+1) = 'u';
-          *(dst+2) = xdigit_char((c & 0xf000) >> 12);
-          *(dst+3) = xdigit_char((c & 0x0f00) >> 8);
-          *(dst+4) = xdigit_char((c & 0x00f0) >> 4);
-          *(dst+5) = xdigit_char((c & 0x000f));
+          *(dst + 1) = 'u';
+          *(dst + 2) = xdigit_char((c & 0xf000) >> 12);
+          *(dst + 3) = xdigit_char((c & 0x0f00) >> 8);
+          *(dst + 4) = xdigit_char((c & 0x00f0) >> 4);
+          *(dst + 5) = xdigit_char((c & 0x000f));
           dst += 5;
         }
       else if (c > 0xFFFF)
@@ -563,15 +585,16 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
         {
           *dst = (gchar) c;
         }
-      
+
       dst++;
       src++;
       left--;
     }
+
   *dst = 0;
-  
+
   result->len = dst - result->str;
-  /* some space might still be allocated at the end of the string 
+  /* some space might still be allocated at the end of the string
    * but we don't care to avoid reallocing and possible data copy */
   return TRUE;
 }
@@ -582,7 +605,7 @@ http_string_assign_url_canonicalize_unicode(GString *result, gboolean permit_inv
  * @permit_unicode_url: permit IIS style unicode character encoding
  * @permit_invalid_hex_escape: permit invalid hexadecimal escaping, treat % in these cases literally
  * @url_str: URL to parse
- * @reason: parse error 
+ * @reason: parse error
  *
  * Parse the URL specified in @url_str and store the resulting parts in
  * @url. Scheme, username, password, hostname and filename are stored in
@@ -611,8 +634,10 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
   url->port = 0;
 
   p = url_str;
+
   while (*p && *p != ':')
     p++;
+
   if (!*p)
     {
       if (!permit_relative_url)
@@ -623,12 +648,14 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
       else
         goto relative_url;
     }
+
   if (*(p + 1) != '/' || *(p + 2) != '/')
     {
       /* protocol not terminated by '//' */
       *reason = "Scheme not followed by '//'";
       z_return(FALSE);
     }
+
   g_string_assign_len(url->scheme, url_str, p - url_str);
   p += 3;
 
@@ -645,14 +672,19 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
           p++;
         }
       sep[i] = p;
+
       if (!*p || *p == '/')
         break;
+
       p++;
     }
+
   *reason = "Unrecognized URL construct";
+
   switch (i)
     {
     case 0:
+
       /* hostname only */
       if (!http_string_assign_url_decode(url->host, permit_invalid_hex_escape, part[0], sep[0] - part[0], reason))
         z_return(FALSE);
@@ -660,13 +692,16 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
       break;
 
     case 1:
+
       /* username && host || hostname && port number */
       if (*sep[0] == ':')
         {
           if (!http_string_assign_url_decode(url->host, permit_invalid_hex_escape, part[0], sep[0] - part[0], reason))
             z_return(FALSE);
+
           /* port number */
           url->port = strtoul(part[1], &end, 10);
+
           if (end != sep[1])
             {
               *reason = "Error parsing port number";
@@ -684,9 +719,11 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
         {
           z_return(FALSE);
         }
+
       break;
 
     case 2:
+
       /* username && host && port || username && password && host */
       if (*sep[0] == '@' && *sep[1] == ':')
         {
@@ -694,7 +731,9 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
           if (!http_string_assign_url_decode(url->user, permit_invalid_hex_escape, part[0], sep[0] - part[0], reason) ||
               !http_string_assign_url_decode(url->host, permit_invalid_hex_escape, part[1], sep[1] - part[1], reason))
             z_return(FALSE);
+
           url->port = strtoul(part[2], &end, 10);
+
           if (end != sep[2])
             {
               *reason = "Error parsing port number";
@@ -713,9 +752,11 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
         {
           z_return(FALSE);
         }
+
       break;
 
     case 3:
+
       /* username && password && hostname && port */
       if (*sep[0] == ':' && *sep[1] == '@' && *sep[2] == ':')
         {
@@ -723,7 +764,9 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
               !http_string_assign_url_decode(url->passwd, permit_invalid_hex_escape, part[1], sep[1] - part[1], reason) ||
               !http_string_assign_url_decode(url->host, permit_invalid_hex_escape, part[2], sep[2] - part[2], reason))
             z_return(FALSE);
+
           url->port = strtoul(part[3], &end, 10);
+
           if (end != sep[3])
             {
               *reason = "Error parsing port number";
@@ -734,6 +777,7 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
         {
           z_return(FALSE);
         }
+
       break;
 
     default:
@@ -752,6 +796,7 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
  relative_url:
 
   file_start = p;
+
   if (*file_start != '/')
     {
       if (*file_start == '\0')
@@ -759,13 +804,16 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
           g_string_assign(url->file, "/");
           z_return(TRUE);
         }
+
       *reason = "Invalid path component in URL";
       z_return(FALSE);
     }
+
   g_string_assign(url->original_local, file_start);
 
   query_start = strchr(p, '?');
   fragment_start = strchr(p, '#');
+
   if (query_start && fragment_start)
     {
       if (query_start > fragment_start)
@@ -773,6 +821,7 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
           *reason = "The fragment part starts earlier than the query";
           z_return(FALSE);
         }
+
       file_len = query_start - file_start;
       query_start++;
       query_len = fragment_start - query_start;
@@ -795,20 +844,20 @@ http_parse_url(HttpURL *url, gboolean permit_unicode_url, gboolean permit_invali
     {
       file_len = strlen(file_start);
     }
-  
+
   if (!(permit_unicode_url ? http_string_assign_url_decode_unicode : http_string_assign_url_decode)
-             (url->file, permit_invalid_hex_escape, file_start, file_len, reason))
+      (url->file, permit_invalid_hex_escape, file_start, file_len, reason))
     z_return(FALSE);
-    
+
   /* query and fragment is not url-decoded as it is impossible to get the original back */
   if (query_start && !(permit_unicode_url ? http_string_assign_url_canonicalize_unicode : http_string_assign_url_canonicalize)
-               (url->query, permit_invalid_hex_escape, HTTP_URL_QUERY_ESCAPE_CHARS, query_start, query_len, reason))
+      (url->query, permit_invalid_hex_escape, HTTP_URL_QUERY_ESCAPE_CHARS, query_start, query_len, reason))
     z_return(FALSE);
 
   if (fragment_start && !(permit_unicode_url ? http_string_assign_url_canonicalize_unicode : http_string_assign_url_canonicalize)
-                 (url->fragment, permit_invalid_hex_escape, HTTP_URL_FRAGMENT_ESCAPE_CHARS, fragment_start, fragment_len, reason))
+      (url->fragment, permit_invalid_hex_escape, HTTP_URL_FRAGMENT_ESCAPE_CHARS, fragment_start, fragment_len, reason))
     z_return(FALSE);
-    
+
   z_return(TRUE);
 }
 
@@ -829,14 +878,18 @@ http_format_url(HttpURL *url, GString *encode_buf, gboolean format_absolute, gbo
     {
       g_string_assign(encode_buf, url->scheme->str);
       g_string_append(encode_buf, "://");
+
       if (url->user->len && !http_string_append_url_encode(encode_buf, HTTP_URL_USER_ESCAPE_CHARS, url->user->str, url->user->len, reason))
         return FALSE;
+
       if (url->passwd->len)
         {
           g_string_append_c(encode_buf, ':');
+
           if (!http_string_append_url_encode(encode_buf, HTTP_URL_PASSWD_ESCAPE_CHARS, url->passwd->str, url->passwd->len, reason))
             return FALSE;
         }
+
       if (url->user->len || url->passwd->len)
         g_string_append_c(encode_buf, '@');
 
@@ -858,22 +911,24 @@ http_format_url(HttpURL *url, GString *encode_buf, gboolean format_absolute, gbo
   else
     {
       if (!(permit_unicode_url ? http_string_append_url_encode_unicode : http_string_append_url_encode)
-              (encode_buf, HTTP_URL_FILE_ESCAPE_CHARS, url->file->str, url->file->len, reason))
+          (encode_buf, HTTP_URL_FILE_ESCAPE_CHARS, url->file->str, url->file->len, reason))
         {
           return FALSE;
         }
-          
+
       if (url->query->len)
         {
           g_string_append_c(encode_buf, '?');
           g_string_append(encode_buf, url->query->str);
         }
+
       if (url->fragment->len)
         {
           g_string_append_c(encode_buf, '#');
           g_string_append(encode_buf, url->fragment->str);
         }
     }
+
   return TRUE;
 }
 
@@ -916,30 +971,29 @@ http_destroy_url(HttpURL *url)
   g_string_free(url->fragment, TRUE);
 }
 
-#define SKIP_SPACES \
-  do \
-    { \
-      while (left > 0 && *src == ' ') \
-        { \
-          src++; \
-          left--; \
-        } \
-    } \
+#define SKIP_SPACES                             \
+  do                                            \
+    {                                           \
+      while (left > 0 && *src == ' ')           \
+        {                                       \
+          src++;                                \
+          left--;                               \
+        }                                       \
+    }                                           \
   while (0)
-  
-#define COPY_SPACE \
-  do \
-    { \
-      while (left > 0 && avail > 0 && *src != ' ' && *src) \
-        { \
-          *dst++ = *src++; \
-          left--; \
-          avail--; \
-        } \
-      *dst = 0; \
-    } \
+
+#define COPY_SPACE                                              \
+  do                                                            \
+    {                                                           \
+      while (left > 0 && avail > 0 && *src != ' ' && *src)      \
+        {                                                       \
+          *dst++ = *src++;                                      \
+          left--;                                               \
+          avail--;                                              \
+        }                                                       \
+      *dst = 0;                                                 \
+    }                                                           \
   while (0)
-	
 
 /**
  * http_split_request:
@@ -967,12 +1021,13 @@ http_split_request(HttpProxy *self, gchar *line, gint length)
   avail = self->request_method->allocated_len;
   COPY_SPACE;
   self->request_method->len = strlen(self->request_method->str);
+
   if (!self->request_method->len || (*src != ' ' && avail == 0))
     {
       /*LOG
         This message indicates that the request method sent by the client is
         invalid.
-       */
+      */
       z_proxy_log(self, HTTP_VIOLATION, 1, "Request method empty, or too long; line='%.*s'", left, src);
       /* request method empty, or request buffer overflow */
       z_proxy_return(self, FALSE);
@@ -981,19 +1036,20 @@ http_split_request(HttpProxy *self, gchar *line, gint length)
   SKIP_SPACES;
   avail = self->max_url_length;
   g_string_truncate(self->request_url, 0);
-  while (left > 0 && avail > 0 && *src != ' ' && *src) 
-    { 
+
+  while (left > 0 && avail > 0 && *src != ' ' && *src)
+    {
       g_string_append_c(self->request_url, *src++);
-      left--; 
-      avail--; 
-    } 
+      left--;
+      avail--;
+    }
 
   if (!self->request_url->str[0] || (*src != ' ' && avail == 0))
     {
       /* url missing, or too long */
       /*LOG
         This message indicates that the URL sent by the client is invalid.
-       */
+      */
       z_proxy_log(self, HTTP_VIOLATION, 1, "URL missing, or too long; line='%.*s'", left, src);
       z_proxy_return(self, FALSE);
     }
@@ -1002,20 +1058,21 @@ http_split_request(HttpProxy *self, gchar *line, gint length)
   dst = self->request_version;
   avail = sizeof(self->request_version) - 1;
   COPY_SPACE;
+
   if (*src != ' ' && avail == 0)
     {
       /* protocol version too long */
       /*LOG
         This message indicates that the protocol version sent by the client
         is invalid.
-       */
+      */
       z_proxy_log(self, HTTP_VIOLATION, 1, "Protocol version missing, or too long; line='%.*s'", left, src);
       z_proxy_return(self, FALSE);
     }
-  
+
   /*LOG
     This message reports the processed request details.
-   */
+  */
   z_proxy_log(self, HTTP_REQUEST, 6, "Request details; command='%s', url='%s', version='%s'", self->request_method->str, self->request_url->str, self->request_version);
   z_proxy_return(self, TRUE);
 }
@@ -1044,12 +1101,13 @@ http_split_response(HttpProxy *self, gchar *line, gint line_length)
   dst = self->response_version;
   avail = sizeof(self->response_version) - 1;
   COPY_SPACE;
+
   if (memcmp(self->response_version, "HTTP", 4) != 0)
     {
       /* no status line */
       /*LOG
         This message indicates that the server sent an invalid response status line.
-       */
+      */
       z_proxy_log(self, HTTP_RESPONSE, 6, "Invalid HTTP status line; line='%s'", dst);
       z_proxy_return(self, FALSE);
     }
@@ -1060,41 +1118,44 @@ http_split_response(HttpProxy *self, gchar *line, gint line_length)
       /*LOG
         This message indicates that the protocol version sent by the server
         is invalid.
-       */
+      */
       z_proxy_log(self, HTTP_VIOLATION, 1, "Response version empty or too long; line='%.*s'", line_length, line);
       z_proxy_return(self, FALSE);
     }
-  
+
   SKIP_SPACES;
   dst = self->response;
   avail = sizeof(self->response) - 1;
   COPY_SPACE;
+
   if (!self->response[0] || (*src != ' ' && left && avail == 0))
     {
       /* response code empty or too long */
       /*LOG
         This message indicates that the response code sent by the server is
         invalid.
-       */
+      */
       z_proxy_log(self, HTTP_VIOLATION, 1, "Response code empty or too long; line='%.*s'", line_length, line);
       z_proxy_return(self, FALSE);
     }
-  
+
   self->response_code = atoi(self->response);
   SKIP_SPACES;
   avail = 256;
-  while (left > 0 && avail > 0) 
-    { 
+
+  while (left > 0 && avail > 0)
+    {
       g_string_append_c(self->response_msg, *src);
       src++;
-      left--; 
-      avail--; 
-    } 
-  *dst = 0; 
- 
+      left--;
+      avail--;
+    }
+
+  *dst = 0;
+
   /*LOG
     This message reports the processed response details.
-   */
+  */
   z_proxy_log(self, HTTP_RESPONSE, 7, "Response details; version='%s', response_code='%s', response_msg='%s'", self->response_version, self->response, self->response_msg->str);
   z_proxy_return(self, TRUE);
 }
@@ -1115,6 +1176,7 @@ gboolean
 http_parse_version(HttpProxy *self, gint side, gchar *version_str)
 {
   z_proxy_enter(self);
+
   if (strcasecmp(version_str, "HTTP/1.1") == 0)
     {
       self->proto_version[side] = 0x0101;
@@ -1131,19 +1193,21 @@ http_parse_version(HttpProxy *self, gint side, gchar *version_str)
     {
       /* unknown protocol version */
       if (side == EP_CLIENT)
-	/*LOG
-	  This message indicates that the protocol version sent by the
-	  client is unsupported.
-	 */
+        /*LOG
+          This message indicates that the protocol version sent by the
+          client is unsupported.
+        */
         z_proxy_log(self, HTTP_REQUEST, 3, "Unknown protocol version; version='%s'", version_str);
       else
-	/*LOG
-	  This message indicates that the protocol version sent by the
-	  server is unsupported.
-	 */
+        /*LOG
+          This message indicates that the protocol version sent by the
+          server is unsupported.
+        */
         z_proxy_log(self, HTTP_RESPONSE, 3, "Unknown protocol version; version='%s'", version_str);
+
       self->proto_version[side] = 0x0100;
       z_proxy_return(self, FALSE);
     }
+
   z_proxy_return(self, TRUE);
 }

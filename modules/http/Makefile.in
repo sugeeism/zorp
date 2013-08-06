@@ -144,7 +144,6 @@ AM_RECURSIVE_TARGETS = $(RECURSIVE_TARGETS:-recursive=) \
 	distdir
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \
   dir0=`pwd`; \
@@ -174,6 +173,7 @@ am__relativize = \
 pkgdatadir = @datadir@/zorp/pylib/Zorp
 pkglibdir = @libdir@/zorp
 ACLOCAL = @ACLOCAL@
+ADPALERTING_MIN_VERSION = @ADPALERTING_MIN_VERSION@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -218,6 +218,8 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBADPALERTING_CFLAGS = @LIBADPALERTING_CFLAGS@
+LIBADPALERTING_LIBS = @LIBADPALERTING_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBPROXY_CPPFLAGS = @LIBPROXY_CPPFLAGS@
 LIBS = @MODULES_LIBS@
@@ -283,9 +285,14 @@ ZORPMISC_CFLAGS = @ZORPMISC_CFLAGS@
 ZORPMISC_LIBS = @ZORPMISC_LIBS@
 ZORPMISC_MIN_VERSION = @ZORPMISC_MIN_VERSION@
 ZORP_LIBS = @ZORP_LIBS@
+ZORP_MUNIN_CONF_DIR = @ZORP_MUNIN_CONF_DIR@
+ZORP_MUNIN_DIR = @ZORP_MUNIN_DIR@
+ZORP_NAGIOS_CONF_DIR = @ZORP_NAGIOS_CONF_DIR@
+ZORP_NAGIOS_DIR = @ZORP_NAGIOS_DIR@
 ZORP_OS = @ZORP_OS@
 ZORP_PACKAGE_LICENSE = @ZORP_PACKAGE_LICENSE@
 ZORP_PROC = @ZORP_PROC@
+ZORP_SUDOERSD_CONF_DIR = @ZORP_SUDOERSD_CONF_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -341,10 +348,11 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 zorp_srcdir = @zorp_srcdir@
 SUBDIRS = . messages tests
+DIST_SUBDIRS = . messages tests
 AM_CFLAGS = @CFLAGS@ -W
 pkgdata_DATA = Http.py
 pkglib_LTLIBRARIES = libhttp.la
-libhttp_la_SOURCES = http.c httpproto.c httpfltr.c httpmisc.c httphdr.c httpftp.c http.h
+libhttp_la_SOURCES = http.c httpproto.c httpfltr.c httpfltr.h httpmisc.c httphdr.c httpftp.c http.h httpcommon.h
 EXTRA_DIST = $(pkgdata_DATA)
 all: all-recursive
 
@@ -795,6 +803,10 @@ uninstall-am: uninstall-pkgdataDATA uninstall-pkglibLTLIBRARIES
 	uninstall uninstall-am uninstall-pkgdataDATA \
 	uninstall-pkglibLTLIBRARIES
 
+
+@PRO_TRUE@	SUBDIRS += audit
+@PRO_TRUE@	DIST_SUBDIRS += audit
+@PRO_TRUE@	libhttp_la_LIBADD = audit/libaudit_lib.la
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

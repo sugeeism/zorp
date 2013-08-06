@@ -57,7 +57,7 @@ gboolean ftp_policy_parse_authinfo(struct _FtpProxy *self,
 GHashTable *ftp_policy_command_hash_create(void);
 gboolean ftp_policy_command_hash_search(struct _FtpProxy *self, gchar *command);
 guint ftp_policy_command_hash_do(struct _FtpProxy *self);
-          
+
 ZDimHashTable *ftp_policy_answer_hash_create(void);
 guint ftp_policy_answer_hash_do(struct _FtpProxy *self);
 

@@ -24,12 +24,12 @@
  *
  *
  * Author: Balazs Scheidler <bazsi@balabit.hu>
- * Auditor: 
- * Last audited version: 
+ * Auditor:
+ * Last audited version:
  * Notes:
  *
  ***************************************************************************/
- 
+
 #include "ftp.h"
 
 /* transfer states */
@@ -41,7 +41,7 @@
 typedef struct _FtpTransfer
 {
   ZTransfer2 super;
-  
+
   guint dst_write_state;
 } FtpTransfer;
 
@@ -49,7 +49,7 @@ extern ZClass FtpTransfer__class;
 
 /* FtpTransfer implementation */
 
-static GIOStatus 
+static GIOStatus
 ftp_transfer_src_read(ZTransfer2 *s, ZStream *stream, gchar *buf, gsize count, gsize *bytes_read, GError **err)
 {
   FtpProxy *owner = (FtpProxy *) s->owner;
@@ -76,14 +76,14 @@ ftp_transfer_dst_write_preamble(FtpTransfer *self G_GNUC_UNUSED, ZStream *stream
   return res;
 }
 
-static GIOStatus 
+static GIOStatus
 ftp_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize count, gsize *bytes_written, GError **err)
 {
   FtpTransfer *self = Z_CAST(s, FtpTransfer);
   GIOStatus res = G_IO_STATUS_NORMAL;
-  
+
   *bytes_written = 0;
-  
+
   if (self->dst_write_state == FTP_DW_INITIAL)
     self->dst_write_state = FTP_DW_WRITE_PREAMBLE;
 
@@ -109,7 +109,7 @@ ftp_transfer_dst_shutdown(ZTransfer2 *s, ZStream *stream, GError **err)
 {
   FtpTransfer *self = Z_CAST(s, FtpTransfer);
   GIOStatus res = G_IO_STATUS_NORMAL;
-  
+
   if (self->dst_write_state == FTP_DW_INITIAL)
     self->dst_write_state = FTP_DW_WRITE_PREAMBLE;
 
@@ -122,7 +122,7 @@ ftp_transfer_dst_shutdown(ZTransfer2 *s, ZStream *stream, GError **err)
           self->dst_write_state = FTP_DW_WRITE_DATA;
         }
     }
-  
+
   return res;
 }
 
@@ -134,11 +134,11 @@ ftp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
   gint stack_type = FTP_STK_NONE;
   gboolean called;
   gboolean success = FALSE;
-  
+
   /* query python for a stacked proxy */
 
   z_policy_lock(self->super.owner->thread);
-  
+
   proxy_stack_tuple = z_policy_call(self->super.owner->handler, "requestStack", NULL, &called, self->super.owner->session_id);
   if (called && !proxy_stack_tuple)
     {
@@ -164,7 +164,7 @@ ftp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
       stack_type = FTP_STK_NONE;
       goto unref_unlock;
     }
-    
+
   /* NOTE: FTP_STK_POLICY is never returned here, it is handled by the policy layer */
   success = TRUE;
   switch (stack_type)
@@ -186,18 +186,17 @@ static FtpTransfer *
 ftp_transfer_new(FtpProxy *owner, ZStream *from_stream, ZStream *to_stream)
 {
   FtpTransfer *self;
-  
+
   z_proxy_enter(owner);
-  self = Z_CAST(z_transfer2_new(Z_CLASS(FtpTransfer), 
-                               &owner->super, owner->poll, 
-                               from_stream, to_stream, 
-                               owner->buffer_size, 
-                               owner->timeout, 
-                               0), 
+  self = Z_CAST(z_transfer2_new(Z_CLASS(FtpTransfer),
+                               &owner->super, owner->poll,
+                               from_stream, to_stream,
+                               owner->buffer_size,
+                               owner->timeout,
+                               0),
                 FtpTransfer);
   z_proxy_return(owner, self);
 }
-
 
 ZTransfer2Funcs ftp_transfer_funcs =
 {
@@ -256,7 +255,7 @@ ftp_data_transfer(FtpProxy *self, ZStream *from_stream, ZStream *to_stream)
       z_proxy_log(self, FTP_ERROR, 2, "Data transfer failed;");
       SET_ANSWER(MSG_DATA_TRANSFER_FAILED);
     }
-  
+
   /* transfer was successful, check if the stacked proxy told us something important */
   if (t->super.stack_decision != ZV_ACCEPT)
     {
@@ -270,17 +269,17 @@ ftp_data_transfer(FtpProxy *self, ZStream *from_stream, ZStream *to_stream)
       SET_ANSWER(MSG_DATA_TRANSFER_FAILED);
       if (t->super.stack_info->len)
         g_string_append_printf(self->answer_param, " (%s)", t->super.stack_info->str);
-      
+
     }
   else if (res)
     {
       /*LOG
         This message indicates that the stacked proxy accepted the
-        content. 
+        content.
        */
       z_proxy_log(self, FTP_DEBUG, 6, "Stacked proxy accepted data;");
     }
-  
+
  exit:
 
   z_stream_shutdown(from_stream, SHUT_RDWR, NULL);
@@ -293,6 +292,6 @@ ftp_data_transfer(FtpProxy *self, ZStream *from_stream, ZStream *to_stream)
 
   if (t)
     z_object_unref(&t->super.super);
-  
+
   z_proxy_return(self, res);
 }

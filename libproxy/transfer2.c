@@ -20,7 +20,7 @@ z_transfer2_update_status(ZTransfer2 *self, guint32 status_bit, gint enable)
     self->status |= status_bit;
   else
     self->status &= ~status_bit;
-  
+
   /*LOG
     This message reports that the data-transfer to or from some endpoint is closed.
    */
@@ -102,12 +102,11 @@ z_transfer2_ps_iface_get_content_hint(ZProxyStackIface *s, gint64 *content_lengt
   return TRUE;
 }
 
-
 static ZProxyIface *
 z_transfer2_ps_iface_new(ZTransfer2 *transfer)
 {
   ZTransfer2PSIface *self;
-  
+
   self = Z_CAST(z_proxy_stack_iface_new(Z_CLASS(ZTransfer2PSIface), transfer->owner), ZTransfer2PSIface);
   self->transfer = transfer;
   return &self->super;
@@ -163,7 +162,7 @@ z_transfer2_buffer_full(ZTransfer2Buffer *self)
  * @buffer_size: buffer size
  *
  * This function initializes a ZTransfer2Buffer structure and allocates the
- * memory area where the buffer is stored. 
+ * memory area where the buffer is stored.
  *
  * NOTE: the ZTransfer2Buffer structure itself is not allocated, it is
  * expected that it is a member of some container structure, thus it will be
@@ -197,14 +196,14 @@ z_transfer2_buffer_destroy(ZTransfer2Buffer *self)
  * z_transfer2_timeout:
  * @user_data: ZTransfer2 instance passed as a generic pointer
  *
- * This function is a timeout-callback registered to terminate the 
+ * This function is a timeout-callback registered to terminate the
  * transfer loop when a specified time elapses.
  **/
 static gboolean
 z_transfer2_timeout(gpointer user_data)
 {
   ZTransfer2 *self = Z_CAST(user_data, ZTransfer2);
-   
+
   z_proxy_enter(self->owner);
   /*LOG
     This message indicates the data transfer timed out.
@@ -228,7 +227,7 @@ static gboolean
 z_transfer2_timed_progress(gpointer user_data)
 {
   ZTransfer2 *self = Z_CAST(user_data, ZTransfer2);
-   
+
   z_proxy_enter(self->owner);
   if (!z_transfer2_progress(self))
     {
@@ -310,7 +309,7 @@ static void
 z_transfer2_eof(ZTransfer2 *self, gint endpoint)
 {
   guint32 eof_status = endpoint == ZT2E_SOURCE ? ZT2S_EOF_SOURCE : ZT2S_EOF_DEST;
-  
+
   z_proxy_enter(self->owner);
   if (!z_transfer2_get_status(self, eof_status))
     {
@@ -343,7 +342,7 @@ z_transfer2_eof(ZTransfer2 *self, gint endpoint)
 
           eof_status = ZT2S_EOF_SOURCE+ZT2S_EOF_DEST;
         }
-        
+
       z_transfer2_update_status(self, eof_status, TRUE);
     }
   if ((self->status & (ZT2S_EOF_SOURCE+ZT2S_EOF_DEST)) == (ZT2S_EOF_SOURCE+ZT2S_EOF_DEST))
@@ -371,7 +370,7 @@ z_transfer2_read_source(ZTransfer2 *self, gint endpoint, ZTransfer2Buffer *buf, 
   GIOStatus res = G_IO_STATUS_NORMAL;
   GError *local_error = NULL;
   gsize read_len;
- 
+
   z_proxy_enter(self->owner);
   if (endpoint & ZT2E_STACKED)
     {
@@ -410,7 +409,7 @@ z_transfer2_write_dest(ZTransfer2 *self, gint endpoint, ZTransfer2Buffer *buf, G
   GError *local_error = NULL;
   GIOStatus res = G_IO_STATUS_NORMAL;
   gsize bytes_written;
-  
+
   z_proxy_enter(self->owner);
   if (!z_transfer2_buffer_empty(buf))
     {
@@ -465,11 +464,11 @@ z_transfer2_copy_data(ZTransfer2 *self, gint ep_from, gint ep_to, GError **error
   gint pkt_count = 0;
   GIOStatus res = G_IO_STATUS_NORMAL;
   gboolean leave_while = FALSE;
-  
+
   z_proxy_enter(self->owner);
   if (self->timeout_source)
     z_timeout_source_set_timeout(self->timeout_source, self->timeout);
-  
+
   while (pkt_count < MAX_READ_AT_A_TIME && !leave_while)
     {
       if (!z_transfer2_get_status(self, ZT2S_COPYING_TAIL))
@@ -511,7 +510,7 @@ z_transfer2_copy_data(ZTransfer2 *self, gint ep_from, gint ep_to, GError **error
       while (pkt_count < MAX_READ_AT_A_TIME && !z_transfer2_buffer_full(buf))
         {
           guint eof_status = ep_from == ZT2E_SOURCE ? ZT2S_SOFT_EOF_SOURCE : ZT2S_SOFT_EOF_DEST;
-          
+
           if (!z_transfer2_get_status(self, eof_status))
             {
               res = z_transfer2_read_source(self, ep_from, buf, &local_error);
@@ -538,7 +537,7 @@ z_transfer2_copy_data(ZTransfer2 *self, gint ep_from, gint ep_to, GError **error
                       break;
                     }
                 }
-              else 
+              else
                 {
                   z_transfer2_update_status(self, ZT2S_FINISHED + ZT2S_ABORTED, TRUE);
                   z_transfer2_eof(self, ep_from);
@@ -558,11 +557,11 @@ z_transfer2_copy_data(ZTransfer2 *self, gint ep_from, gint ep_to, GError **error
             }
         }
     }
-  
+
   z_transfer2_update_cond(self);
   if (local_error)
     g_propagate_error(error, local_error);
-  
+
   z_proxy_leave(self->owner);
   return res;
 }
@@ -582,7 +581,7 @@ z_transfer2_copy_src_to_dst(ZStream *s G_GNUC_UNUSED, GIOCondition cond G_GNUC_U
 {
   ZTransfer2 *self = Z_CAST(user_data, ZTransfer2);
 
-  z_proxy_enter(self->owner);  
+  z_proxy_enter(self->owner);
   z_transfer2_copy_data(self, ZT2E_SOURCE, ZT2E_DEST, NULL);
   z_proxy_leave(self->owner);
   return TRUE;
@@ -640,7 +639,7 @@ z_transfer2_switch_to_transfer_context(ZTransfer2 *self)
 {
   z_stream_save_context(z_transfer2_get_stream(self, ZT2E_SOURCE), &self->proxy_contexts[0]);
   z_stream_save_context(z_transfer2_get_stream(self, ZT2E_DEST), &self->proxy_contexts[1]);
-  
+
   z_stream_restore_context(z_transfer2_get_stream(self, ZT2E_SOURCE), &self->transfer_contexts[0]);
   z_stream_restore_context(z_transfer2_get_stream(self, ZT2E_DEST), &self->transfer_contexts[1]);
 }
@@ -656,7 +655,7 @@ z_transfer2_switch_to_proxy_context(ZTransfer2 *self)
 {
   z_stream_save_context(z_transfer2_get_stream(self, ZT2E_SOURCE), &self->transfer_contexts[0]);
   z_stream_save_context(z_transfer2_get_stream(self, ZT2E_DEST), &self->transfer_contexts[1]);
-  
+
   z_stream_restore_context(z_transfer2_get_stream(self, ZT2E_SOURCE), &self->proxy_contexts[0]);
   z_stream_restore_context(z_transfer2_get_stream(self, ZT2E_DEST), &self->proxy_contexts[1]);
 }
@@ -668,20 +667,20 @@ z_transfer2_switch_to_proxy_context(ZTransfer2 *self)
  * This function must be called after the construction of the ZTransfer2
  * object to actually register read/write callbacks and various timers.
  * Without calling this function z_transfer2_run will not do anything.
- * 
+ *
  **/
-gboolean 
+gboolean
 z_transfer2_start(ZTransfer2 *self)
 {
   gboolean res;
   ZProxyIface *iface;
-  
+
   z_proxy_enter(self->owner);
-  
+
   iface = z_transfer2_ps_iface_new(self);
   z_proxy_add_iface(self->owner, iface);
   z_object_unref(&iface->super);
-        
+
   g_mutex_lock(self->startup_lock);
   if (!z_transfer2_stack_proxy(self, &self->stacked))
     {
@@ -690,21 +689,21 @@ z_transfer2_start(ZTransfer2 *self)
       z_proxy_leave(self->owner);
       return FALSE;
     }
- 
+
   z_transfer2_switch_to_transfer_context(self);
 
   /* NOTE: shutdown goes back to blocking mode in which case timeout is significant */
   z_stream_set_timeout(z_transfer2_get_stream(self, ZT2E_SOURCE), self->timeout);
   z_stream_set_timeout(z_transfer2_get_stream(self, ZT2E_DEST), self->timeout);
-  
+
   z_transfer2_buffer_init(&self->buffers[0], self->buffer_size);
-  
+
   if ((self->flags & ZT2F_PROXY_STREAMS_POLLED) == 0)
     {
       z_poll_add_stream(self->poll, z_transfer2_get_stream(self, ZT2E_SOURCE));
       z_poll_add_stream(self->poll, z_transfer2_get_stream(self, ZT2E_DEST));
     }
-  
+
   /* initialize stacked streams */
   if (self->stacked)
     {
@@ -729,7 +728,7 @@ z_transfer2_start(ZTransfer2 *self)
                             z_transfer2_copy_src_to_down,
                             self,
                             NULL);
-                                                                                                                             
+
       z_stream_set_cond(z_transfer2_get_stream(self, ZT2E_SOURCE), G_IO_IN, TRUE);
 
       z_stream_set_callback(z_transfer2_get_stream(self, ZT2E_DOWN_DEST),
@@ -742,7 +741,7 @@ z_transfer2_start(ZTransfer2 *self)
                             z_transfer2_copy_down_to_dst,
                             self,
                             NULL);
-                                                                                                                             
+
       z_stream_set_cond(z_transfer2_get_stream(self, ZT2E_DEST | ZT2E_STACKED), G_IO_IN, TRUE);
 
       z_stream_set_nonblock(z_transfer2_get_stream(self, ZT2E_DOWN_SOURCE), TRUE);
@@ -766,7 +765,7 @@ z_transfer2_start(ZTransfer2 *self)
     }
   z_stream_set_nonblock(z_transfer2_get_stream(self, ZT2E_SOURCE), TRUE);
   z_stream_set_nonblock(z_transfer2_get_stream(self, ZT2E_DEST), TRUE);
-  
+
   res = z_transfer2_setup(self);
 
   z_transfer2_switch_to_proxy_context(self);
@@ -775,7 +774,7 @@ z_transfer2_start(ZTransfer2 *self)
   if (self->timeout > 0)
     {
       GMainContext *context;
-                                                                                
+
       self->timeout_source = z_timeout_source_new(self->timeout);
       g_source_set_callback(self->timeout_source, z_transfer2_timeout, self, NULL);
       context = z_poll_get_context(self->poll);
@@ -784,14 +783,13 @@ z_transfer2_start(ZTransfer2 *self)
   if (self->progress_interval > 0)
     {
       GMainContext *context;
-                                                                                
+
       self->progress_source = z_timeout_source_new(self->progress_interval);
       g_source_set_callback(self->progress_source, z_transfer2_timed_progress, self, NULL);
       context = z_poll_get_context(self->poll);
       g_source_attach(self->progress_source, context);
     }
-    
-  
+
   z_proxy_leave(self->owner);
   return res;
 }
@@ -804,11 +802,11 @@ z_transfer2_start(ZTransfer2 *self)
  * This function can be used from proxy provided callbacks while transfer is
  * taking place. It temporarily suspends the data transfer and returns to
  * the caller. Transfer can be restarted by calling z_transfer2_run again.
- * 
+ *
  * The suspend feature is used for example to generate NOOP commands to the
  * SMTP server while transfer is processing data.
  **/
-void 
+void
 z_transfer2_suspend(ZTransfer2 *self, gint suspend_reason)
 {
   z_proxy_enter(self->owner);
@@ -821,13 +819,13 @@ z_transfer2_suspend(ZTransfer2 *self, gint suspend_reason)
  * z_transfer2_rollback:
  * @self: ZTransfer2 instance
  *
- * This function can be called when transfer was suspended and the data 
+ * This function can be called when transfer was suspended and the data
  * stream is to be dropped. It basically consumes the incoming data stream
  * without actually writing it to the server side.
  *
  * This function can only be called when the transfer is suspended.
  **/
-gboolean 
+gboolean
 z_transfer2_rollback(ZTransfer2 *self)
 {
   z_enter();
@@ -849,7 +847,7 @@ z_transfer2_rollback(ZTransfer2 *self)
  * it's only set the state of the transfer. You have to continue running the
  * transfer untill it's quit.
  **/
-gboolean 
+gboolean
 z_transfer2_cancel(ZTransfer2 *self)
 {
   z_enter();
@@ -869,8 +867,8 @@ z_transfer2_run_method(ZTransfer2 *self)
 {
   z_enter();
   z_transfer2_switch_to_transfer_context(self);
-  z_transfer2_update_cond(self);  
-  
+  z_transfer2_update_cond(self);
+
   z_transfer2_update_status(self, ZT2S_STARTED, TRUE);
   z_transfer2_update_status(self, ZT2S_SUSPENDED, FALSE);
   while (((self->status & (ZT2S_FINISHED+ZT2S_SUSPENDED)) == 0) && z_poll_iter_timeout(self->poll, -1))
@@ -924,26 +922,26 @@ z_transfer2_simple_run(ZTransfer2 *self)
 {
   ZTransfer2Result tr;
   gboolean success;
-  
+
   if (!z_transfer2_start(self))
     return FALSE;
-  
+
   do
     {
       tr = z_transfer2_run(self);
     }
   while (tr == ZT2_RESULT_SUSPENDED);
   success = (tr != ZT2_RESULT_FAILED) && (tr != ZT2_RESULT_ABORTED);
-  
+
   if (tr == ZT2_RESULT_FAILED)
     z_transfer2_rollback(self);
-    
+
   return success;
 }
 
 /**
  * z_transfer2_new:
- * @class: class to instantiate 
+ * @class: class to instantiate
  * @owner: owner proxy instance
  * @poll: ZPoll instance
  * @source: source stream
@@ -955,17 +953,17 @@ z_transfer2_simple_run(ZTransfer2 *self)
  * This constructor creates a new ZTransfer2 instance with the specified parameters.
  **/
 ZTransfer2 *
-z_transfer2_new(ZClass *class, 
-                ZProxy *owner, ZPoll *poll, 
-                ZStream *source, ZStream *dest, 
-                gsize buffer_size, 
-                glong timeout, 
+z_transfer2_new(ZClass *class,
+                ZProxy *owner, ZPoll *poll,
+                ZStream *source, ZStream *dest,
+                gsize buffer_size,
+                glong timeout,
                 guint32 flags)
 {
   ZTransfer2 *self;
-  
+
   z_proxy_enter(owner);
-  
+
   self = Z_NEW_COMPAT(class, ZTransfer2);
   z_proxy_ref(owner);
   self->owner = owner;
@@ -977,12 +975,12 @@ z_transfer2_new(ZClass *class,
   self->timeout = timeout;
   self->flags = flags;
   self->content_format = "file";
-  
+
   self->startup_lock = g_mutex_new();
-  
+
   self->stack_info = g_string_sized_new(32);
   self->stack_decision = ZV_ACCEPT;
-  
+
   z_proxy_leave(owner);
   return self;
 }
@@ -1008,7 +1006,7 @@ z_transfer2_free_method(ZObject *s)
       z_proxy_del_iface(self->owner, iface);
       z_object_unref(&iface->super);
     }
-  
+
   z_proxy_unref(self->owner);
   if ((self->flags & ZT2F_PROXY_STREAMS_POLLED) == 0)
     {
@@ -1045,15 +1043,15 @@ z_transfer2_free_method(ZObject *s)
     }
   z_poll_unref(self->poll);
   g_string_free(self->stack_info, TRUE);
-  
+
   if (self->startup_lock)
     g_mutex_free(self->startup_lock);
-  
+
   z_object_free_method(s);
   z_return();
 }
 
-ZTransfer2Funcs z_transfer2_funcs = 
+ZTransfer2Funcs z_transfer2_funcs =
 {
   {
     Z_FUNCS_COUNT(ZTransfer2),

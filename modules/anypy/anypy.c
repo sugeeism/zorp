@@ -28,7 +28,7 @@
  * Notes:
  *
  ***************************************************************************/
- 
+
 #include <zorp/zorp.h>
 #include <zorp/proxy.h>
 #include <zorp/thread.h>
@@ -49,11 +49,10 @@ typedef struct _AnyPyProxy
 
 extern ZClass AnyPyProxy__class;
 
-
 /**
  * anypy_stream_init:
  * @self: AnyPyProxy instance
- * 
+ *
  * This function is called upon startup to initialize our streams.
  **/
 
@@ -78,12 +77,12 @@ anypy_stream_init(AnyPyProxy *self)
  * anypy_set_verdict:
  * @self: AnyPyProxy instance
  * @args: Python args argument
- * 
+ *
  * sets verdict for the parent proxy
  * args is (verdict,description)
  **/
 static ZPolicyObj *
-anypy_set_verdict(AnyPyProxy * self, ZPolicyObj *args) 
+anypy_set_verdict(AnyPyProxy * self, ZPolicyObj *args)
 {
   gint verdict;
   gchar *description;
@@ -205,7 +204,7 @@ static gboolean
 anypy_config(ZProxy *s)
 {
   AnyPyProxy *self = Z_CAST(s, AnyPyProxy);
-  
+
   anypy_config_set_defaults(self);
   anypy_register_vars(self);
   if (Z_SUPER(s, ZProxy)->config(s))
@@ -228,7 +227,7 @@ anypy_main(ZProxy * s)
       z_proxy_leave(self);
       return;
     }
-  z_policy_lock(self->super.thread);  
+  z_policy_lock(self->super.thread);
   res = z_policy_call(self->super.handler, "proxyThread", NULL, &called, self->super.session_id);
   z_policy_var_unref(res);
   z_policy_unlock(self->super.thread);
@@ -245,7 +244,7 @@ ZProxy *
 anypy_proxy_new(ZProxyParams *params)
 {
   AnyPyProxy *self;
-  
+
   z_enter();
   self = Z_CAST(z_proxy_new(Z_CLASS(AnyPyProxy), params), AnyPyProxy);
   z_return(&self->super);
@@ -264,9 +263,14 @@ ZProxyFuncs anypy_proxy_funcs =
 
 Z_CLASS_DEF(AnyPyProxy, ZProxy, anypy_proxy_funcs);
 
+static ZProxyModuleFuncs anypy_module_funcs =
+  {
+    .create_proxy = anypy_proxy_new,
+  };
+
 gint
 zorp_module_init(void)
 {
-  z_registry_add("anypy", ZR_PYPROXY, anypy_proxy_new);
+  z_registry_add("anypy", ZR_PYPROXY, &anypy_module_funcs);
   return TRUE;
 }

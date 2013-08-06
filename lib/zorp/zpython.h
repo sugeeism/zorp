@@ -42,5 +42,4 @@ gboolean z_python_destroy(void);
 void z_python_lock(void);
 void z_python_unlock(void);
 
-
 #endif

@@ -65,14 +65,14 @@ ftp_parse_nums(gchar *src, gint length, unsigned char *nums)
 {
   int i = 0;
   gchar *newsrc;
-  
+
   z_enter();
   if (length == 0)
     z_return(FALSE);
   while (length > 0 && i < 6)
     {
       unsigned int tmp;
-      
+
       errno = 0;
       tmp = strtoul(src, &newsrc, 10);
       /* tmp is unsigned, so cannot be less than zero */
@@ -319,7 +319,7 @@ ftp_command_parse_USER(FtpProxy *self)
       g_string_assign(self->username, self->request_param->str);
       ftp_proto_state_set(self, FTP_STATE_LOGIN_U);
       break;
-      
+
     case FTP_STATE_CONVERSATION:
     case FTP_STATE_DATA:
       SET_ANSWER(MSG_USER_ALREADY_LOGGED_IN);
@@ -473,10 +473,10 @@ ftp_command_parse_PASS(FtpProxy *self)
       g_string_assign(self->password, self->request_param->str);
       ftp_proto_state_set(self, FTP_STATE_LOGIN_P);
       break;
-      
+
     case FTP_STATE_CONVERSATION:
       z_proxy_return(self, FTP_REQ_ACCEPT);
-      
+
     case FTP_STATE_DATA:
       SET_ANSWER(MSG_USER_FIRST);
       z_proxy_return(self, FTP_REQ_REJECT);
@@ -546,7 +546,7 @@ ftp_command_parse_ACCT(FtpProxy *self)
     case FTP_STATE_CONVERSATION:
     case FTP_STATE_DATA:
       break;
-      
+
     default:
       /*LOG
         This message indicates an internal error, please contact the BalaBit QA team.
@@ -584,7 +584,6 @@ ftp_command_answer_ACCT(FtpProxy *self)
     }
   z_proxy_return(self, FTP_RSP_ACCEPT);
 }
-
 
 guint
 ftp_command_parse_path(FtpProxy *self)
@@ -636,7 +635,7 @@ ftp_command_answer_path(FtpProxy *self)
               self->preamble = NULL;
             }
           break;
-          
+
         case '2':
           if (self->data_state != 0)
             self->oldstate = FTP_CLIENT_TO_SERVER;
@@ -645,7 +644,7 @@ ftp_command_answer_path(FtpProxy *self)
           if ((self->data_state & FTP_DATA_SERVER_SAID) == 0)   /* if we've received no 150 */
             ftp_data_reset(self);                       /* close any active data connection that might be left over; data_state is also reset */
           break;
-          
+
         case '4':
         case '5':
           if (self->data_state != 0)
@@ -654,7 +653,7 @@ ftp_command_answer_path(FtpProxy *self)
           ftp_proto_state_set(self, FTP_STATE_CONVERSATION);
           ftp_data_reset(self);
           break;
-          
+
         default:
           /*LOG
             This message indicates that the data transfer command's answer sent by the server
@@ -774,7 +773,7 @@ ftp_command_parse_TYPE(FtpProxy *self)
           z_proxy_log(self, FTP_VIOLATION, 2, "Missing parameter for the TYPE command;");
           z_proxy_return(self, FTP_REQ_REJECT);
         }
-      
+
       mytype = self->request_param->str[0];
       switch(mytype)
         {
@@ -786,7 +785,7 @@ ftp_command_parse_TYPE(FtpProxy *self)
           g_string_append_c(self->request_param, toupper(mytype));
           g_string_ascii_up(self->request_param);
           break;
-          
+
         case 'l':
         case 'L':
         case 'e':
@@ -806,7 +805,7 @@ ftp_command_parse_TYPE(FtpProxy *self)
             Zorp rejects the request.
            */
           z_proxy_log(self, FTP_VIOLATION, 2, "Unknown transfer type specification; type='%c'", mytype);
-          z_proxy_return(self, FTP_REQ_REJECT); 
+          z_proxy_return(self, FTP_REQ_REJECT);
         }
     }
   else
@@ -832,7 +831,7 @@ ftp_command_parse_ABOR(FtpProxy *self)
       z_stream_write_pri(self->super.endpoints[EP_SERVER], buf, 3, &len, NULL);
       buf[0]=0xf2;
       z_stream_write(self->super.endpoints[EP_SERVER], buf, 1, &len, NULL);
-      
+
       self->state = FTP_SERVER_TO_CLIENT;
       ftp_proto_state_set(self, FTP_STATE_CONVERSATION);
       z_proxy_return(self, FTP_REQ_ACCEPT);
@@ -921,7 +920,7 @@ ftp_command_parse_MODE(FtpProxy *self)
           g_string_truncate(self->request_param, 0);
           g_string_append_c(self->request_param, toupper(mymode));
           break;
-          
+
         default:
           /*LOG
             This message indicates that the MODE command parameter is invalid and
@@ -929,7 +928,7 @@ ftp_command_parse_MODE(FtpProxy *self)
            */
           z_proxy_log(self, FTP_VIOLATION, 2, "Invalid parameter to the MODE command; mode='%c'", mymode);
           SET_ANSWER(MSG_COMMAND_NOT_RECOGNIZED);
-          z_proxy_return(self, FTP_REQ_REJECT); 
+          z_proxy_return(self, FTP_REQ_REJECT);
         }
     }
   else
@@ -961,7 +960,7 @@ guint
 ftp_command_parse_STRU(FtpProxy *self)
 {
   char mystru;
-  
+
   z_proxy_enter(self);
   if (self->ftp_state == FTP_STATE_CONVERSATION ||
       self->ftp_state == FTP_STATE_DATA)
@@ -976,7 +975,7 @@ ftp_command_parse_STRU(FtpProxy *self)
           z_proxy_log(self, FTP_VIOLATION, 2, "Missing parameter to the STRU command;");
           z_proxy_return(self, FTP_REQ_REJECT);
         }
-        
+
       mystru = self->request_param->str[0];
       switch(mystru)
         {
@@ -985,7 +984,7 @@ ftp_command_parse_STRU(FtpProxy *self)
           g_string_truncate(self->request_param, 0);
           g_string_append_c(self->request_param, toupper(mystru));
           break;
-          
+
         default:
           SET_ANSWER(MSG_COMMAND_NOT_RECOGNIZED);
           /*LOG
@@ -993,7 +992,7 @@ ftp_command_parse_STRU(FtpProxy *self)
             Zorp rejects the request.
            */
           z_proxy_log(self, FTP_VIOLATION, 2, "Invalid parameter to the STRU command; stru='%c'", mystru);
-          z_proxy_return(self, FTP_REQ_REJECT); 
+          z_proxy_return(self, FTP_REQ_REJECT);
         }
     }
   else
@@ -1011,7 +1010,7 @@ ftp_data_server_start_PORT(FtpProxy *self)
   gchar tmpaddr[16];
 
   z_proxy_enter(self);
-  if (!ftp_data_prepare(self, EP_SERVER, 'L'))
+  if (!ftp_data_prepare_listen(self, EP_SERVER))
     {
       SET_ANSWER(MSG_ERROR_PARSING_PORT);
       self->data_state = 0;
@@ -1041,7 +1040,7 @@ ftp_data_server_start_PORT(FtpProxy *self)
       z_proxy_log(self, FTP_ERROR, 2, "There was an error binding a server-side listener;");
       z_proxy_return(self, FTP_REQ_REJECT);
     }
-  
+
   g_string_sprintf(self->request_param, "%s,%d,%d", tmpaddr, (port & 0xff00) >> 8, port & 0x00ff);
   z_proxy_return(self, FTP_REQ_ACCEPT);
 }
@@ -1068,7 +1067,7 @@ ftp_data_server_start_PASV(FtpProxy *self)
   g_snprintf(ip, sizeof(ip), "%d.%d.%d.%d", nums[0], nums[1], nums[2], nums[3]);
   port = nums[4] * 256 + nums[5];
   self->data_remote[EP_SERVER] = z_sockaddr_inet_new(ip, port);
-  if (!ftp_data_prepare(self, EP_SERVER, 'C'))
+  if (!ftp_data_prepare_connect(self, EP_SERVER))
     {
       SET_ANSWER(MSG_ERROR_PARSING_PASV);
       self->data_state = 0;
@@ -1090,7 +1089,7 @@ ftp_data_server_start_EPRT(FtpProxy *self)
   gchar tmpaddr[16];
 
   z_proxy_enter(self);
-  if (!ftp_data_prepare(self, EP_SERVER, 'L'))
+  if (!ftp_data_prepare_listen(self, EP_SERVER))
     {
       SET_ANSWER(MSG_ERROR_PARSING_PORT);
       self->data_state = 0;
@@ -1190,7 +1189,7 @@ ftp_data_server_start_EPSV(FtpProxy *self)
       res = FTP_RSP_REJECT;
       goto exit;
     }
-  
+
   if (strlen(split[1]) == 0 || strcmp(split[1],"1") == 0)
     {
       port = strtol(split[3], &err, 10);
@@ -1247,7 +1246,7 @@ ftp_data_server_start_EPSV(FtpProxy *self)
       goto exit;
     }
 
-  if (!ftp_data_prepare(self, EP_SERVER, 'C'))
+  if (!ftp_data_prepare_connect(self, EP_SERVER))
     {
       SET_ANSWER(MSG_ERROR_PARSING_PASV);
       self->data_state = 0;
@@ -1311,12 +1310,12 @@ ftp_command_parse_PORT(FtpProxy *self)
            g_string_assign(self->request_cmd, "PASV");
            g_string_assign(self->request_param, "");
            break;
-           
+
         case FTP_DATA_ACTIVE:
         case FTP_DATA_KEEP:
           res = ftp_data_server_start_PORT(self);
           break;
-          
+
         default:
           /*LOG
             This message indicates that the 'data_mode' attribute of the policy
@@ -1335,7 +1334,7 @@ ftp_command_parse_PORT(FtpProxy *self)
   z_proxy_return(self, res);
 }
 
-guint 
+guint
 ftp_command_answer_PORT(FtpProxy *self)
 {
   guint res = FTP_RSP_ACCEPT;
@@ -1353,7 +1352,7 @@ ftp_command_answer_PORT(FtpProxy *self)
               res = ftp_data_server_start_PASV(self);
               if (res == FTP_RSP_ACCEPT)
                 {
-                  if (!ftp_data_prepare(self, EP_CLIENT, 'C'))
+                  if (!ftp_data_prepare_connect(self, EP_CLIENT))
                     {
                       self->data_state = 0;
                       SET_ANSWER(MSG_ERROR_PARSING_PORT);
@@ -1393,7 +1392,7 @@ ftp_command_answer_PORT(FtpProxy *self)
           switch (self->answer_cmd->str[0])
             {
             case '2':
-              if (!ftp_data_prepare(self, EP_CLIENT, 'C'))
+              if (!ftp_data_prepare_connect(self, EP_CLIENT))
                 {
                   self->data_state = 0;
                   SET_ANSWER(MSG_ERROR_PARSING_PORT);
@@ -1459,13 +1458,13 @@ ftp_command_parse_PASV(FtpProxy *self)
         case FTP_DATA_KEEP:
         case FTP_DATA_PASSIVE:
           break;
-          
+
         case FTP_DATA_ACTIVE:
           g_string_assign(self->request_cmd, "PORT");
           g_string_truncate(self->request_param, 0);
           res = ftp_data_server_start_PORT(self);
           break;
-          
+
         default:
           /*LOG
             This message indicates that the 'data_mode' attribute of the policy
@@ -1508,7 +1507,7 @@ ftp_command_answer_PASV(FtpProxy *self)
               ret = ftp_data_server_start_PASV(self);
               if (ret == FTP_RSP_ACCEPT)
                 {
-                  if (!ftp_data_prepare(self, EP_CLIENT, 'L'))
+                  if (!ftp_data_prepare_listen(self, EP_CLIENT))
                     {
                       ftp_data_reset(self);
                       SET_ANSWER(MSG_ERROR_PARSING_PASV);
@@ -1519,7 +1518,7 @@ ftp_command_answer_PASV(FtpProxy *self)
                       z_proxy_log(self, FTP_ERROR, 2, "Error preparing client-side data connection listener (PASV); error='bind error'");
                       z_proxy_return(self, FTP_RSP_REJECT);
                     }
-                  
+
                   if (self->masq_address[EP_CLIENT]->len)
                     g_strlcpy(tmpaddr, self->masq_address[EP_CLIENT]->str, sizeof(tmpaddr));
                   else
@@ -1553,7 +1552,7 @@ ftp_command_answer_PASV(FtpProxy *self)
                 }
               ftp_proto_state_set(self, FTP_STATE_DATA);
               break;
-              
+
             default:
               self->data_state = 0;
               z_proxy_return(self, FTP_RSP_ACCEPT);
@@ -1564,7 +1563,7 @@ ftp_command_answer_PASV(FtpProxy *self)
           switch (self->answer_cmd->str[0])
             {
             case '2':
-              if (!ftp_data_prepare(self, EP_CLIENT, 'L'))
+              if (!ftp_data_prepare_listen(self, EP_CLIENT))
                 {
                   self->data_state = 0;
                   SET_ANSWER(MSG_ERROR_PARSING_PASV);
@@ -1581,7 +1580,7 @@ ftp_command_answer_PASV(FtpProxy *self)
                 g_strlcpy(tmpaddr, self->masq_address[EP_CLIENT]->str, sizeof(tmpaddr));
               else
                 z_inet_ntoa(tmpaddr, sizeof(tmpaddr), ((struct sockaddr_in *) &self->data_local[EP_CLIENT]->sa)->sin_addr);
-              
+
               g_strdelimit(tmpaddr, ".", ',');
               port = ntohs(((struct sockaddr_in *) &self->data_local[EP_CLIENT]->sa)->sin_port);
               if (port==0)
@@ -1671,7 +1670,7 @@ ftp_command_parse_EPRT(FtpProxy *self)
           z_proxy_log(self, FTP_VIOLATION, 2, "Bad parameter (EPRT); req_param='%s'", self->request_param->str);
           z_proxy_return(self, FTP_REQ_REJECT);
         }
-  
+
       if (strcmp(split[1],"1") == 0)
         {
           port = strtol(split[3], &err, 10);
@@ -1698,7 +1697,7 @@ ftp_command_parse_EPRT(FtpProxy *self)
           z_proxy_log(self, FTP_VIOLATION, 2, "Unknown protocol method (EPRT); protocol='%s', req_param='%s'", split[1], self->request_param->str);
           z_proxy_return(self, FTP_REQ_REJECT);
         }
-      
+
       self->data_remote[EP_CLIENT] = z_sockaddr_inet_new(split[2], port);
       g_strfreev(split);
       if (!self->data_remote[EP_CLIENT])
@@ -1718,12 +1717,12 @@ ftp_command_parse_EPRT(FtpProxy *self)
            g_string_assign(self->request_cmd, "EPSV");
            g_string_assign(self->request_param, "");
            break;
-           
+
         case FTP_DATA_ACTIVE:
         case FTP_DATA_KEEP:
           res = ftp_data_server_start_EPRT(self);
           break;
-          
+
         default:
           /*LOG
             This message indicates that the 'data_mode' attribute of the policy
@@ -1742,7 +1741,7 @@ ftp_command_parse_EPRT(FtpProxy *self)
   z_proxy_return(self, res);
 }
 
-guint 
+guint
 ftp_command_answer_EPRT(FtpProxy *self)
 {
   guint res = FTP_RSP_ACCEPT;
@@ -1760,7 +1759,7 @@ ftp_command_answer_EPRT(FtpProxy *self)
               res = ftp_data_server_start_EPSV(self);
               if (res == FTP_RSP_ACCEPT)
                 {
-                  if (!ftp_data_prepare(self, EP_CLIENT, 'C'))
+                  if (!ftp_data_prepare_connect(self, EP_CLIENT))
                     {
                       self->data_state = 0;
                       SET_ANSWER(MSG_ERROR_PARSING_PORT);
@@ -1795,7 +1794,7 @@ ftp_command_answer_EPRT(FtpProxy *self)
           switch (self->answer_cmd->str[0])
             {
             case '2':
-              if (!ftp_data_prepare(self, EP_CLIENT, 'C'))
+              if (!ftp_data_prepare_connect(self, EP_CLIENT))
                 {
                   self->data_state = 0;
                   SET_ANSWER(MSG_ERROR_PARSING_PORT);
@@ -1850,13 +1849,13 @@ ftp_command_parse_EPSV(FtpProxy *self)
         case FTP_DATA_KEEP:
         case FTP_DATA_PASSIVE:
           break;
-          
+
         case FTP_DATA_ACTIVE:
           g_string_assign(self->request_cmd, "EPRT");
           g_string_assign(self->request_param, "");
           res = ftp_data_server_start_EPRT(self);
           break;
-          
+
         default:
           /*LOG
             This message indicates that the 'data_mode' attribute of the policy
@@ -1897,7 +1896,7 @@ ftp_command_answer_EPSV(FtpProxy *self)
               ret = ftp_data_server_start_EPSV(self);
               if (ret == FTP_RSP_ACCEPT)
                 {
-                  if (!ftp_data_prepare(self, EP_CLIENT, 'L'))
+                  if (!ftp_data_prepare_listen(self, EP_CLIENT))
                     {
                       self->data_state = 0;
                       SET_ANSWER(MSG_ERROR_PARSING_PASV);
@@ -1937,7 +1936,7 @@ ftp_command_answer_EPSV(FtpProxy *self)
                 }
               ftp_proto_state_set(self, FTP_STATE_DATA);
               break;
-              
+
             default:
               self->data_state = 0;
               z_proxy_return(self, FTP_RSP_ACCEPT);
@@ -1948,7 +1947,7 @@ ftp_command_answer_EPSV(FtpProxy *self)
           switch (self->answer_cmd->str[0])
             {
             case '2':
-              if (!ftp_data_prepare(self, EP_CLIENT, 'L'))
+              if (!ftp_data_prepare_listen(self, EP_CLIENT))
                 {
                   self->data_state = 0;
                   SET_ANSWER(MSG_ERROR_PARSING_PASV);
@@ -2027,7 +2026,7 @@ guint
 ftp_command_parse_RNTO(FtpProxy *self)
 {
   guint res = FTP_REQ_ACCEPT;
-  
+
   z_proxy_enter(self);
   switch (self->ftp_state)
     {
@@ -2035,7 +2034,7 @@ ftp_command_parse_RNTO(FtpProxy *self)
       ftp_proto_state_set(self, FTP_STATE_CONVERSATION);
       res = ftp_command_parse_path(self);
       break;
-      
+
     default:
       SET_ANSWER(MSG_RNFR_RNTO);
       z_proxy_return(self, FTP_REQ_REJECT);
@@ -2050,7 +2049,7 @@ ftp_command_parse_ALLO(FtpProxy *self)
   glong num2;
   gchar *str;
   gchar *endptr;
-  
+
   z_proxy_enter(self);
   switch (self->ftp_state)
     {
@@ -2066,10 +2065,10 @@ ftp_command_parse_ALLO(FtpProxy *self)
           z_proxy_log(self, FTP_VIOLATION, 3, "Size is out of accepted range; req='%s' size='%ld'", "ALLO", num1);
           z_proxy_return(self, FTP_REQ_REJECT);
         }
-      
+
       if (*endptr == 0)
         z_proxy_return(self, FTP_REQ_ACCEPT);
-      
+
       if (strlen(endptr) >= 4 && endptr[0] == ' ' && endptr[1] == 'R' && endptr[2] == ' ' && endptr[3] != ' ')
         {
           str = endptr + 3;
@@ -2134,13 +2133,13 @@ guint
 ftp_command_parse_REST(FtpProxy *self)
 {
   guint ret;
-  
+
   ret = ftp_command_parse_string(self);
-  
+
   if (ret == FTP_REQ_ACCEPT)
     if (self->request_param->len == 0)
       ret = FTP_REQ_REJECT;
-  
+
   return ret;
 }
 

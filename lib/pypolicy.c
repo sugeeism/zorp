@@ -30,9 +30,9 @@
  *
  ***************************************************************************/
 
-/* 
+/*
  * This is an implementation of the policy interface with the python
- * interpreter 
+ * interpreter
  */
 
 #include <zorp/policy.h>
@@ -52,6 +52,9 @@
 
 /* for capability management */
 #include <zorp/cap.h>
+
+/* for calling on_reload functions on loaded modules */
+#include <zorp/registry.h>
 
 ZPolicy *current_policy;
 
@@ -80,11 +83,11 @@ z_verdict_str(ZVerdict verdict)
 
 /* helper functions used by proxies */
 
-gboolean 
+gboolean
 z_policy_tuple_get_verdict(ZPolicyObj *tuple, guint *verdict)
 {
   ZPolicyObj *tmp;
-                                                                                
+
   z_enter();
   if (!z_policy_seq_check(tuple))
     {
@@ -93,7 +96,7 @@ z_policy_tuple_get_verdict(ZPolicyObj *tuple, guint *verdict)
       /* not a sequence nor an int */
       z_return(FALSE);
     }
-                                                                                
+
   tmp = z_policy_seq_getitem(tuple, 0);
   if (!tmp || !z_policy_var_parse(tmp, "i", verdict))
     {
@@ -104,7 +107,6 @@ z_policy_tuple_get_verdict(ZPolicyObj *tuple, guint *verdict)
   z_policy_var_unref(tmp);
   z_return(TRUE);
 }
-
 
 /**
  * z_policy_convert_strv_to_list:
@@ -120,7 +122,7 @@ z_policy_convert_strv_to_list(gchar const **strv)
 {
   PyObject *list;
   gint i;
-  
+
   list = PyList_New(0);
   for (i = 0; strv[i]; i++)
     {
@@ -128,7 +130,6 @@ z_policy_convert_strv_to_list(gchar const **strv)
     }
   return list;
 }
-
 
 /**
  * z_policy_getattr_expr:
@@ -151,23 +152,22 @@ z_policy_getattr_expr(PyObject *container, const char *name)
   PyObject *p, *new_p;
   gchar **attr;
   gint i;
-  
+
   attr = g_strsplit(name, ".", 0);
-  
+
   p = container;
 
   Py_XINCREF(p);
   for (i = 0; attr[i] && p; i++)
     {
       new_p = PyObject_GetAttrString(p, attr[i]);
-      
+
       Py_XDECREF(p);
       p = new_p;
     }
   g_strfreev(attr);
   return p;
-}    
-
+}
 
 /**
  * z_policy_setattr_expr:
@@ -191,16 +191,16 @@ z_policy_setattr_expr(PyObject *container, const char *name, PyObject *new_value
   gchar **attr;
   gint i;
   gint res = 0;
-  
+
   attr = g_strsplit(name, ".", 0);
-  
+
   p = container;
 
   Py_XINCREF(p);
   for (i = 0; attr[i] && attr[i+1] && p; i++)
     {
       new_p = PyObject_GetAttrString(p, attr[i]);
-      
+
       Py_XDECREF(p);
       p = new_p;
     }
@@ -210,11 +210,10 @@ z_policy_setattr_expr(PyObject *container, const char *name, PyObject *new_value
       res = 1;
     }
   Py_XDECREF(p);
-    
+
   g_strfreev(attr);
   return res;
-}    
-
+}
 
 /**
  * z_policy_setattr:
@@ -228,7 +227,7 @@ z_policy_setattr_expr(PyObject *container, const char *name, PyObject *new_value
  * Returns:
  * 1 on success, 0 otherwise
  */
-gint 
+gint
 z_policy_setattr(PyObject *handler, char *name, PyObject *value)
 {
   if (z_policy_setattr_expr(handler, name, value) == 0)
@@ -238,7 +237,6 @@ z_policy_setattr(PyObject *handler, char *name, PyObject *value)
     }
   return 1;
 }
-
 
 /**
  * z_policy_getattr:
@@ -255,13 +253,12 @@ PyObject *
 z_policy_getattr(PyObject *handler, char *name)
 {
   PyObject *res;
-  
+
   res = z_policy_getattr_expr(handler, name);
   if (!res)
     z_policy_error_clear();
   return res;
 }
-
 
 /**
  * z_session_getattr:
@@ -279,14 +276,13 @@ z_session_getattr(PyObject *handler, gchar *name)
 {
   gchar buf[64];
   PyObject *res;
-  
+
   g_snprintf(buf, sizeof(buf), "session.%s", name);
   res = z_policy_getattr_expr(handler, buf);
   if (!res)
     z_policy_error_clear();
   return res;
 }
-
 
 /**
  * z_global_getattr:
@@ -302,14 +298,13 @@ PyObject *
 z_global_getattr(const gchar *name)
 {
   PyObject *main_module, *res;
-  
+
   main_module = PyImport_AddModule("__main__");
   res = z_policy_getattr_expr(main_module, name);
   if (!res)
     z_policy_error_clear();
   return res;
 }
-
 
 /**
  * z_policy_var_parse_str:
@@ -320,7 +315,7 @@ z_global_getattr(const gchar *name)
  * the string into @result.  It always consumes @val, thus the caller loses
  * its reference.  This function can be used to quickly parse Python values
  * this way:
- * 
+ *
  * z_policy_var_parse_str(z_global_getattr("config.module.string_variable"), &c_variable_string);
  **/
 gboolean
@@ -328,7 +323,7 @@ z_policy_var_parse_str(PyObject *val, gchar **result)
 {
   gchar *strvalue = NULL;
   gboolean res = FALSE;
-  
+
   if (val)
     {
       if (z_policy_var_parse(val, "s", &strvalue))
@@ -341,7 +336,6 @@ z_policy_var_parse_str(PyObject *val, gchar **result)
   return res;
 }
 
-
 /**
  * z_policy_var_parse_boolean:
  * @val: PyObject to parse
@@ -351,7 +345,7 @@ z_policy_var_parse_str(PyObject *val, gchar **result)
  * into @result.  It always consumes @val, thus the caller loses
  * its reference.  This function can be used to quickly parse Python values
  * this way:
- * 
+ *
  * z_policy_var_parse_boolean(z_global_getattr("config.module.boolean_variable"), &c_variable_boolean);
  **/
 gboolean
@@ -359,7 +353,7 @@ z_policy_var_parse_boolean(PyObject *val, gboolean *result)
 {
   gboolean success;
   gint intval = 0;
-  
+
   success = z_policy_var_parse_int(val, &intval);
   *result = !!intval;
   return success;
@@ -374,14 +368,14 @@ z_policy_var_parse_boolean(PyObject *val, gboolean *result)
  * into @result.  It always consumes @val, thus the caller loses
  * its reference.  This function can be used to quickly parse Python values
  * this way:
- * 
+ *
  * z_policy_var_parse_int(z_global_getattr("config.module.integer_variable"), &vc_variable_integer);
  **/
 gboolean
 z_policy_var_parse_int(PyObject *val, gint *result)
 {
   gboolean res = TRUE;
-  
+
   if (val)
     {
       if (!z_policy_var_parse(val, "i", result))
@@ -430,14 +424,14 @@ z_policy_var_parse_uint(PyObject *val, guint *result)
  * into @result.  It always consumes @val, thus the caller loses
  * its reference.  This function can be used to quickly parse Python values
  * this way:
- * 
+ *
  * z_policy_var_parse_size(z_global_getattr("config.module.gsize_variable"), &c_variable_gsize);
  **/
 gboolean
 z_policy_var_parse_size(PyObject *val, gsize *result)
 {
   gboolean res = TRUE;
-  
+
   if (val)
     {
       switch (sizeof(gsize))
@@ -476,7 +470,7 @@ z_policy_var_parse_size(PyObject *val, gsize *result)
  * into @result.  It always consumes @val, thus the caller loses
  * its reference.  This function can be used to quickly parse Python values
  * this way:
- * 
+ *
  * z_policy_var_parse_int64(z_global_getattr("config.module.int64_variable"), &c_variable_gint64);
  **/
 gboolean
@@ -523,7 +517,6 @@ z_policy_var_parse_uint64(PyObject *val, guint64 *result)
   return res;
 }
 
-
 /**
  * z_policy_call_object:
  * @func: Python method to call
@@ -540,12 +533,12 @@ PyObject *
 z_policy_call_object(PyObject *func, PyObject *args, gchar *session_id)
 {
   PyObject *res;
-  
+
   PyErr_Clear();
   res = PyObject_CallObject(func, args);
-  
+
   Py_XDECREF(args);
-  
+
   if (!res)
     {
       PyObject *m = PyImport_AddModule("sys");
@@ -586,7 +579,6 @@ z_policy_call_object(PyObject *func, PyObject *args, gchar *session_id)
 
   return res;
 }
-
 
 /**
  * z_policy_call:
@@ -637,7 +629,6 @@ z_policy_call(PyObject *handler, char *name, PyObject *args, gboolean *called, g
   z_return(res);
 }
 
-
 /**
  * z_policy_event:
  * @handler: Python object whom to send the event
@@ -648,14 +639,14 @@ z_policy_call(PyObject *handler, char *name, PyObject *args, gboolean *called, g
  * Sends an event to an object by calling one of its methods. The methods
  * 'preProcessEvent' and 'postProcessEvent' are called before and after the
  * event handler method.
- * 
+ *
  * FIXME: I found no occurences of 'ProcessEvent' but in this function, so I
  * can't track the purpose of this functionality.
  *
  * Returns:
  * ZV_UNSPEC, ZV_ABORT, ???
  */
-gint 
+gint
 z_policy_event(PyObject *handler, char *name, PyObject *args, gchar *session_id)
 {
   PyObject *res;
@@ -732,7 +723,6 @@ z_policy_event(PyObject *handler, char *name, PyObject *args, gchar *session_id)
   return ZV_UNSPEC;
 }
 
-
 /* loadable policies */
 
 G_LOCK_DEFINE_STATIC(policy_ref_lock);
@@ -752,8 +742,6 @@ GStaticPrivate policy_thread = G_STATIC_PRIVATE_INIT;
 static gboolean z_policy_purge(ZPolicy *self);
 #include <zorp/coredump.h>
 
-
-
 /**
  * z_policy_thread_ready:
  * @self: this
@@ -768,7 +756,6 @@ z_policy_thread_ready(ZPolicyThread *self)
   g_cond_signal(self->startable_signal);
   g_mutex_unlock(self->startable_lock);
 }
-
 
 /**
  * z_policy_thread_wait:
@@ -787,7 +774,6 @@ z_policy_thread_wait(ZPolicyThread *self)
   g_mutex_unlock(self->startable_lock);
 }
 
-
 /**
  * z_policy_thread_acquire:
  * @self: this
@@ -800,7 +786,7 @@ void
 z_policy_thread_acquire(ZPolicyThread *self)
 {
   z_policy_thread_wait(self);
-  
+
   g_static_private_set(&policy_thread, self, NULL);
   PyEval_AcquireThread(self->thread);
 
@@ -819,7 +805,6 @@ z_policy_thread_acquire(ZPolicyThread *self)
   self->used = TRUE;
 }
 
-
 /**
  * z_policy_thread_release:
  * @self:  this
@@ -833,7 +818,6 @@ z_policy_thread_release(ZPolicyThread *self)
   PyEval_ReleaseThread(self->thread);
   g_static_private_set(&policy_thread, NULL, NULL);
 }
-
 
 /**
  * z_policy_thread_self:
@@ -851,7 +835,6 @@ z_policy_thread_self(void)
   return g_static_private_get(&policy_thread);
 }
 
-
 /**
  * z_policy_thread_get_policy:
  * @self: this
@@ -866,7 +849,6 @@ z_policy_thread_get_policy(ZPolicyThread *self)
 {
   return self->policy;
 }
-
 
 /**
  * z_policy_thread_new:
@@ -883,12 +865,12 @@ ZPolicyThread *
 z_policy_thread_new(ZPolicy *policy)
 {
   ZPolicyThread *self = g_new0(ZPolicyThread, 1);
-  
+
   /* NOTE: requires the interpreter lock to be held */
   self->startable = FALSE;
   self->startable_lock = g_mutex_new();
   self->startable_signal = g_cond_new();
-  
+
   self->policy = z_policy_ref(policy);
   if (policy->main_thread)
     {
@@ -908,7 +890,7 @@ z_policy_thread_new(ZPolicy *policy)
  * @self: this
  *
  * Destructor of ZPolicyThread.
- * The embedded Python thread context (self->thread) will be cleared and 
+ * The embedded Python thread context (self->thread) will be cleared and
  * deleted also, and if this thread was the last one running in the
  * interpreter instance, that will be stopped, too.
  */
@@ -943,7 +925,6 @@ z_policy_thread_destroy(ZPolicyThread *self)
   g_free(self);
 }
 
-
 /**
  * z_policy_free:
  * @self: this
@@ -954,14 +935,12 @@ static void
 z_policy_free(ZPolicy *self)
 {
   /* FIXME: we should acquire a thread state to be able to free ourselves */
- 
+
   g_free(self->policy_filename);
   /* NOTE: This must be the last because that destroyer assume that he is the last men standing. */
   z_policy_thread_destroy(self->main_thread);
   g_free(self);
 }
-
-
 
 /**
  * z_policy_ref:
@@ -973,12 +952,12 @@ z_policy_free(ZPolicy *self)
  * Returns:
  * this
  */
-ZPolicy * 
+ZPolicy *
 z_policy_ref(ZPolicy *self)
 {
   G_LOCK(policy_ref_lock);
   g_assert(self->ref_cnt > 0);
-  
+
   self->ref_cnt++;
   G_UNLOCK(policy_ref_lock);
   return self;
@@ -996,13 +975,13 @@ z_policy_unref(ZPolicy *self)
 {
   G_LOCK(policy_ref_lock);
   g_assert(self->ref_cnt > 0);
-  
+
   --self->ref_cnt;
 
   /* NOTE: This reference counter counts two different reference types:
    *   * the number of references to this ZPolicy instance by the rest of Zorp
    *   * the number of internal references between ZPolicy and the
-   *     ZPolicyThread instances started in z_policy_new(): main thread 
+   *     ZPolicyThread instances started in z_policy_new(): main thread
    *     and notification thread
    *
    * The main and notification threads form circular references, their
@@ -1013,7 +992,7 @@ z_policy_unref(ZPolicy *self)
    * The trigger to terminate the notification thread is also sent from
    * here, when the refcount goes to 3.
    *
-   */   
+   */
 
 
 /* main thread */
@@ -1032,6 +1011,39 @@ z_policy_unref(ZPolicy *self)
 }
 
 
+void
+z_policy_module_call_py_init_function(const gchar *name,
+                                      gint type G_GNUC_UNUSED,
+                                      gpointer value,
+                                      gpointer user_data G_GNUC_UNUSED)
+{
+  g_assert(value);
+
+  ZProxyModuleFuncs *module_funcs = (ZProxyModuleFuncs *) value;
+  z_policy_proxy_module_py_init(module_funcs->module_py_init, name);
+}
+
+/**
+ * z_policy_modules_py_init_notify:
+ *
+ * Notify all loaded ZR_PROXY and ZR_PYPROXY modules that a policy reload occurred and
+ * the python layer must be reinitialized.
+ */
+void
+z_policy_modules_py_init_notify(void)
+{
+  gint registry_types[] = {ZR_PROXY, ZR_PYPROXY};
+
+  for (gint type = 0; type != sizeof(registry_types)/sizeof(gint); type++)
+    z_registry_foreach(registry_types[type], z_policy_module_call_py_init_function, NULL);
+}
+
+void
+z_policy_zorp_builtin_init(void)
+{
+  PyImport_AddModule("Zorp.Builtin");
+}
+
 /**
  * z_policy_boot:
  * @self: this
@@ -1043,7 +1055,7 @@ z_policy_unref(ZPolicy *self)
  * FIXME?: the only check is for the read access on policy.boot
  *          there is no check whether it could be interpreted correctly,
  *          neither for the modules' initialisations
- * 
+ *
  * Returns:
  * TRUE if policy.boot exists
  */
@@ -1051,7 +1063,7 @@ gboolean
 z_policy_boot(ZPolicy *self)
 {
   FILE *bootstrap;
-  
+
   if ((bootstrap = fopen(ZORP_POLICY_BOOT_FILE, "r")) == NULL)
     {
       /*LOG
@@ -1068,8 +1080,9 @@ z_policy_boot(ZPolicy *self)
   fclose(bootstrap);
 
   /* PyImport_AddModule("Zorp.Zorp"); */
-  
+
   z_py_zorp_core_init();
+  z_policy_zorp_builtin_init();
   z_policy_struct_module_init();
   z_policy_dispatch_module_init();
   z_policy_attach_module_init();
@@ -1079,8 +1092,11 @@ z_policy_boot(ZPolicy *self)
   z_policy_proxy_group_module_init();
 
 
+
+  z_policy_modules_py_init_notify();
+
   z_policy_thread_release(self->main_thread);
-  
+
   return TRUE;
 }
 
@@ -1099,7 +1115,7 @@ z_policy_load(ZPolicy *self)
 {
   FILE *script;
   int res = -1;
-  
+
   script = fopen(self->policy_filename, "r");
   if (script)
     {
@@ -1116,7 +1132,7 @@ z_policy_load(ZPolicy *self)
        */
       z_log(NULL, CORE_ERROR, 0, "Error opening policy file; filename='%s'", self->policy_filename);
     }
-  
+
   if (res == -1)
     {
       /*LOG
@@ -1129,7 +1145,6 @@ z_policy_load(ZPolicy *self)
 
   return res != -1;
 }
-
 
 /**
  * z_policy_init:
@@ -1151,9 +1166,9 @@ z_policy_init(ZPolicy *self, gchar const **instance_name, gchar const *virtual_i
   PyObject *main_module, *init_func, *res;
   gboolean success = FALSE;
   cap_t saved_caps;
-  
+
   z_policy_thread_acquire(self->main_thread);
-  
+
   main_module = PyImport_AddModule("__main__");
   init_func = PyObject_GetAttrString(main_module, "init");
 
@@ -1196,9 +1211,9 @@ gboolean
 z_policy_deinit(ZPolicy *self, gchar const **instance_name, gchar const *virtual_instance_name)
 {
   PyObject *main_module, *deinit_func, *res;
-  
+
   z_policy_thread_acquire(self->main_thread);
-  
+
   main_module = PyImport_AddModule("__main__");
   deinit_func = PyObject_GetAttrString(main_module, "deinit");
 
@@ -1216,7 +1231,6 @@ z_policy_deinit(ZPolicy *self, gchar const **instance_name, gchar const *virtual
   return res != NULL;
 }
 
-
 /**
  * z_policy_purge:
  * @self: this
@@ -1231,9 +1245,9 @@ static gboolean
 z_policy_purge(ZPolicy *self)
 {
   PyObject *main_module, *purge_func, *res;
-  
+
   z_policy_thread_acquire(self->main_thread);
-  
+
   main_module = PyImport_AddModule("__main__");
   purge_func = PyObject_GetAttrString(main_module, "purge");
 
@@ -1267,9 +1281,9 @@ z_policy_cleanup(ZPolicy *self, gchar const **instance_name, gchar const *virtua
 {
   PyObject *main_module, *cleanup_func, *res;
   cap_t saved_caps;
-  
+
   z_policy_thread_acquire(self->main_thread);
-  
+
   main_module = PyImport_AddModule("__main__");
   cleanup_func = PyObject_GetAttrString(main_module, "cleanup");
 
@@ -1334,26 +1348,25 @@ ZPolicy *
 z_policy_new(const gchar *filename)
 {
   ZPolicy *self = g_new0(ZPolicy, 1);
-  
+
   self->ref_cnt = 1;
   self->policy_filename = g_strdup(filename);
   z_python_lock();
   self->main_thread = z_policy_thread_new(self);
   z_python_unlock();
   z_policy_thread_ready(self->main_thread);
-  
+
   /* the main thread and the notification thread always references us,
    * and we should be deleted when that reference is dropped */
-  
+
   return self;
 }
 
-void 
+void
 z_policy_raise_exception_obj(PyObject *exc, gchar *desc)
 {
   PyErr_SetString(exc, desc);
 }
-
 
 /**
  * z_policy_raise_exception:
@@ -1362,11 +1375,11 @@ z_policy_raise_exception_obj(PyObject *exc, gchar *desc)
  *
  * Generate a Python exception with the given name and descriptions
  */
-void 
+void
 z_policy_raise_exception(gchar *exception_name, gchar *desc)
 {
   PyObject *main_module, *license_exc;
-  
+
   main_module = PyImport_AddModule("__main__");
   license_exc = PyObject_GetAttrString(main_module, exception_name);
   PyErr_SetString(license_exc, desc);

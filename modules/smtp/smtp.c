@@ -92,11 +92,11 @@ smtp_register_vars(SmtpProxy *self)
   z_proxy_var_new(&self->super, "recipients",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->recipients);
-                  
+
   z_proxy_var_new(&self->super, "request_param",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->request_param);
-  
+
   z_proxy_var_new(&self->super, "response_code",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->response);
@@ -149,7 +149,7 @@ smtp_register_vars(SmtpProxy *self)
   z_proxy_var_new(&self->super, "response",
                   Z_VAR_TYPE_DIMHASH | Z_VAR_GET_CONFIG | Z_VAR_GET,
                   self->response_policy);
-                  
+
   z_proxy_var_new(&self->super, "active_extensions",
                   Z_VAR_TYPE_INT | Z_VAR_GET,
                   &self->active_extensions);
@@ -174,7 +174,6 @@ smtp_register_vars(SmtpProxy *self)
                   Z_VAR_TYPE_METHOD | Z_VAR_GET,
                   self, smtp_policy_sanitize_address);
 
-
   z_proxy_return(self);
 }
 
@@ -190,10 +189,10 @@ smtp_set_defaults(SmtpProxy *self)
   z_proxy_enter(self);
   self->request       = g_string_sized_new(8);
   self->request_param = g_string_sized_new(128);
-  
+
   self->response       = g_string_sized_new(4);
   self->response_param = g_string_sized_new(128);
-  
+
   self->sender = g_string_sized_new(32);
   self->sanitized_recipient = g_string_sized_new(32);
   self->recipients = g_string_sized_new(32);
@@ -210,26 +209,26 @@ smtp_set_defaults(SmtpProxy *self)
   self->buffer_size = 4096;
 
   self->active_extensions = 0;
-  
+
   self->max_request_length = 512;
   self->max_auth_request_length = 256;
   self->max_response_length = 512;
   self->max_line_length = 4096;
   self->require_crlf = TRUE;
-  self->unconnected_response_code = 554;
+  self->unconnected_response_code = 451;
 
   self->start_tls_ok[EP_CLIENT] = FALSE;
   self->start_tls_ok[EP_SERVER] = FALSE;
 
   self->tls_passthrough = FALSE;
-  
+
   self->extensions = g_hash_table_new(g_str_hash, g_str_equal);
   self->request_policy = g_hash_table_new(g_str_hash, g_str_equal);
   self->response_policy = z_dim_hash_table_new(2, 2, DIMHASH_WILDCARD, DIMHASH_CONSUME);
   z_proxy_return(self);
 }
 
-/** 
+/**
  * smtp_config_init:
  * @self: SmtpProxy instance
  *
@@ -242,7 +241,6 @@ smtp_config_init(SmtpProxy *self G_GNUC_UNUSED)
   z_proxy_enter(self);
   z_proxy_return(self, TRUE);
 }
-
 
 /* request related functions */
 
@@ -257,12 +255,16 @@ smtp_config_init(SmtpProxy *self G_GNUC_UNUSED)
  *
  * Returns: TRUE to indicate success
  **/
-static gboolean 
+static gboolean
 smtp_parse_request(SmtpProxy *self, gchar *line, gint line_len)
 {
   gint i;
-  
+
   z_proxy_enter(self);
+
+  if (line_len <= 0)
+    z_proxy_return(self, FALSE);
+
   g_string_truncate(self->request, 0);
   i = 0;
   while (i < line_len)
@@ -273,8 +275,9 @@ smtp_parse_request(SmtpProxy *self, gchar *line, gint line_len)
         g_string_append_c(self->request, toupper(line[i])); /* NOTE we convert command to uppercase here so policy lookup works */
       i++;
     }
-    
-  if (i < line_len && line[i] != ' ')
+
+  if (self->request->len == 0
+      || (i < line_len && line[i] != ' '))
     {
       /*LOG
         This message indicates that the request command verb is invalid and Zorp rejects the request.
@@ -282,8 +285,11 @@ smtp_parse_request(SmtpProxy *self, gchar *line, gint line_len)
       z_proxy_log(self, SMTP_VIOLATION, 2, "Invalid command verb in request; line='%.*s'", line_len, line);
       z_proxy_return(self, FALSE);
     }
-  i++;
-  
+
+  /* skip whitespace between verb and parameter */
+  while (i < line_len && line[i] == ' ')
+    i++;
+
   if (line_len > i)
     g_string_assign_len(self->request_param, line + i, line_len - i);
   else
@@ -295,7 +301,7 @@ smtp_parse_request(SmtpProxy *self, gchar *line, gint line_len)
   z_proxy_return(self, TRUE);
 }
 
-/** 
+/**
  * smtp_fetch_request:
  * @self: SmtpProxy instance
  *
@@ -309,7 +315,7 @@ smtp_fetch_request(SmtpProxy *self)
   GIOStatus res;
   gchar *line;
   gsize line_len;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the request is going to be fetched.
@@ -339,14 +345,13 @@ smtp_fetch_request(SmtpProxy *self)
       z_proxy_log(self, SMTP_VIOLATION, 2, "Request line too long; length='%zd', max='%d'", line_len, self->max_request_length);
       z_proxy_return(self, FALSE);
     }
-    
+
   if (!smtp_parse_request(self, line, line_len))
     z_proxy_return(self, FALSE);
 
   self->request_cmd = g_hash_table_lookup(known_commands, self->request->str);
   z_proxy_return(self, TRUE);
 }
-
 
 /**
  * smtp_process_request:
@@ -360,7 +365,7 @@ static SmtpRequestTypes
 smtp_process_request(SmtpProxy *self)
 {
   SmtpRequestTypes res = SMTP_REQ_ACCEPT;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the request is going to be processed.
@@ -378,7 +383,7 @@ smtp_process_request(SmtpProxy *self)
       z_proxy_log(self, SMTP_VIOLATION, 4, "Command not permitted in this state; request='%s', state='%d'", self->request->str, self->smtp_state);
       z_proxy_return(self, res);
     }
-    
+
   if (self->request_cmd && self->request_cmd->command_parse)
     {
       res = self->request_cmd->command_parse(self);
@@ -401,7 +406,7 @@ smtp_process_request(SmtpProxy *self)
        */
       z_proxy_log(self, SMTP_VIOLATION, 2, "Unknown command; request='%s'", self->request->str);
       z_proxy_return(self, res);
-    }  
+    }
 
   if (res == SMTP_REQ_ABORT)
     {
@@ -437,7 +442,7 @@ smtp_copy_request(SmtpProxy *self)
   gint len;
   gsize bytes_written;
   GIOStatus res;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the request is going to be copied to the server.
@@ -468,7 +473,7 @@ smtp_fetch_auth_request(SmtpProxy *self)
   GIOStatus res;
   gchar *line;
   gsize line_len;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the authentication request is going to be fetched.
@@ -515,14 +520,14 @@ smtp_copy_auth_request(SmtpProxy *self)
   gint len;
   gsize bytes_written;
   GIOStatus res;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the authentication request is going to be copied to the server.
    */
   z_proxy_log(self, SMTP_DEBUG, 6, "Copying authentication request to server;");
   g_snprintf(newline, sizeof(newline), "%s\r\n", self->auth_request->str);
-  
+
   len = strlen(newline);
   res = z_stream_write(self->super.endpoints[EP_SERVER], newline, len, &bytes_written, NULL);
   if (res != G_IO_STATUS_NORMAL)
@@ -536,7 +541,6 @@ smtp_copy_auth_request(SmtpProxy *self)
   z_proxy_return(self, TRUE);
 }
 
-
 /* response handling */
 
 /**
@@ -549,7 +553,7 @@ void
 smtp_clear_response(SmtpProxy *self)
 {
   GList *p, *pnext;
-  
+
   g_string_truncate(self->response, 0);
   g_string_truncate(self->response_param, 0);
   for (p = self->response_lines, pnext = NULL; p; p = pnext)
@@ -570,7 +574,7 @@ smtp_clear_response(SmtpProxy *self)
  * Set the internal proxy state to contain the specified SMTP reply.
  * Primarily used to set an error response to be sent back to the client.
  **/
-static void 
+static void
 smtp_set_response(SmtpProxy *self, gchar *code, gchar *param)
 {
   z_proxy_enter(self);
@@ -595,14 +599,14 @@ smtp_set_response(SmtpProxy *self, gchar *code, gchar *param)
  * appropriate parameters. Returns TRUE to indicate success.
  **/
 static gboolean
-smtp_parse_response(SmtpProxy *self G_GNUC_UNUSED, 
-                    gchar *line, gint line_len, 
-                    gboolean *continuation, 
-                    gchar **code, gint *code_len, 
+smtp_parse_response(SmtpProxy *self G_GNUC_UNUSED,
+                    gchar *line, gint line_len,
+                    gboolean *continuation,
+                    gchar **code, gint *code_len,
                     gchar **text, gint *text_len)
 {
   gint i;
-  
+
   z_proxy_enter(self);
   if (line_len < 3)
     {
@@ -659,7 +663,7 @@ smtp_parse_response(SmtpProxy *self G_GNUC_UNUSED,
  * @self: SmtpProxy instance
  *
  * This function reads and parses an incoming SMTP request and stores the
- * results in @self. 
+ * results in @self.
  **/
 static gboolean
 smtp_fetch_response(SmtpProxy *self)
@@ -670,7 +674,7 @@ smtp_fetch_response(SmtpProxy *self)
   gint code_len, text_len;
   gboolean continuation = TRUE, first = TRUE;
   gboolean success = FALSE;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the response is going to be fetched.
@@ -686,7 +690,7 @@ smtp_fetch_response(SmtpProxy *self)
             self->error_abort = TRUE;
           goto error_exit;
         }
-      
+
       if ((guint) line_len > self->max_response_length)
         {
           if (!self->permit_long_responses)
@@ -704,14 +708,14 @@ smtp_fetch_response(SmtpProxy *self)
               z_proxy_log(self, SMTP_VIOLATION, 3, "Response line was too long, truncated; length='%" G_GSIZE_FORMAT "', max_response_length='%d'", line_len, self->max_response_length);
             }
         }
-      
-      if (!smtp_parse_response(self, 
-                               line, line_len, 
-                               &continuation, 
-                               &code, &code_len, 
+
+      if (!smtp_parse_response(self,
+                               line, line_len,
+                               &continuation,
+                               &code, &code_len,
                                &text, &text_len))
         goto error_exit; /* the error is logged by parse_response */
-      
+
       if (first)
         {
           g_string_assign_len(self->response, code, code_len);
@@ -734,7 +738,7 @@ smtp_fetch_response(SmtpProxy *self)
         }
     }
   success = TRUE;
-  
+
   /*LOG
     This message reports that the response is parsed successfully.
    */
@@ -791,14 +795,14 @@ smtp_process_response(SmtpProxy *self)
     {
       z_proxy_log(self, SMTP_POLICY, 2, "Response not allowed by policy; request='%s', response='%s'", self->request->str, self->response->str);
     }
-    
+
   if (res == SMTP_RSP_ABORT)
     {
       g_string_assign(self->error_code, "421");
       g_string_assign(self->error_info, "Service not available, closing transmission channel.");
       self->error_abort = TRUE;
     }
-    
+
   return res;
 }
 
@@ -816,7 +820,7 @@ smtp_copy_response(SmtpProxy *self)
   GString *response;
   gsize bytes_written;
   gboolean success = TRUE;
-  
+
   z_proxy_enter(self);
   /*LOG
     This message reports that the response is going to be copied to the client.
@@ -873,9 +877,9 @@ smtp_init_streams(SmtpProxy *self)
     {
       self->super.endpoints[EP_SERVER]->timeout = self->timeout;
       tmpstream = self->super.endpoints[EP_SERVER];
-      self->super.endpoints[EP_SERVER] = z_stream_line_new(tmpstream, self->max_line_length, 
-                  ZRL_NUL_NONFATAL | ZRL_EOL_CRLF | 
-                  (self->require_crlf ? ZRL_EOL_FATAL : 0) | 
+      self->super.endpoints[EP_SERVER] = z_stream_line_new(tmpstream, self->max_line_length,
+                  ZRL_NUL_NONFATAL | ZRL_EOL_CRLF |
+                  (self->require_crlf ? ZRL_EOL_FATAL : 0) |
                   (self->permit_long_responses ? ZRL_TRUNCATE : 0));
       z_stream_unref(tmpstream);
       self->proxy_state = SMTP_PROXY_RESPONSE;
@@ -891,7 +895,7 @@ static gboolean
 smtp_generate_noop(SmtpProxy *self)
 {
   gboolean policy_rejected;
-  
+
   g_string_assign(self->request, "NOOP");
   g_string_assign(self->request_param, "");
   if (!smtp_copy_request(self) || !smtp_fetch_response(self))
@@ -922,7 +926,7 @@ smtp_generate_received(SmtpProxy *self, GString **dst_string)
   gboolean called;
 
   z_policy_lock(self->super.thread);
-  
+
   res = z_policy_call(self->super.handler, "generateReceived", z_policy_var_build("()"),
                       &called, self->super.session_id);
   if (res)
@@ -969,12 +973,12 @@ void
 smtp_format_stack_info(SmtpProxy *self, const gchar *msg, const gchar *stack_info)
 {
   const guchar *search;
-  
+
   for (search = (const guchar *) stack_info; *search < 127 && !g_ascii_iscntrl(*search) && *search != 0; search++)
     ;
-  
+
   g_string_printf(self->error_info, "%s (%.*s)", msg, (gint) ((gchar *)search - stack_info), stack_info);
-  
+
   return;
 }
 
@@ -983,7 +987,7 @@ smtp_process_transfer(SmtpProxy *self)
 {
   ZTransfer2Result tr;
   gboolean policy_rejected;
-  
+
   g_string_assign(self->error_code, "550");
   g_string_assign(self->error_info, "Error storing message");
 
@@ -991,36 +995,36 @@ smtp_process_transfer(SmtpProxy *self)
   if (smtp_transfer_is_data_delayed(self->transfer))
     {
       gint suspend_reason = SMTP_TRANSFER_SUSPEND_DATA;
-      
+
       /* make sure the server's timeout is extended (maybe the client waited
-       * a lot before sending DATA) */ 
+       * a lot before sending DATA) */
       if (!smtp_generate_noop(self))
         {
           goto error_reject_data;
         }
-      
+
       /* we are entered here prior sending the DATA command */
 
       /* we respond in the name of the server to let our child proxy
        * have a chance to reject the contents (otherwise an empty
-       * message would be sent) */              
+       * message would be sent) */
       g_string_assign(self->response, "354");
       g_string_assign(self->response_param, "Go on, send your message");
       if (!smtp_copy_response(self))
         {
           /* the client probably closed its connection, we should attempt to
-           * write a 421 and close the session */ 
+           * write a 421 and close the session */
           goto error_before_transfer;
-          
+
         }
-      
+
       /* from this point the client sent a "DATA" and we responded to it
        * with 354, Thus the client is sending the mail body */
-      
+
       do
         {
           tr = z_transfer2_run(self->transfer);
-          
+
           if (tr == ZT2_RESULT_SUSPENDED)
             {
               suspend_reason = z_transfer2_get_suspend_reason(self->transfer);
@@ -1034,9 +1038,9 @@ smtp_process_transfer(SmtpProxy *self)
             }
         }
       while (tr == ZT2_RESULT_SUSPENDED && suspend_reason != SMTP_TRANSFER_SUSPEND_DATA);
-      
+
       /* still receiving the mail body */
-      
+
       if (tr == ZT2_RESULT_SUSPENDED)
         {
           g_string_assign(self->request, "DATA");
@@ -1044,7 +1048,7 @@ smtp_process_transfer(SmtpProxy *self)
           if (!smtp_copy_request(self))
             {
               /* the server probably closed its connection */
-              
+
               /* we need to fetch the end of the mail body, and return 550 to indicate failure and send RSET to server */
               goto error_reset;
             }
@@ -1067,18 +1071,18 @@ smtp_process_transfer(SmtpProxy *self)
 	       */
               z_proxy_log(self, SMTP_POLICY, 3, "Invalid policy ignored, allowing 354 response to DATA is required;");
             }
-          
+
           do
             {
               tr = z_transfer2_run(self->transfer);
             }
           while (tr == ZT2_RESULT_SUSPENDED);
-          
-          /* ok, the transfer either succeeded or it failed but it is ended. 
+
+          /* ok, the transfer either succeeded or it failed but it is ended.
            * if it was a failure we return 550 and go on fetching the next
            * request, if it was a success we go on fetching the next
            * response from the server */
-          
+
         }
       else if (tr == ZT2_RESULT_FINISHED)
         {
@@ -1090,7 +1094,7 @@ smtp_process_transfer(SmtpProxy *self)
 		rejects it.
 	       */
               z_proxy_log(self, SMTP_POLICY, 3, "Invalid contents; stack_info='%s'", z_transfer2_get_stack_info(self->transfer));
-              
+
               smtp_format_stack_info(self, "Error storing message", z_transfer2_get_stack_info(self->transfer));
             }
           else if (z_transfer2_get_stack_decision(self->transfer) == ZV_DROP)
@@ -1119,18 +1123,18 @@ smtp_process_transfer(SmtpProxy *self)
             }
           goto error_reset;
         }
-      
+
     }
   else
     {
       /* the DATA command was sent and its response is received &
        * copied back to the client, check if we really need to
        * transfer data */
-      
+
       if (strcmp(self->response->str, "354") == 0)
         {
           /* ok, our DATA command was accepted, go on sending the data stream */
-          
+
           tr = z_transfer2_run(self->transfer);
           while (tr == ZT2_RESULT_SUSPENDED)
             tr = z_transfer2_run(self->transfer);
@@ -1144,33 +1148,33 @@ smtp_process_transfer(SmtpProxy *self)
     goto error_abort;
   else if (tr == ZT2_RESULT_FAILED)
     goto error_in_transfer;
-    
+
   return TRUE;
 
  error_reject_data:
   g_string_assign(self->response, "450");
   g_string_assign(self->response_param, "Mailbox unavailable, try again");
   z_proxy_log(self, SMTP_ERROR, 2, "Server closed the connection before transmission;");
-  return FALSE;  
-  
+  return FALSE;
+
  error_before_transfer:
   self->error_abort = TRUE;
   g_string_assign(self->error_code, "421");
   g_string_assign(self->error_info, "Service not available, closing transmission channel.");
   z_proxy_log(self, SMTP_ERROR, 2, "Client closed the connection before transmission;");
   return FALSE;
-  
+
  error_abort:
   self->error_abort = TRUE;
   g_string_assign(self->error_code, "550");
   g_string_assign(self->error_info, "Mail body error (probably incorrect CRLF sequence)");
   z_proxy_log(self, SMTP_VIOLATION, 2, "Transaction aborted, some data may have been sent;");
   return FALSE;
-  
+
  error_reset:
   g_string_assign(self->request, "RSET");
   g_string_assign(self->request_param, "");
-  
+
   if (!smtp_copy_request(self) ||
       !smtp_fetch_response(self) ||
       !smtp_response_accepted(smtp_process_response(self)))
@@ -1180,7 +1184,7 @@ smtp_process_transfer(SmtpProxy *self)
        */
       z_proxy_log(self, SMTP_ERROR, 3, "Error sending RSET to the server;");
     }
- 
+
  error_in_transfer:
   /* fetch the remaining mail body and return 550 */
   z_transfer2_rollback(self->transfer);
@@ -1326,13 +1330,13 @@ smtp_main(ZProxy *s)
   SmtpProxy *self = Z_CAST(s, SmtpProxy);
   gboolean success, accepted;
   gboolean need_quit = FALSE;
-  
+
   z_proxy_enter(self);
   if (!z_proxy_connect_server(&self->super, NULL, 0))
     self->proxy_state = SMTP_PROXY_UNCONNECTED_GREET;
   else
-    self->proxy_state = SMTP_PROXY_RESPONSE; 
-   
+    self->proxy_state = SMTP_PROXY_RESPONSE;
+
   if (!smtp_init_streams(self))
     z_proxy_return(self);
 
@@ -1347,7 +1351,7 @@ smtp_main(ZProxy *s)
         }
       g_string_assign(self->error_code, "500");
       g_string_assign(self->error_info, "Invalid command");
-    
+
       switch (self->proxy_state)
         {
         case SMTP_PROXY_UNCONNECTED_GREET:
@@ -1355,7 +1359,7 @@ smtp_main(ZProxy *s)
           g_string_assign(self->error_info, "Server not available");
           self->proxy_state = SMTP_PROXY_UNCONNECTED_REJECT_ALL;
           goto error;
-          
+
         case SMTP_PROXY_UNCONNECTED_REJECT_ALL:
           if (!smtp_fetch_request(self))
             goto error;
@@ -1412,7 +1416,7 @@ smtp_main(ZProxy *s)
                 {
                   accepted = TRUE;
                 }
-              
+
               if (!accepted && success)
                 {
                   z_proxy_log(self, SMTP_RESPONSE, 4, "Server rejected our message; response='%s', response_param='%s'", self->response->str, self->response_param->str);
@@ -1429,12 +1433,12 @@ smtp_main(ZProxy *s)
 	    This message reports the accounting information of the mail transfer.
 	   */
           if (success)
-            z_proxy_log(self, SMTP_ACCOUNTING, 4, 
-                        "Accounting; sender='%s', recipient='%s', response='%s', response_param='%s', result='%s'", 
+            z_proxy_log(self, SMTP_ACCOUNTING, 4,
+                        "Accounting; sender='%s', recipient='%s', response='%s', response_param='%s', result='%s'",
                         self->sender->str, self->recipients->str, self->response->str, self->response_param->str, accepted ? "success" : "failure");
           else
-            z_proxy_log(self, SMTP_ACCOUNTING, 4, 
-                        "Accounting; sender='%s', recipient='%s', response='%s', response_param='%s', result='%s'", 
+            z_proxy_log(self, SMTP_ACCOUNTING, 4,
+                        "Accounting; sender='%s', recipient='%s', response='%s', response_param='%s', result='%s'",
                         self->sender->str, self->recipients->str, self->error_code->str, self->error_info->len ? self->error_info->str : "Invalid command", accepted ? "success" : "failure");
 
           smtp_reset_state(self);
@@ -1470,7 +1474,7 @@ smtp_main(ZProxy *s)
                       self->transfer = NULL;
                       self->data_transfer = FALSE;
                       g_string_assign(self->error_code, "421");
-                      g_string_assign(self->error_info, "Service not available, closing transmission channel.");  
+                      g_string_assign(self->error_info, "Service not available, closing transmission channel.");
                       need_quit = TRUE;
                       goto error;
                     }
@@ -1541,13 +1545,13 @@ smtp_main(ZProxy *s)
           break;
         }
       continue;
-      
+
      error:
       if (self->proxy_state != SMTP_PROXY_UNCONNECTED_REJECT_ALL && !need_quit)
          self->proxy_state = SMTP_PROXY_REQUEST;
       if (need_quit)
          self->proxy_state = SMTP_PROXY_UNCONNECTED_REJECT_ALL;
-      
+
       if (self->transfer)
         {
           z_transfer2_cancel(self->transfer);
@@ -1579,14 +1583,14 @@ smtp_main(ZProxy *s)
  *
  * This function is called by the Zorp core to create a new SMTP proxy
  * instance.
- * 
+ *
  * Returns: a ZProxy reference which represents the new proxy
  **/
 static ZProxy *
 smtp_proxy_new(ZProxyParams *params)
 {
   SmtpProxy  *self;
-  
+
   z_enter();
   self = Z_CAST(z_proxy_new(Z_CLASS(SmtpProxy), params), SmtpProxy);
   z_return((ZProxy *) self);
@@ -1603,7 +1607,7 @@ static void
 smtp_proxy_free(ZObject *s)
 {
   SmtpProxy *self = Z_CAST(s, SmtpProxy);
-  
+
   z_enter();
   z_poll_unref(self->poll);
   g_string_free(self->auth_request, TRUE);
@@ -1625,6 +1629,11 @@ ZProxyFuncs smtp_proxy_funcs =
 
 Z_CLASS_DEF(SmtpProxy, ZProxy, smtp_proxy_funcs);
 
+static ZProxyModuleFuncs smtp_module_funcs =
+  {
+    .create_proxy = smtp_proxy_new,
+  };
+
 /**
  * zorp_module_init:
  *
@@ -1634,8 +1643,7 @@ gint
 zorp_module_init(void)
 {
 
-  z_registry_add("smtp", ZR_PROXY, smtp_proxy_new);
+  z_registry_add("smtp", ZR_PROXY, &smtp_module_funcs);
   smtp_init_cmd_hash();
   return TRUE;
 }
-

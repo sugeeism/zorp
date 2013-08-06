@@ -62,15 +62,15 @@ enum
 #define TO      "To: "
 #define SUBJECT "Subject: "
 
-static GIOStatus 
+static GIOStatus
 pop3_transfer_src_read(ZTransfer2 *s, ZStream *stream, gchar *buf, gsize count, gsize *bytes_read, GError **err)
 {
   GIOStatus ret;
   Pop3Transfer *self = Z_CAST(s, Pop3Transfer);
   Pop3Proxy *owner = Z_CAST(s->owner, Pop3Proxy);
-  
+
   ret = Z_SUPER(s, ZTransfer2)->src_read(s, stream, buf, count, bytes_read, err);
-  
+
   if (self->header_state < POP3_HEADER_END &&
        (ret == G_IO_STATUS_NORMAL || (ret == G_IO_STATUS_AGAIN && *bytes_read > 0)))
     {
@@ -152,9 +152,9 @@ ZTransfer2Funcs pop3_transfer_funcs =
   },
   .src_read = pop3_transfer_src_read,
   .dst_write = NULL,
-  .src_shutdown = NULL, 
+  .src_shutdown = NULL,
   .dst_shutdown = NULL,
-  .stack_proxy = pop3_transfer_stack, 
+  .stack_proxy = pop3_transfer_stack,
   .setup = NULL, /* setup */
   .run = NULL,
   .progress = NULL  /* progress */
@@ -169,7 +169,7 @@ pop3_data_transfer(Pop3Proxy *owner)
   GString *preamble;
   gboolean success;
   gchar buf[256];
-    
+
   z_proxy_enter(owner);
   preamble = g_string_new(owner->response->str);
   if (owner->response_param->len)
@@ -187,11 +187,11 @@ pop3_data_transfer(Pop3Proxy *owner)
                                 preamble),
              Pop3Transfer);
   z_transfer2_set_content_format(&t->super.super, "email");
-  
+
   z_stream_line_set_nul_nonfatal(owner->super.endpoints[EP_SERVER], TRUE);
   if (owner->policy_enable_longline)
     z_stream_line_set_split(owner->super.endpoints[EP_SERVER], TRUE);
-  
+
   success = z_transfer2_simple_run(&t->super.super);
   z_stream_line_set_split(owner->super.endpoints[EP_SERVER], FALSE);
   z_stream_line_set_nul_nonfatal(owner->super.endpoints[EP_SERVER], FALSE);
@@ -212,7 +212,7 @@ pop3_data_transfer(Pop3Proxy *owner)
           else
             pop3_response_reject(owner, buf);
           break;
-          
+
         case ZV_ERROR:
           g_snprintf(buf, sizeof(buf), "Error occurred while transferring data (%s)", z_transfer2_get_stack_info(&t->super.super));
           pop3_response_reject(owner, buf);
@@ -229,7 +229,7 @@ pop3_data_transfer(Pop3Proxy *owner)
     {
       pop3_write_client(owner, ".\r\n");
     }
-  
+
   if (owner->from)
     {
       g_string_free(owner->from, TRUE);
@@ -251,4 +251,3 @@ pop3_data_transfer(Pop3Proxy *owner)
   z_object_unref(&t->super.super.super);
   z_proxy_return(owner, success);
 }
-

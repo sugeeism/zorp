@@ -67,8 +67,8 @@ pop3_write_client(Pop3Proxy *self, char *msg)
 {
   GIOStatus rc;
   gsize bytes_written;
- 
-  z_proxy_enter(self); 
+
+  z_proxy_enter(self);
   rc = z_stream_write(self->super.endpoints[EP_CLIENT], msg, strlen(msg), &bytes_written, NULL);
   z_proxy_return(self, rc);
 }
@@ -78,7 +78,7 @@ pop3_write_server(Pop3Proxy *self, char *msg)
 {
   GIOStatus rc;
   gsize bytes_written;
-  
+
   z_proxy_enter(self);
   rc = z_stream_write(self->super.endpoints[EP_SERVER], msg, strlen(msg), &bytes_written, NULL);
   z_proxy_return(self, rc);
@@ -89,7 +89,7 @@ pop3_get_from(gchar *header G_GNUC_UNUSED, gpointer user_data)
 {
   Pop3Proxy *self = Z_CAST(user_data, Pop3Proxy);
   gchar *res;
-  
+
   z_proxy_enter(self);
   res = self->from ? g_strdup(self->from->str) : NULL;
   z_proxy_return(self, res);
@@ -100,7 +100,7 @@ pop3_get_to(gchar *header G_GNUC_UNUSED, gpointer user_data)
 {
   Pop3Proxy *self = Z_CAST(user_data, Pop3Proxy);
   gchar *res;
-  
+
   z_proxy_enter(self);
   res = self->to ? g_strdup(self->to->str) : NULL;
   z_proxy_return(self, res);
@@ -111,12 +111,11 @@ pop3_get_subject(gchar *header G_GNUC_UNUSED, gpointer user_data)
 {
   Pop3Proxy *self = Z_CAST(user_data, Pop3Proxy);
   gchar *res;
-  
+
   z_proxy_enter(self);
   res = self->subject ? g_strdup(self->subject->str) : NULL;
   z_proxy_return(self, res);
 }
-
 
 static ZErrorLoaderVarInfo pop3_error_vars[] =
 {
@@ -133,7 +132,7 @@ pop3_error_msg(Pop3Proxy *self, gchar *additional_info)
   gchar error_filename[256];
   guint error_len;
   gchar response[512];
-  
+
   z_proxy_enter(self);
   g_snprintf(error_filename, sizeof(error_filename), ZORP_DATADIR "/pop3/%s/reject.msg", self->super.language->str);
   error_msg = z_error_loader_format_file(error_filename, additional_info, Z_EF_ESCAPE_NONE, pop3_error_vars, self);
@@ -144,7 +143,7 @@ pop3_error_msg(Pop3Proxy *self, gchar *additional_info)
       if (pop3_write_client(self, response) != G_IO_STATUS_NORMAL ||
           pop3_write_client(self, error_msg) != G_IO_STATUS_NORMAL)
         goto exit;
-  
+
       if (error_msg[error_len -1] != '\n')
         {
           if (pop3_write_client(self, "\r\n") != G_IO_STATUS_NORMAL)
@@ -152,7 +151,7 @@ pop3_error_msg(Pop3Proxy *self, gchar *additional_info)
         }
     }
   pop3_write_client(self, ".\r\n");
-  
+
  exit:
   z_proxy_return(self);
 }
@@ -161,19 +160,19 @@ GIOStatus
 pop3_response_read(Pop3Proxy *self)
 {
   GIOStatus res;
-  
+
   z_proxy_enter(self);
   self->reply_length = self->max_reply_length;
   res = z_stream_line_get(self->super.endpoints[EP_SERVER], &self->reply_line, &self->reply_length, NULL);
   z_proxy_return(self, res);
 }
 
-guint 
+guint
 pop3_response_parse(Pop3Proxy *self)
 {
   gchar response[5];
   guint i;
-  
+
   z_proxy_enter(self);
   if (self->reply_length > self->max_reply_length)
     {
@@ -185,11 +184,11 @@ pop3_response_parse(Pop3Proxy *self)
          (int)self->reply_length, self->reply_line, (int)self->reply_length, self->max_reply_length);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   for (i = 0; i < 4 && i < self->reply_length && self->reply_line[i] != ' '; i++)
     response[i] = self->reply_line[i];
   response[i++] = 0;
-  
+
   if ((strcmp(response,"+OK") != 0) && (strcmp(response,"-ERR") != 0))
     {
       /*LOG
@@ -199,17 +198,17 @@ pop3_response_parse(Pop3Proxy *self)
       z_proxy_log(self, POP3_VIOLATION, 3, "Response status is invalid; rsp='%s'", response);
       z_proxy_return(self, POP3_RSP_REJECT);
     }
-  
+
   if (strcmp(response, "+OK") != 0)
     self->response_multiline = FALSE;
-  
+
   g_string_assign(self->response, response);
   if (self->reply_length > i)
     {
       g_string_assign_len(self->response_param,
                           self->reply_line + i,
                           self->reply_length - i);
-     
+
       /*LOG
         This message reports that the fetched response contains a parameter.
        */
@@ -225,12 +224,12 @@ pop3_response_parse(Pop3Proxy *self)
     }
   z_proxy_return(self, POP3_RSP_ACCEPT);
 }
-  
+
 guint
 pop3_response_process(Pop3Proxy *self)
 {
   guint ret = POP3_RSP_ACCEPT;
-  
+
   z_proxy_enter(self);
   if (self->pop3_state == POP3_STATE_LISTEN)
     {
@@ -252,7 +251,7 @@ void
 pop3_response_write(Pop3Proxy *self)
 {
   gchar newline[self->max_reply_length + 3];
-  
+
   z_proxy_enter(self);
   if (self->response_param->len)
     g_snprintf(newline, sizeof(newline), "%s %s\r\n", self->response->str, self->response_param->str);
@@ -266,7 +265,7 @@ void
 pop3_response_reject(Pop3Proxy *self, gchar *error_msg)
 {
   gchar msg_buf[1024];
-  
+
   z_proxy_enter(self);
   if (!error_msg)
     error_msg = "Error in protocol";
@@ -302,7 +301,7 @@ pop3_server_to_client(ZStream *stream G_GNUC_UNUSED,
   Pop3Proxy *self = (Pop3Proxy *)user_data;
   guint resp;
   GIOStatus rc;
-  
+
   z_proxy_enter(self);
   rc = pop3_response_read(self);
   if (rc != G_IO_STATUS_NORMAL)
@@ -323,7 +322,7 @@ pop3_server_to_client(ZStream *stream G_GNUC_UNUSED,
     {
       resp = pop3_auth_parse(self, EP_SERVER);
     }
-  
+
   switch (resp)
     {
     case POP3_RSP_ACCEPT:
@@ -341,16 +340,16 @@ pop3_server_to_client(ZStream *stream G_GNUC_UNUSED,
           pop3_response_write(self);
         }
       break;
-      
+
     case POP3_RSP_REJECT:
       pop3_response_reject(self, NULL);
       break;
-      
+
     case POP3_RSP_ABORT:
       pop3_response_reject(self, NULL);
       self->pop3_state = POP3_STATE_QUIT;
       break;
-      
+
     default:
       self->pop3_state = POP3_STATE_QUIT;
       break;
@@ -365,7 +364,7 @@ gboolean
 pop3_command_read(Pop3Proxy *self)
 {
   GIOStatus res;
-  
+
   z_proxy_enter(self);
   self->response_multiline = FALSE;
   self->request_length = self->max_request_length;
@@ -383,12 +382,12 @@ pop3_command_read(Pop3Proxy *self)
   z_proxy_return(self, TRUE);
 }
 
-guint 
+guint
 pop3_command_parse(Pop3Proxy *self)
 {
   gchar command[10];
   guint i;
-  
+
   z_proxy_enter(self);
   if (self->request_length > self->max_request_length)
     {
@@ -400,13 +399,13 @@ pop3_command_parse(Pop3Proxy *self)
          (int)self->request_length, self->request_line, (int)self->request_length, self->max_request_length);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   for(i = 0; i < sizeof(command) - 1 && i < self->request_length && self->request_line[i] != ' '; i++)
     command[i] = self->request_line[i];
   command[i++] = 0;
   g_string_assign(self->command, command);
   g_string_ascii_up(self->command);
-  
+
   if (self->request_length > i)
     {
       g_string_assign_len(self->command_param,
@@ -432,12 +431,12 @@ pop3_command_parse(Pop3Proxy *self)
     {
       /*LOG
         This message indicates that the request was unknown and Zorp aborts the connection.
-	Check the 'permit_unknown_command' and the 'request' attributes. 
+	Check the 'permit_unknown_command' and the 'request' attributes.
        */
       z_proxy_log(self, POP3_REQUEST, 3, "Unknown request command; req='%s'", self->command->str);
       z_proxy_return(self, POP3_REQ_ABORT);
-    }  
-  
+    }
+
   if (self->command_desc && !(self->command_desc->pop3_state & self->pop3_state))
     {
       /*LOG
@@ -449,7 +448,7 @@ pop3_command_parse(Pop3Proxy *self)
     }
   z_proxy_return(self, POP3_REQ_ACCEPT);
 }
-  
+
 guint
 pop3_command_process(Pop3Proxy *self)
 {
@@ -473,7 +472,7 @@ void
 pop3_command_write(Pop3Proxy *self)
 {
   gchar newline[self->max_request_length + 3];
-  
+
   z_proxy_enter(self);
   if (self->command_param->len > 0)
     g_snprintf(newline, sizeof(newline), "%s %s\r\n", self->command->str, self->command_param->str);
@@ -487,7 +486,7 @@ void
 pop3_command_reject(Pop3Proxy *self)
 {
   gchar newline[self->max_reply_length + 1];
-  
+
   z_proxy_enter(self);
   g_snprintf(newline, sizeof(newline), "%s %s\r\n", self->response->str, self->response_param->str);
   pop3_write_client(self, newline);
@@ -501,7 +500,7 @@ pop3_client_to_server(ZStream *stream G_GNUC_UNUSED,
 {
   Pop3Proxy *self = (Pop3Proxy *)user_data;
   guint resp;
-  
+
   z_proxy_enter(self);
   g_string_assign(self->response, "-ERR");
   g_string_assign(self->response_param, "Invalid command.");
@@ -511,7 +510,7 @@ pop3_client_to_server(ZStream *stream G_GNUC_UNUSED,
       self->pop3_state = POP3_STATE_QUIT;
       z_proxy_return(self, FALSE);
     }
-  
+
   /* NOTE
    * POP3_STATE_AUTH_A_CANCEL state not needed because
    * it's could only be set after this and no other turn
@@ -527,18 +526,18 @@ pop3_client_to_server(ZStream *stream G_GNUC_UNUSED,
     {
       resp = pop3_auth_parse(self, EP_CLIENT);
     }
-  
+
   switch (resp)
     {
     case POP3_REQ_ACCEPT:
       pop3_command_write(self);
       self->state = POP3_SERVER;
       break;
-      
+
     case POP3_REQ_REJECT:
       pop3_command_reject(self);
       break;
-      
+
     case POP3_REQ_ABORT:
       pop3_command_reject(self); /* No break ! */
 
@@ -555,13 +554,13 @@ pop3_set_defaults(Pop3Proxy *self)
   z_proxy_enter(self);
   self->max_username_length = 32;
   self->max_password_length = 32;
-  
+
   self->username = g_string_new("");
   self->password = g_string_new("");
 
   self->command       = g_string_new("");
   self->command_param = g_string_new("");
-  
+
   self->response       = g_string_new("");
   self->response_param = g_string_new("");
 
@@ -622,7 +621,7 @@ pop3_register_vars(Pop3Proxy *self)
   z_proxy_var_new(&self->super, "request_param",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->command_param);
-  
+
   z_proxy_var_new(&self->super, "response_value",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->response);
@@ -637,15 +636,15 @@ pop3_register_vars(Pop3Proxy *self)
   z_proxy_var_new(&self->super, "response_multiline",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET,
                   &self->response_multiline);
-  
+
   z_proxy_var_new(&self->super, "permit_unknown_command",
                   Z_VAR_TYPE_INT | Z_VAR_SET_CONFIG | Z_VAR_GET,
                   &self->permit_unknown_command);
-                  
+
   z_proxy_var_new(&self->super, "request",
                   Z_VAR_TYPE_HASH | Z_VAR_GET_CONFIG | Z_VAR_GET,
                   self->commands_policy);
-                  
+
   z_proxy_var_new(&self->super, "response_stack",
                   Z_VAR_TYPE_HASH | Z_VAR_GET_CONFIG | Z_VAR_GET,
                   self->command_stack);
@@ -682,7 +681,7 @@ pop3_init_streams(Pop3Proxy *self)
                                                        self->buffer_length,
                                                        ZRL_EOL_CRLF);
   z_stream_unref(tmpstream);
-  
+
   tmpstream = self->super.endpoints[EP_SERVER];
   self->super.endpoints[EP_SERVER] = z_stream_line_new(tmpstream,
                                                        self->buffer_length,
@@ -717,16 +716,16 @@ void
 pop3_config_init(Pop3Proxy *self)
 {
   int i;
-  
+
   z_proxy_enter(self);
 /* Load the command hash. */
   for (i = 0; known_commands[i].name != NULL; i++)
     g_hash_table_insert(self->pop3_commands, known_commands[i].name,
                         &known_commands[i]);
-  
+
   if (self->max_request_length + 1 > self->buffer_length)
     self->buffer_length = self->max_request_length + 1;
-  
+
   if (self->max_reply_length + 1 > self->buffer_length)
     self->buffer_length = self->max_request_length + 1;
 
@@ -738,7 +737,7 @@ static gboolean
 pop3_config(ZProxy *s)
 {
   Pop3Proxy *self = Z_CAST(s, Pop3Proxy);
-  
+
   z_proxy_enter(self);
   pop3_set_defaults(self);
   pop3_register_vars(self);
@@ -767,15 +766,15 @@ pop3_main(ZProxy *s)
 
   self->pop3_state = POP3_STATE_LISTEN;
   self->state = POP3_SERVER;
-  
+
   z_stream_set_cond(self->super.endpoints[EP_CLIENT],
                     G_IO_IN,
                     FALSE);
   z_stream_set_cond(self->super.endpoints[EP_SERVER],
                     G_IO_IN,
                     TRUE);
-  
-  while (self->pop3_state != POP3_STATE_QUIT && 
+
+  while (self->pop3_state != POP3_STATE_QUIT &&
          z_poll_is_running(self->poll))
     {
       if (!z_proxy_loop_iteration(s))
@@ -793,7 +792,7 @@ pop3_main(ZProxy *s)
                             G_IO_IN,
                             FALSE);
           break;
-          
+
         case POP3_SERVER:
           z_stream_set_cond(self->super.endpoints[EP_CLIENT],
                             G_IO_IN,
@@ -802,11 +801,11 @@ pop3_main(ZProxy *s)
                             G_IO_IN,
                             TRUE);
           break;
-          
+
         case POP3_SERVER_MULTILINE:
           pop3_response_multiline(self);
           continue;
-          
+
         default:
           self->pop3_state = POP3_STATE_QUIT;
           break;
@@ -821,7 +820,7 @@ pop3_main(ZProxy *s)
 
 ZProxyFuncs pop3_proxy_funcs =
 {
-  { 
+  {
     Z_FUNCS_COUNT(ZProxy),
     pop3_proxy_free,
   },
@@ -836,7 +835,7 @@ static ZProxy *
 pop3_proxy_new(ZProxyParams *params)
 {
   Pop3Proxy  *self;
-  
+
   z_enter();
   self = Z_CAST(z_proxy_new(Z_CLASS(Pop3Proxy), params), Pop3Proxy);
   z_return((ZProxy *) self);
@@ -846,7 +845,7 @@ static void
 pop3_proxy_free(ZObject *s)
 {
   Pop3Proxy *self = (Pop3Proxy *) s;
-  
+
   z_enter();
   g_hash_table_destroy(self->pop3_commands);
   z_poll_unref(self->poll);
@@ -854,16 +853,20 @@ pop3_proxy_free(ZObject *s)
   z_return();
 }
 
+static ZProxyModuleFuncs pop3_module_funcs =
+  {
+    .create_proxy = pop3_proxy_new,
+  };
 
 /*+
 
   Module initialization function. Registers a new proxy type.
-  
+
 +*/
 gint
 zorp_module_init(void)
 {
-    
-  z_registry_add("pop3", ZR_PROXY, pop3_proxy_new);
+
+  z_registry_add("pop3", ZR_PROXY, &pop3_module_funcs);
   return TRUE;
 }

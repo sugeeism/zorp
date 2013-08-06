@@ -56,7 +56,7 @@ static gint
 z_do_tp40_bind(gint fd, struct sockaddr *sa, socklen_t salen, guint32 sock_flags)
 {
   gint on = 1, res;
-  
+
   z_enter();
   if (sock_flags & ZSF_TRANSPARENT || sock_flags & ZSF_MARK_TPROXY)
     {

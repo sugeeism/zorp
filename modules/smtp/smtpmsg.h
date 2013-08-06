@@ -24,7 +24,6 @@
  *
  ***************************************************************************/
 
-
 #ifndef ZORP_MODULES_SMTP_SMTPMSG_H
 #define ZORP_MODULES_SMTP_SMTPMSG_H
 

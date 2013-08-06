@@ -82,16 +82,17 @@ z_policy_proxy_get_proxy(PyObject *obj)
  *
  * Returns:
  * NULL on error, PyNone on success.
- */ 
+ */
 gboolean
 z_policy_proxy_bind_implementation(PyObject *s)
 {
   ZPolicyProxy *self = (ZPolicyProxy *) s;
   ZProxyParams params;
-  gpointer proxy_create;
+  ZProxyModuleFuncs *proxy_module_funcs;
   int proxy_type = ZR_NONE;
   gchar *module_name;
   gchar *proxy_name;
+  gboolean module_load_performed = FALSE;
 
   z_enter();
 
@@ -101,8 +102,8 @@ z_policy_proxy_bind_implementation(PyObject *s)
   module_name = PyString_AsString(self->module_name);
   proxy_name = PyString_AsString(self->proxy_name);
 
-  proxy_create = z_registry_get(proxy_name, &proxy_type);
-  if (!proxy_create)
+  proxy_module_funcs = (ZProxyModuleFuncs *) z_registry_get(proxy_name, &proxy_type);
+  if (!proxy_module_funcs)
     {
       if (!z_load_module(module_name))
         {
@@ -115,9 +116,11 @@ z_policy_proxy_bind_implementation(PyObject *s)
           z_leave();
           return FALSE;
         }
-      proxy_create = z_registry_get(proxy_name, &proxy_type);
+      proxy_module_funcs = (ZProxyModuleFuncs *) z_registry_get(proxy_name, &proxy_type);
+      module_load_performed = TRUE;
     }
-  if (!proxy_create || (proxy_type != ZR_PROXY && proxy_type != ZR_PYPROXY))
+  if (!proxy_module_funcs || (proxy_type != ZR_PROXY && proxy_type != ZR_PYPROXY)
+      || !proxy_module_funcs->create_proxy)
     {
       /*LOG
         This message indicates that Zorp was unable to find the required proxy module.
@@ -127,25 +130,38 @@ z_policy_proxy_bind_implementation(PyObject *s)
       z_leave();
       return FALSE;
     }
-  
+
+  if (module_load_performed)
+    z_policy_proxy_module_py_init(proxy_module_funcs->module_py_init, proxy_name);
+
   params.session_id = PyString_AsString(self->session_id);
   params.pyclient = self->client_stream;
   params.client = z_policy_stream_get_stream(self->client_stream);
   params.handler = (ZPolicyObj *) self;
   params.parent = self->parent_proxy;
-  
+
   /* params.client is referenced through self->client_stream, we need to
    * unref it here as the proxy constructor will take its own reference
    */
   z_stream_unref(params.client);
 
   Py_BEGIN_ALLOW_THREADS;
-  self->proxy = (*(ZProxyCreateFunc) proxy_create)(&params);
+  self->proxy = (*(proxy_module_funcs->create_proxy))(&params);
   Py_END_ALLOW_THREADS;
-  
+
 
   z_leave();
   return TRUE;
+}
+
+void
+z_policy_proxy_module_py_init(ZProxyModulePyInitFunc init_func, const gchar *module_name)
+{
+  if (init_func)
+    {
+      z_log(NULL, CORE_DEBUG, 8, "Notifying module to initialize its policy layer; module='%s'", module_name);
+      (*(init_func))();
+    }
 }
 
 
@@ -173,7 +189,7 @@ z_policy_proxy_getattr(ZPolicyProxy *self, PyObject *name_obj)
   if (self->proxy && self->proxy->dict && z_proxy_get_state(self->proxy) >= ZPS_CONFIG)
     {
       const gchar *name = PyString_AS_STRING(name_obj);
-      
+
       if (strcmp(name, "proxy_started") == 0)
         {
           return PyInt_FromLong(1);
@@ -186,7 +202,7 @@ z_policy_proxy_getattr(ZPolicyProxy *self, PyObject *name_obj)
             {
               PyObject *repr = PyObject_Repr(v);
               /*LOG
-                This message reports that the given proxy-exported 
+                This message reports that the given proxy-exported
                 attribute was fetched, and it contained the also given value.
                */
               z_log(self->proxy->session_id, CORE_DEBUG, 6, "Attribute fetched; attribute='%s', value='%s'", name, PyString_AsString(repr));
@@ -195,7 +211,7 @@ z_policy_proxy_getattr(ZPolicyProxy *self, PyObject *name_obj)
           return v;
         }
     }
-  
+
   return PyObject_GenericGetAttr((PyObject *) self, name_obj);
 }
 
@@ -218,7 +234,7 @@ z_policy_proxy_setattr(ZPolicyProxy *self, PyObject *name_obj, PyObject *value)
   g_assert(PyString_Check(name_obj));
 
   if (self->proxy && self->proxy->dict && z_proxy_get_state(self->proxy) >= ZPS_CONFIG)
-    { 
+    {
       const gchar *name = PyString_AS_STRING(name_obj);
 
       if (z_policy_dict_set_value(self->proxy->dict, z_proxy_get_state(self->proxy) == ZPS_CONFIG, name, value) == 0)
@@ -263,7 +279,7 @@ z_policy_proxy_setattr(ZPolicyProxy *self, PyObject *name_obj, PyObject *value)
  *
  * Returns:
  * NULL on error, PyNone on success.
- */ 
+ */
 static int
 z_policy_proxy_init_instance(ZPolicyProxy *self, PyObject *args)
 {
@@ -284,7 +300,6 @@ z_policy_proxy_init_instance(ZPolicyProxy *self, PyObject *args)
       z_leave();
       return -1;
     }
-    
 
   if (parent != z_policy_none)
     {
@@ -297,12 +312,11 @@ z_policy_proxy_init_instance(ZPolicyProxy *self, PyObject *args)
   self->proxy_name = proxy_name;
   self->module_name = module_name;
   self->session_id = session_id;
-  self->client_stream = client; 
+  self->client_stream = client;
   self->parent_proxy = z_proxy_ref(parent_proxy);
   z_leave();
   return 0;
 }
-
 
 /**
  * z_policy_proxy_free:
@@ -326,8 +340,7 @@ static PyMethodDef z_policy_proxy_methods[] =
   { NULL, NULL, 0, NULL }
 };
 
-
-PyTypeObject z_policy_proxy_type = 
+PyTypeObject z_policy_proxy_type =
 {
   PyObject_HEAD_INIT(&PyType_Type)
   .ob_size = 0,

@@ -1,0 +1,3 @@
+#Allow the nagios user to check for zorp threads and licenses as root
+nagios  ALL=(root) NOPASSWD: /usr/lib/nagios/plugins/check_zorp_*
+

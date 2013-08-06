@@ -23,7 +23,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
+ * Auditor :
  * Notes:
  *
  ***************************************************************************/
@@ -90,32 +90,32 @@ z_proxy_stack_proxy(ZProxy *self, ZPolicyObj *proxy_class, ZStackedProxy **stack
   ZPolicyObj *res, *client_stream, *server_stream, *stack_info_obj;
   ZStream *tmpstream;
   ZStream *client_upstream, *server_upstream;
-  
+
   z_proxy_enter(self);
   if (proxy_class == z_policy_none)
-    { 
+    {
       z_policy_var_unref(proxy_class);
       z_proxy_leave(self);
       return FALSE;
     }
-  
+
   if (!z_proxy_stack_prepare_streams(self, downpair, uppair))
     {
       z_policy_var_unref(proxy_class);
       z_proxy_leave(self);
       return FALSE;
     }
-  
+
   /*LOG
     This message reports that Zorp is about to stack a proxy class
     with the given fds as communication channels.
    */
   z_proxy_log(self, CORE_DEBUG, 6, "Stacking subproxy; client='%d:%d', server='%d:%d'", downpair[0], downpair[1], uppair[0], uppair[1]);
-  
+
   tmpstream = z_stream_fd_new(downpair[1], "");
   client_stream = z_policy_stream_new(tmpstream);
   z_stream_unref(tmpstream);
-  
+
   tmpstream = z_stream_fd_new(uppair[1], "");
   server_stream = z_policy_stream_new(tmpstream);
   z_stream_unref(tmpstream);
@@ -131,11 +131,11 @@ z_proxy_stack_proxy(ZProxy *self, ZPolicyObj *proxy_class, ZStackedProxy **stack
 
   res = z_policy_call(self->handler, "stackProxy", z_policy_var_build("(OOOO)", client_stream, server_stream, proxy_class, stack_info_obj),
                         NULL, self->session_id);
-  
+
   z_policy_var_unref(client_stream);
   z_policy_var_unref(server_stream);
   z_policy_var_unref(stack_info_obj);
-  
+
   if (!res || res == z_policy_none || !z_policy_proxy_check(res))
     {
       z_proxy_log(self, CORE_ERROR, 3, "Error stacking subproxy;");
@@ -152,7 +152,7 @@ z_proxy_stack_proxy(ZProxy *self, ZPolicyObj *proxy_class, ZStackedProxy **stack
   server_upstream = z_stream_fd_new(uppair[0], "");
   *stacked = z_stacked_proxy_new(client_upstream, server_upstream, NULL, self, z_policy_proxy_get_proxy(res), 0);
   z_policy_var_unref(res);
-  
+
   z_proxy_leave(self);
   return TRUE;
 }
@@ -169,7 +169,7 @@ z_proxy_stack_fds(ZProxy *self, gint client_fd, gint server_fd, gint control_fd,
     control_stream = z_stream_fd_new(control_fd, "");
 
   *stacked = z_stacked_proxy_new(client_upstream, server_upstream, control_stream, self, NULL, flags);
-  
+
   z_proxy_leave(self);
   return TRUE;
 }
@@ -222,7 +222,7 @@ z_proxy_control_stream_read(ZStream *stream, GIOCondition cond G_GNUC_UNUSED, gp
       result = FALSE;
       goto exit_unlock;
     }
-  
+
   response = z_cp_command_new("RESULT");
   if (cp_sid != 0)
     {
@@ -235,14 +235,14 @@ z_proxy_control_stream_read(ZStream *stream, GIOCondition cond G_GNUC_UNUSED, gp
      )
     {
       ZProxyStackIface *siface;
-      
+
       iface = z_proxy_find_iface(proxy, Z_CLASS(ZProxyStackIface));
       if (!iface)
         {
           fail_reason = "Proxy does not support Stack interface";
           goto error;
         }
-        
+
       siface = (ZProxyBasicIface *) iface;
       if (strcmp(request->command->str, "SETVERDICT") == 0)
         {
@@ -266,7 +266,7 @@ z_proxy_control_stream_read(ZStream *stream, GIOCondition cond G_GNUC_UNUSED, gp
 	    verdict = ZV_ERROR;
 	  else
 	    verdict = ZV_UNSPEC;
-          
+
           z_proxy_stack_iface_set_verdict(siface, verdict, hdr2 ? hdr2->value->str : NULL);
         }
     }
@@ -307,7 +307,6 @@ z_proxy_control_stream_read(ZStream *stream, GIOCondition cond G_GNUC_UNUSED, gp
 
 
 
-
 /**
  * z_proxy_stack_program:
  * @self: proxy instance
@@ -320,7 +319,7 @@ z_proxy_stack_program(ZProxy *self, const gchar *program, ZStackedProxy **stacke
 {
   int downpair[2], uppair[2], controlpair[2];
   pid_t pid;
-  
+
   z_proxy_enter(self);
 
   if (!z_proxy_stack_prepare_streams(self, downpair, uppair))
@@ -346,26 +345,26 @@ z_proxy_stack_program(ZProxy *self, const gchar *program, ZStackedProxy **stacke
       z_proxy_leave(self);
       return FALSE;
     }
-  
+
   /*LOG
     This message reports that Zorp is about to stack a program
     with the given fds as communication channels.
    */
-  z_proxy_log(self, CORE_DEBUG, 6, "Stacking program; client='%d:%d', server='%d:%d', control='%d:%d', program='%s'", 
+  z_proxy_log(self, CORE_DEBUG, 6, "Stacking program; client='%d:%d', server='%d:%d', control='%d:%d', program='%s'",
               downpair[0], downpair[1], uppair[0], uppair[1], controlpair[0], controlpair[1], program);
- 
+
   pid = fork();
 
   if (pid == 0)
     {
       int i;
       /* child */
-      
+
       dup2(downpair[1], 0);
       dup2(uppair[1], 1);
       /* standard error is inherited */
       dup2(controlpair[1], 3);
-      
+
       for (i = 4; i < sysconf(_SC_OPEN_MAX); i++)
         close(i);
       execl("/bin/sh", "/bin/sh", "-c", program, NULL);
@@ -405,7 +404,7 @@ z_proxy_stack_tuple(ZProxy *self, ZPolicyObj *tuple, ZStackedProxy **stacked, ZP
   guint stack_method;
   ZPolicyObj *arg = NULL;
   gboolean success = FALSE;
-  
+
   if (!z_policy_tuple_get_verdict(tuple, &stack_method) ||
       z_policy_seq_length(tuple) < 2)
     goto invalid_tuple;
@@ -429,7 +428,7 @@ z_proxy_stack_tuple(ZProxy *self, ZPolicyObj *tuple, ZStackedProxy **stacked, ZP
     default:
       break;
     }
-    
+
  exit:
   if (arg)
     z_policy_var_unref(arg);
@@ -440,7 +439,6 @@ z_proxy_stack_tuple(ZProxy *self, ZPolicyObj *tuple, ZStackedProxy **stacked, ZP
   success = FALSE;
   goto exit;
 }
-
 
 /**
  * z_proxy_stack_object:
@@ -458,13 +456,12 @@ z_proxy_stack_object(ZProxy *self, ZPolicyObj *stack_obj, ZStackedProxy **stacke
   *stacked = NULL;
   if (z_policy_str_check(stack_obj))
     return z_proxy_stack_program(self, z_policy_str_as_string(stack_obj), stacked);
-  else 
+  else
   if (z_policy_seq_check(stack_obj))
     return z_proxy_stack_tuple(self, stack_obj, stacked, stack_info);
   else
     return z_proxy_stack_proxy(self, stack_obj, stacked, stack_info);
 }
-
 
 /* stacked proxy */
 
@@ -480,18 +477,19 @@ z_stacked_proxy_unref(ZStackedProxy *self)
 {
   if (self && z_refcount_dec(&self->ref_cnt))
     {
+      g_static_mutex_free(&self->destroy_lock);
       g_free(self);
     }
 }
 
-/** 
+/**
  * z_stacked_proxy_new:
  * @client_stream: client side stream
  * @server_stream: server side stream
  * @control_stream: control stream
  * @proxy: ZProxy instance which initiated stacking
  * @child_proxy: ZProxy instance of the 'child' proxy
- * 
+ *
  * This function creates a new ZStackedProxy instance encapsulating
  * information about a stacked proxy instance. This information can be freed
  * by calling z_stacked_proxy_destroy().  It consumes the stream references
@@ -503,9 +501,11 @@ z_stacked_proxy_new(ZStream *client_stream, ZStream *server_stream, ZStream *con
 {
   ZStackedProxy *self = g_new0(ZStackedProxy, 1);
   gchar buf[Z_STREAM_MAX_NAME];
-  
+
   z_proxy_enter(proxy);
-  
+
+  g_static_mutex_init(&self->destroy_lock);
+
   z_refcount_set(&self->ref_cnt, 1);
   self->flags = flags;
 
@@ -517,11 +517,11 @@ z_stacked_proxy_new(ZStream *client_stream, ZStream *server_stream, ZStream *con
       z_stream_set_name(client_stream, buf);
       self->downstreams[EP_CLIENT] = client_stream;
     }
-  
+
   if (server_stream)
     {
       z_stream_set_nonblock(server_stream, TRUE);
-  
+
       g_snprintf(buf, sizeof(buf), "%s/server_downstream", proxy->session_id);
       z_stream_set_name(server_stream, buf);
       self->downstreams[EP_SERVER] = server_stream;
@@ -531,16 +531,15 @@ z_stacked_proxy_new(ZStream *client_stream, ZStream *server_stream, ZStream *con
   if (child_proxy)
     self->child_proxy = z_proxy_ref(child_proxy);
 
-
   if (control_stream)
     {
       g_snprintf(buf, sizeof(buf), "%s/control", proxy->session_id);
       z_stream_set_name(control_stream, buf);
 
-      self->control_stream = z_stream_push(z_stream_push(control_stream, 
-                                                         z_stream_line_new(NULL, 4096, ZRL_EOL_NL|ZRL_TRUNCATE)), 
+      self->control_stream = z_stream_push(z_stream_push(control_stream,
+                                                         z_stream_line_new(NULL, 4096, ZRL_EOL_NL|ZRL_TRUNCATE)),
                                            z_stream_buf_new(NULL, 4096, Z_SBF_IMMED_FLUSH));
-      
+
       z_stream_set_callback(self->control_stream, G_IO_IN, z_proxy_control_stream_read, z_stacked_proxy_ref(self), (GDestroyNotify) z_stacked_proxy_unref);
       z_stream_set_cond(self->control_stream, G_IO_IN, TRUE);
 
@@ -550,11 +549,10 @@ z_stacked_proxy_new(ZStream *client_stream, ZStream *server_stream, ZStream *con
 
       z_stream_attach_source(self->control_stream, NULL);
     }
-   
+
   z_proxy_leave(proxy);
   return self;
 }
-
 
 /**
  * z_stacked_proxy_destroy:
@@ -592,7 +590,7 @@ z_stacked_proxy_destroy(ZStackedProxy *self)
         }
     }
 
-  
+
   if (self->child_proxy)
     {
       z_proxy_del_child(self->proxy, self->child_proxy);
@@ -608,4 +606,3 @@ z_stacked_proxy_destroy(ZStackedProxy *self)
   z_stacked_proxy_unref(self);
   z_return();
 }
-

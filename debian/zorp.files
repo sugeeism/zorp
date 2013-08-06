@@ -1,5 +1,4 @@
 etc/zorp/*
-usr/sbin/kzorp
 usr/sbin/zorpctl
 usr/share/man/man5/*
 usr/share/man/man8/*

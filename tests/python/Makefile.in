@@ -80,6 +80,7 @@ am__tty_colors = \
 red=; grn=; lgn=; blu=; std=
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
+ADPALERTING_MIN_VERSION = @ADPALERTING_MIN_VERSION@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -124,6 +125,8 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBADPALERTING_CFLAGS = @LIBADPALERTING_CFLAGS@
+LIBADPALERTING_LIBS = @LIBADPALERTING_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBPROXY_CPPFLAGS = @LIBPROXY_CPPFLAGS@
 LIBS = @LIBS@
@@ -189,9 +192,14 @@ ZORPMISC_CFLAGS = @ZORPMISC_CFLAGS@
 ZORPMISC_LIBS = @ZORPMISC_LIBS@
 ZORPMISC_MIN_VERSION = @ZORPMISC_MIN_VERSION@
 ZORP_LIBS = @ZORP_LIBS@
+ZORP_MUNIN_CONF_DIR = @ZORP_MUNIN_CONF_DIR@
+ZORP_MUNIN_DIR = @ZORP_MUNIN_DIR@
+ZORP_NAGIOS_CONF_DIR = @ZORP_NAGIOS_CONF_DIR@
+ZORP_NAGIOS_DIR = @ZORP_NAGIOS_DIR@
 ZORP_OS = @ZORP_OS@
 ZORP_PACKAGE_LICENSE = @ZORP_PACKAGE_LICENSE@
 ZORP_PROC = @ZORP_PROC@
+ZORP_SUDOERSD_CONF_DIR = @ZORP_SUDOERSD_CONF_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -246,7 +254,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 zorp_srcdir = @zorp_srcdir@
-EXTRA_DIST = test_inetdomain.py test_zone.py test_matcher.py test_dispatch.py test_nat.py test_log.py
+EXTRA_DIST = test_inetdomain.py test_zone.py test_matcher.py test_dispatch.py test_nat.py test_log.py test_service.py
 noinst_SCRIPTS = runtest.sh
 TESTS = runalltests.sh
 all: all-am
@@ -535,6 +543,12 @@ uninstall-am:
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	uninstall uninstall-am
 
+
+.PHONY: mkzorp
+mkzorp:
+	make -C ../../zorp
+
+runtest.sh: mkzorp
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

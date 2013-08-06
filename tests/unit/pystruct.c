@@ -48,7 +48,7 @@ test_sockaddr(void)
 {
   ZSockAddr *sa;
   ZPolicyObj *sa_obj;
-  
+
   sa = z_sockaddr_inet_new("192.168.1.1", 59999);
   sa_obj = z_policy_sockaddr_new(sa);
   z_sockaddr_unref(sa);
@@ -90,6 +90,7 @@ test_dict(void)
   ZPolicyObj *simple_obj;
   gchar simple_cstr[64] = "huligan";
   ZSockAddr *sa;
+  gchar bytearray[128] = "bytearray";
 
   simple_int = 55555;
   simple_str = g_string_new("abcdef");
@@ -101,7 +102,7 @@ test_dict(void)
   z_sockaddr_unref(sa);
 
   dict = z_policy_dict_new();
-  
+
   z_policy_dict_register(dict, Z_VT_INT, "simple_int", Z_VF_RW, &simple_int);
   z_policy_dict_register(dict, Z_VT_INT, "literal_int", Z_VF_RW | Z_VF_LITERAL, 66666);
   z_policy_dict_register(dict, Z_VT_STRING, "simple_str", Z_VF_RW, simple_str);
@@ -115,17 +116,19 @@ test_dict(void)
   z_policy_dict_register(dict, Z_VT_OBJECT, "simple_obj", Z_VF_RW, &simple_obj);
                            // get, set, free, user_data, user_data_free
   z_policy_dict_register(dict, Z_VT_CUSTOM, "custom", Z_VF_RW, (gpointer) 0xaaffaaff, test_custom_get_value, test_custom_set_value, NULL, (gpointer) 0xdeadbabe, NULL);
+  z_policy_dict_register(dict, Z_VT_BYTEARRAY, "bytearray_dup", Z_VF_READ | Z_VF_LITERAL | Z_VF_DUP, bytearray, sizeof(bytearray));
+  z_policy_dict_register(dict, Z_VT_BYTEARRAY, "bytearray", Z_VF_READ, bytearray, sizeof(bytearray));
   /*
-                           Z_VT_IP6,             
-                           Z_VT_HASH,            
-                           Z_VT_METHOD,          
-                           Z_VT_DIMHASH,         
+                           Z_VT_IP6,
+                           Z_VT_HASH,
+                           Z_VT_METHOD,
+                           Z_VT_DIMHASH,
   */
 
   str = z_policy_struct_new(dict, Z_PST_SHARED);
   call_test_func("test_dict", z_policy_var_build("(O)", str));
   z_policy_var_unref(str);
- 
+
 }
 
 int
@@ -161,10 +164,10 @@ main()
       return 2;
     }
   fclose(script);
-  
+
   test_sockaddr();
   test_dict();
-  
+
   z_policy_thread_release(policy->main_thread);
   //z_policy_unref(policy);
 

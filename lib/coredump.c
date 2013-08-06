@@ -24,13 +24,13 @@
  *
  ***************************************************************************/
 
+#include <zorp/coredump.h>
+#include <zorp/log.h>
+
 #include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
-#include <glib.h>
-#include <zorp/log.h>
-#include <zorpconfig.h>
 
 #ifdef HAVE_GOOGLE_COREDUMPER_H
 

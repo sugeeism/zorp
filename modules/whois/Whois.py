@@ -37,7 +37,7 @@
       <title>The Whois protocol</title>
       <para>
         Whois is a netwide service to the Internet users maintained by
-        DDN Network Information Center (NIC). 
+        DDN Network Information Center (NIC).
       </para>
       <para>
         The protocol follows a very simple method. First the client
@@ -50,14 +50,14 @@
     <section>
       <title>Proxy behavior</title>
       <para>
-        WhoisProxy is a module build for parsing messages of the WHOIS protocol. It reads and parses the REQUESTs on the client side and sends them to the server if the local security policy permits. Arriving RESPONSEs are not parsed as they do not have any fixed structure or syntax. 
+        WhoisProxy is a module build for parsing messages of the WHOIS protocol. It reads and parses the REQUESTs on the client side and sends them to the server if the local security policy permits. Arriving RESPONSEs are not parsed as they do not have any fixed structure or syntax.
       </para>
       <example>
         <title>Example WhoisProxy logging all whois requests</title>
         <synopsis>class MyWhoisProxy(AbstractWhoisProxy):
-	def whoisRequest(self, request):
-		log(None, CORE_DEBUG, 3, "Whois request: '%s'" % (request))
-		return ZV_ACCEPT</synopsis>
+        def whoisRequest(self, request):
+                log(None, CORE_DEBUG, 3, "Whois request: '%s'" % (request))
+                return ZV_ACCEPT</synopsis>
       </example>
     </section>
     <section>
@@ -83,189 +83,188 @@ from Zorp import *
 from Proxy import Proxy
 
 class AbstractWhoisProxy(Proxy):
-	"""<class maturity="stable" abstract="yes">
+    """<class maturity="stable" abstract="yes">
+      <summary>
+        Class encapsulating the abstract Whois proxy.
+      </summary>
+      <description>
+        <para>
+          This class implements the WHOIS protocol as specified in RFC 954.
+        </para>
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute maturity="stable">
+            <name>timeout</name>
+            <type>
+              <integer/>
+            </type>
+            <default>30000</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              I/O timeout in milliseconds.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_line_length</name>
+            <type>
+              <integer/>
+            </type>
+            <default>132</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum number of characters allowed in a single line.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_request_length</name>
+            <type>
+              <integer/>
+            </type>
+            <default>128</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum allowed length of a Whois request.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>request</name>
+            <type>
+              <string/>
+            </type>
+            <default/>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              The Whois request.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>response_header</name>
+            <type>
+              <string/>
+            </type>
+            <default/>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Prepend this string to each Whois response.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>response_footer</name>
+            <type>
+              <string/>
+            </type>
+            <default/>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Append this string to each Whois response.
+            </description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
+    name = "whois"
+    def __init__(self, session):
+        """<method maturity="stable" internal="yes">
           <summary>
-            Class encapsulating the abstract Whois proxy.
+            Constructor to initialize a WhoisProxy instance.
           </summary>
           <description>
-            <para>
-              This class implements the WHOIS protocol as specified in RFC 954.
-            </para>
+          <para>
+            This constructor creates and set up a WhoisProxy instance.
+          </para>
           </description>
           <metainfo>
-            <attributes>
-              <attribute maturity="stable">
-                <name>timeout</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>30000</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
+            <arguments>
+              <argument maturity="stable">
+                <name>session</name>
+                <type>SESSION</type>
                 <description>
-                  I/O timeout in milliseconds.
+                  session this instance belongs to
                 </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_line_length</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>132</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum number of characters allowed in a single line.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_request_length</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>128</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum allowed length of a Whois request.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>request</name>
-                <type>
-                  <string/>
-                </type>
-                <default/>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  The Whois request.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>response_header</name>
-                <type>
-                  <string/>
-                </type>
-                <default/>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Prepend this string to each Whois response.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>response_footer</name>
-                <type>
-                  <string/>
-                </type>
-                <default/>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Append this string to each Whois response.
-                </description>
-              </attribute>
-            </attributes>
+              </argument>
+            </arguments>
           </metainfo>
-        </class>
+        </method>
         """
-	name = "whois"
-	def __init__(self, session):
-		"""<method maturity="stable" internal="yes">
-                  <summary>
-                    Constructor to initialize a WhoisProxy instance.
-                  </summary>
-                  <description>
-                  <para>
-                    This constructor creates and set up a WhoisProxy instance.
-                  </para>
-                  </description>
-                  <metainfo>
-                    <arguments>
-                      <argument maturity="stable">
-                        <name>session</name>
-                        <type>SESSION</type>
-                        <description>
-                          session this instance belongs to
-                        </description>
-                      </argument>
-                    </arguments>
-                  </metainfo>
-                </method>
-                """
-		Proxy.__init__(self, session)
+        Proxy.__init__(self, session)
 
-	def whoisRequest(self, request):
-		"""<method>
-		<summary>
-	          Function to process whois requests.
-	        </summary>
-	        <description>
-	          <para>
-			This function is called by the Whois proxy to process the 
-			requests. It can also be used to change specific
-			attributes of the request.
-	          </para>
-	        </description>
-	        <metainfo>
-	          <arguments/>
-	        </metainfo>
-	        </method>
-	        """
-	        """
-		Arguments
-		  self -- this instance
-		  request -- request contents, same as self.request
+    def whoisRequest(self, request):
+        """<method>
+        <summary>
+          Function to process whois requests.
+        </summary>
+        <description>
+          <para>
+                This function is called by the Whois proxy to process the
+                requests. It can also be used to change specific
+                attributes of the request.
+          </para>
+        </description>
+        <metainfo>
+          <arguments/>
+        </metainfo>
+        </method>
+        """
+        """
+        Arguments
+          self -- this instance
+          request -- request contents, same as self.request
 
-                FIXME: xml-isation
-		"""
-		return ZV_ACCEPT
+        FIXME: xml-isation
+        """
+        return ZV_ACCEPT
 
 class WhoisProxy(AbstractWhoisProxy):
-	"""<class maturity="stable">
-          <summary>
-            Default proxy class based on AbstractWhoisProxy.
-          </summary>
-          <description>
-            <para>
-              A default proxy class based on AbstractWhoisProxy.
-            </para>
-          </description>
-          <metainfo>
-            <attributes/>
-          </metainfo>
-        </class>
-        """
-	pass
-
+    """<class maturity="stable">
+      <summary>
+        Default proxy class based on AbstractWhoisProxy.
+      </summary>
+      <description>
+        <para>
+          A default proxy class based on AbstractWhoisProxy.
+        </para>
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    pass

@@ -1,5 +1,5 @@
 
-SUBDIRS = Zorp kznf
+SUBDIRS = Zorp kzorp
 
 pkgdatadir = @datadir@/zorp
 pkgdata_DATA = policy.boot

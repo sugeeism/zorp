@@ -2,12 +2,12 @@
 .\"     Title: zorpctl.conf
 .\"    Author: [see the "Author" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 08/02/2013
+.\"      Date: 08/06/2013
 .\"    Manual: [FIXME: manual]
 .\"    Source: [FIXME: source]
 .\"  Language: English
 .\"
-.TH "ZORPCTL\&.CONF" "5" "08/02/2013" "[FIXME: source]" "[FIXME: manual]"
+.TH "ZORPCTL\&.CONF" "5" "08/06/2013" "[FIXME: source]" "[FIXME: manual]"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -93,18 +93,6 @@ seconds and assumes that Zorp loaded successfully if it did not exit within this
 In
 \fIno\-auto\-restart\fR
 mode the successful loading of a Zorp instance can be verified by instructing Zorp to daemonize itself and waiting for the parent to exit\&. This parameter specifies the number of seconds to wait for Zorp to daemonize itself\&. Default value: 60 seconds\&.
-.RE
-.PP
-\fBPROCESS_LIMIT_MIN\fR
-.RS 4
-The minimum process limit (\fIulimit \-u\fR) used by Zorp in the case when the process limit (calculated from the
-\fI\-\-threads\fR
-parameter) would result a lower value\&. Default value: 256\&.
-.RE
-.PP
-\fBPROCESS_LIMIT_RESERVE\fR
-.RS 4
-The number of extra processes to be allocated (e\&.g\&.: for proxy modules that are known to spawn new processes)\&. Default value: 64\&. This parameter is added to the regular (calculated as the sum of the processes of a program allowed to run per user) process limit\&.
 .RE
 .PP
 \fBFD_LIMIT_THRESHOLD\fR

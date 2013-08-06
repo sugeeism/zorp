@@ -42,4 +42,3 @@ z_policy_proxy_group_check(ZPolicyObj *s)
 void z_policy_proxy_group_module_init(void);
 
 #endif
-

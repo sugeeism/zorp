@@ -95,18 +95,18 @@ enum ZVirtInstanceRole {
 struct _ZInstance
 {
   ZInstance *next;
-  char *real_name, *virtual_name;
+  char *instance_name, *process_name;
+  int process_num;
   char **zorp_argv;
   int zorp_argc;
   char **zorpctl_argv;
   int zorpctl_argc;
   
   int auto_restart;
-  int process_limit;
   int enable_core;
   int no_auto_start;
 
-  int parallel_instances;
+  int num_of_processes;
   enum ZVirtInstanceRole role;
 };
 
@@ -177,6 +177,16 @@ typedef enum _ZCtlCmdProcStatus
   } ZCtlCmdProcStatus;
 
 ZCtlCmdProcStatus z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
+
+typedef enum
+  {
+    Z_CMD_AGGREGATION_ONLY_RUNNING,         /* An aggregate command should be applied to running instances, determined
+                                               by their pid files */
+    Z_CMD_AGGREGATION_CONFIGURED_PROCESSES, /* An aggregate command should be applied to processes specified by
+                                               instances.conf, disregards currently running processes */
+    Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED /* An aggregate command should be applied to both processes specified by
+                                               instances.conf and running processes */
+  } ZCmdAggregation;
 
 int
 z_get_jiffies_per_sec(void)
@@ -289,10 +299,6 @@ static int auto_restart = 1;
 static int start_wait_timeout = 10;
 static double stop_check_delay = 0.1;
 static int stop_check_timeout = 5;
-static int process_limit_reserve = 64;
-static int process_limit_threshold = -1;
-static int process_limit_min = 256;
-static int process_limit_sum = 0;
 static int check_perms = 1;
 static char *zorp_append_args = NULL;
 static char *zorpctl_append_args = NULL;
@@ -389,7 +395,7 @@ z_instance_running(ZInstance *inst, pid_t *pid, int *stale)
   char buf[256];
   
   *stale = 0;
-  snprintf(buf, sizeof(buf), "%s/zorp-%s.pid", pidfile_dir, inst->virtual_name);
+  snprintf(buf, sizeof(buf), "%s/zorp-%s.pid", pidfile_dir, inst->process_name);
   pidfile = fopen(buf, "r");
   if (!pidfile)
     {
@@ -432,11 +438,13 @@ z_instance_remove_stale_pidfile(const char *instance_name)
 static void
 z_instance_free(ZInstance *inst)
 {
-  free(inst->real_name);
+  free(inst->instance_name);
   if (inst->zorp_argv)
     free(inst->zorp_argv);
   if (inst->zorpctl_argv)
     free(inst->zorpctl_argv);
+  if (inst->process_name && inst->process_name != inst->instance_name)
+    free(inst->process_name);
   free(inst);
 }
 
@@ -520,16 +528,14 @@ z_check_config_dir(void)
 static int
 z_parse_args(ZInstance *inst, char *zorp_args, char *zorpctl_args)
 {
-  static int process_limit = 0;
-  static int no_auto_start = 0, enable_core = 0, parallel_instances = 1;
+  static int no_auto_start = 0, enable_core = 0, num_of_processes = 1;
   static GOptionEntry zorpctl_options[] =
     {
         { "auto-restart", 'A', 0, G_OPTION_ARG_NONE, &auto_restart, NULL, NULL },
         { "no-auto-restart", 'a', G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &auto_restart, NULL, NULL },
         { "no-auto-start", 'S', 0, G_OPTION_ARG_NONE, &no_auto_start, NULL, NULL },
-        { "process-limit", 'p', 0, G_OPTION_ARG_INT, &process_limit, NULL, NULL },
         { "enable-core", 'c', 0, G_OPTION_ARG_NONE, &enable_core, NULL, NULL },
-        { "parallel-instances", 'P', 0, G_OPTION_ARG_INT, &parallel_instances, NULL, NULL },
+        { "num-of-processes", 'P', 0, G_OPTION_ARG_INT, &num_of_processes, NULL, NULL },
         { NULL, 0, 0, 0, NULL, NULL, NULL }
     };
   static int threads = 1000;
@@ -542,7 +548,7 @@ z_parse_args(ZInstance *inst, char *zorp_args, char *zorpctl_args)
   char *buf = NULL;
   GOptionContext *ctx = NULL;
   
-  IGNORE_UNUSED_RESULT(asprintf(&buf, "%s --as %s %s %s", ZORP, inst->real_name, zorp_args, SAFE_STR_EMPTY(zorp_append_args)));
+  IGNORE_UNUSED_RESULT(asprintf(&buf, "%s --as %s %s %s", ZORP, inst->instance_name, zorp_args, SAFE_STR_EMPTY(zorp_append_args)));
   if (!g_shell_parse_argv(buf,  &inst->zorp_argc, &inst->zorp_argv, NULL))
     {
       z_error(1, "Invalid zorp argument list: %s\n", zorp_args);
@@ -576,7 +582,7 @@ z_parse_args(ZInstance *inst, char *zorp_args, char *zorpctl_args)
        * FIXME: this leaks memory.
        * */
       
-      IGNORE_UNUSED_RESULT(asprintf(&buf, "%s --as %s %s %s", ZORP, inst->real_name, zorp_args, SAFE_STR_EMPTY(zorp_append_args)));
+      IGNORE_UNUSED_RESULT(asprintf(&buf, "%s --as %s %s %s", ZORP, inst->instance_name, zorp_args, SAFE_STR_EMPTY(zorp_append_args)));
       if (!g_shell_parse_argv(buf,  &inst->zorp_argc, &inst->zorp_argv, NULL))
         {
           z_error(1, "Invalid zorp argument list: %s\n", zorp_args);
@@ -586,11 +592,9 @@ z_parse_args(ZInstance *inst, char *zorp_args, char *zorpctl_args)
       buf = NULL;
 
       ctx = NULL;
-      process_limit_sum += threads + 5;
     }
     
   inst->auto_restart = auto_restart;
-  inst->process_limit = process_limit = MAX(process_limit_min, threads + 5);
 
   if (inst->zorpctl_argv)
     {
@@ -604,10 +608,9 @@ z_parse_args(ZInstance *inst, char *zorp_args, char *zorpctl_args)
       g_option_context_free(ctx);
       ctx = NULL;
       inst->auto_restart = auto_restart;
-      inst->process_limit = process_limit;
       inst->no_auto_start = no_auto_start;
       inst->enable_core = enable_core;
-      inst->parallel_instances = parallel_instances;
+      inst->num_of_processes = num_of_processes;
 
       if (inst->zorpctl_argc > 1)
         {
@@ -657,10 +660,10 @@ z_parse_instances(void)
         i++;
 
       inst->role = NONE;
-      inst->real_name = strduplen(line, i);
-      if (!z_check_instance_name(inst->real_name))
+      inst->instance_name = strduplen(line, i);
+      if (!z_check_instance_name(inst->instance_name))
         {
-          z_error(1, "Invalid instance name: %s\n", inst->real_name);
+          z_error(1, "Invalid instance name: %s\n", inst->instance_name);
           z_instance_free(inst);
           return 0;
         }
@@ -680,7 +683,7 @@ z_parse_instances(void)
       
       if (!z_parse_args(inst, zorp_args, zorpctl_args))
         {
-          z_error(1, "Invalid argument list at instance: %s\n", inst->real_name);
+          z_error(1, "Invalid argument list at instance: %s\n", inst->instance_name);
           z_instance_free(inst);
           return 0;
         }
@@ -706,7 +709,7 @@ z_search_instance(char *name)
 
   for (p = instances; p; p = p->next)
     {
-      if (strcmp(instance_name, p->real_name) == 0)
+      if (strcmp(instance_name, p->instance_name) == 0)
         {
           ret = p;
           break;
@@ -715,9 +718,10 @@ z_search_instance(char *name)
 
   if (hash && ret)
     {
-      ret->virtual_name = name;
+      ret->process_name = name;
+      ret->process_num = atoi(hash+1);
       /* if the number after the # is 0, it's a master instance, otherwise it's a slave */
-      ret->role = atoi(hash+1) ? SLAVE : MASTER;
+      ret->role = ret->process_num ? SLAVE : MASTER;
     }
 
   g_free(instance_name);
@@ -856,9 +860,6 @@ z_parse_config(void)
             z_parse_config_line_int("START_WAIT_TIMEOUT", name, value, &start_wait_timeout) || 
             z_parse_config_line_double("STOP_CHECK_DELAY", name, value, &stop_check_delay) ||
             z_parse_config_line_int("STOP_CHECK_TIMEOUT", name, value, &stop_check_timeout) ||
-            z_parse_config_line_int("PROCESS_LIMIT_THRESHOLD", name, value, &process_limit_threshold) ||
-            z_parse_config_line_int("PROCESS_LIMIT_RESERVE", name, value, &process_limit_reserve) ||
-	    z_parse_config_line_int("PROCESS_LIMIT_MIN", name, value, &process_limit_min) ||
             z_parse_config_line_int("CHECK_PERMS", name, value, &check_perms) ||
             z_parse_config_line_str("CONFIG_DIR", name, value, &config_dir) ||
             z_parse_config_line_str("CONFIG_DIR_OWNER", name, value, &config_dir_owner) ||
@@ -875,11 +876,6 @@ z_parse_config(void)
           z_error(0, "Unknown zorpctl.conf directive at %d: %s\n", lineno, line);
           res = 0;
         }
-    }
-  if (process_limit_threshold != -1)
-    {
-      z_error(0, "The use of PROCESS_LIMIT_THRESHOLD in zorpctl.conf is deprecated, its value is ignored\n");
-      res = 0;
     }
   if (auto_restart_time_threshold != -1 || auto_restart_max_count != -1 || start_check_timeout != -1 || auto_restart_delay != -1.0)
     {
@@ -1001,7 +997,7 @@ z_process_kzorp_entries(ZInstance *ins, gpointer user_data G_GNUC_UNUSED)
 
       if (!z_parse_kzorp_entry_item(&p, "instance=", &instance) ||
           /* different service */
-          strcmp(instance, ins->real_name) ||
+          strcmp(instance, ins->instance_name) ||
           !z_parse_kzorp_entry_item(&p, "sid=", &sid) ||
           !z_parse_kzorp_entry_item(&p, "dpt=", &dpt) ||
           !z_parse_kzorp_entry_item(&p, "svc=", &svc) ||
@@ -1026,9 +1022,6 @@ z_process_kzorp_entries(ZInstance *ins, gpointer user_data G_GNUC_UNUSED)
           !z_parse_kzorp_entry_item(&p, "dst=", &dst) ||
           !z_parse_kzorp_entry_item(&p, "sport=", &sport) ||
           !z_parse_kzorp_entry_item(&p, "dport=", &dport) ||
-           /* skip these */
-          !z_parse_kzorp_entry_item(&p, NULL, &tmp) ||
-          !z_parse_kzorp_entry_item(&p, NULL, &tmp) ||
           /* It is the other direction. Source and destination are switched */
           !z_parse_kzorp_entry_item(&p, "src=", &src2) ||
           !z_parse_kzorp_entry_item(&p, "dst=", &dst2) ||
@@ -1071,7 +1064,7 @@ z_get_counter(ZInstance *inst, const char *var_name)
   char result[256];
   int success, thread_count;
   
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (!ctx)
     return -1;
   
@@ -1088,17 +1081,6 @@ static int
 z_get_thread_count(ZInstance *inst)
 {
   return z_get_counter(inst, "stats.threads_running");
-}
-
-static void
-z_setup_limits(ZInstance *inst)
-{
-  struct rlimit limit;
-  
-#ifdef RLIMIT_NPROC
-  limit.rlim_cur = limit.rlim_max = MAX(inst->process_limit, process_limit_sum + process_limit_reserve);
-  setrlimit(RLIMIT_NPROC, &limit);
-#endif
 }
 
 static int
@@ -1130,18 +1112,17 @@ z_start_instance(ZInstance *inst)
         {
           case MASTER:
             inst->zorp_argv[inst->zorp_argc++] = "--master";
-            inst->zorp_argv[inst->zorp_argc++] = inst->virtual_name;
+            inst->zorp_argv[inst->zorp_argc++] = inst->process_name;
             break;
           case SLAVE:
             inst->zorp_argv[inst->zorp_argc++] = "--slave";
-            inst->zorp_argv[inst->zorp_argc++] = inst->virtual_name;
+            inst->zorp_argv[inst->zorp_argc++] = inst->process_name;
             break;
           case NONE:
             break;
         }
 
       inst->zorp_argv[inst->zorp_argc] = NULL;
-      z_setup_limits(inst);
       setsid();
       execvp(ZORP, inst->zorp_argv);
       exit(1);
@@ -1155,12 +1136,12 @@ z_start_instance(ZInstance *inst)
           if (z_alarm_fired())
             {
               /* timed out */
-              z_error(1, "Timeout waiting for Zorp instance to start up, instance='%s'\n", inst->virtual_name);
+              z_error(1, "Timeout waiting for Zorp process to start up, process='%s'\n", inst->process_name);
             }
         }
       else if (status != 0)
         { 
-          z_error(1, "Zorp instance startup failed, instance='%s', rc='%d'\n", inst->virtual_name, status);
+          z_error(1, "Zorp process startup failed, process='%s', rc='%d'\n", inst->process_name, status);
           res = 0;
         }
     }
@@ -1180,7 +1161,7 @@ z_process_start_instance(ZInstance *inst, void *user_data UNUSED)
       return 0;
     }
   if (stale)
-    z_instance_remove_stale_pidfile(inst->virtual_name);
+    z_instance_remove_stale_pidfile(inst->process_name);
 
   if (!inst->no_auto_start)
     res = z_start_instance(inst);
@@ -1215,7 +1196,7 @@ z_process_stop_instance(ZInstance *inst, void *user_data)
     }
   if (stale)
     {
-      z_instance_remove_stale_pidfile(inst->virtual_name);
+      z_instance_remove_stale_pidfile(inst->process_name);
     }
   else
     {
@@ -1232,12 +1213,12 @@ z_process_stop_instance(ZInstance *inst, void *user_data)
       if (!killed)
         {
           z_error(1, "Zorp instance did not exit in time (instance='%s', pid='%d', signo='%d', timeout='%d')\n",
-                  SAFE_STR(inst->virtual_name), pid, signo, stop_check_timeout);
+                  SAFE_STR(inst->process_name), pid, signo, stop_check_timeout);
           z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_GENERAL_FAILURE;
           return 0;
         }
       if (signo == SIGKILL)
-        z_instance_remove_stale_pidfile(inst->virtual_name);
+        z_instance_remove_stale_pidfile(inst->process_name);
     }
 
   z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_SUCCESS;
@@ -1279,7 +1260,7 @@ z_process_status_instance(ZInstance *inst, void *user_data)
   char policy_file[256];
   time_t timestamp_szig = 0, timestamp_stat = 0, timestamp_reload = 0;
   
-  printf("Instance %s: ", inst->virtual_name);
+  printf("Process %s: ", inst->process_name);
   if (!z_instance_running(inst, &pid, &stale))
     {
       if (stale)
@@ -1292,7 +1273,7 @@ z_process_status_instance(ZInstance *inst, void *user_data)
         }
       return 1;
     }
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)
     {
       struct stat st;
@@ -1372,7 +1353,7 @@ z_process_authorize(ZInstance *inst, void *user_data)
   char result[16384];
   gchar **params = (gchar **) user_data;
 
-  printf("Instance %s: ", inst->virtual_name);
+  printf("Process %s: ", inst->process_name);
   if (!z_instance_running(inst, &pid, &stale))
     {
       if (stale)
@@ -1385,7 +1366,7 @@ z_process_authorize(ZInstance *inst, void *user_data)
         }
       return 1;
     }
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)
     {
       gboolean accept = params[0] != NULL;
@@ -1442,8 +1423,8 @@ z_process_szig_walk_instance(ZInstance *inst, void *user_data)
   ZSzigContext *ctx;
   char *root = (char *) user_data;
 
-  printf("Instance %s: ", inst->virtual_name);
-  ctx = z_szig_context_new(inst->virtual_name);
+  printf("Process %s: ", inst->process_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (!ctx)
     {
       printf("not running\n");
@@ -1467,7 +1448,7 @@ z_process_log_func(ZInstance *inst, char *cmd, char *param)
   ZSzigContext *ctx;						
   int res = 0;							
                                                                 
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)							
     {								
       if (z_szig_logging(ctx, cmd, param, NULL, 0))		
@@ -1476,7 +1457,7 @@ z_process_log_func(ZInstance *inst, char *cmd, char *param)
     }
   else
     {
-      z_error(1, "Error connecting to Zorp SZIG socket, instance='%s', error='%s'\n", inst->virtual_name, strerror(errno));
+      z_error(1, "Error connecting to Zorp SZIG socket, process='%s', error='%s'\n", inst->process_name, strerror(errno));
     }
     
   return res;
@@ -1518,7 +1499,7 @@ z_process_log_status_instance(ZInstance *inst, void *user_data UNUSED)
   char verb_level[16];
   char spec[128];
 
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)
     {
       if (z_szig_logging(ctx, "VGET", "", verb_level, sizeof(verb_level)))
@@ -1527,13 +1508,13 @@ z_process_log_status_instance(ZInstance *inst, void *user_data UNUSED)
         res = 0;
       if (res)
         {
-          printf("Instance: %s: verbose_level='%s', logspec='%s'\n", inst->virtual_name, verb_level, spec);
+          printf("Process: %s: verbose_level='%s', logspec='%s'\n", inst->process_name, verb_level, spec);
         }
       z_szig_context_destroy(ctx);
     }
   if (!res)
     {
-      printf("Instance: %s, error querying log information\n", inst->virtual_name);
+      printf("Process: %s, error querying log information\n", inst->process_name);
     }
   return res;
 }
@@ -1545,7 +1526,7 @@ z_process_deadlockcheck_func(ZInstance *inst, char *cmd)
   ZSzigContext *ctx;
   int res = 0;
 
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)
     {
       z_szig_deadlockcheck(ctx, cmd, NULL, 0);
@@ -1554,7 +1535,7 @@ z_process_deadlockcheck_func(ZInstance *inst, char *cmd)
     }
   else
     {
-      z_error(1, "Error connecting to Zorp SZIG socket, instance='%s', error='%s'\n", inst->virtual_name, strerror(errno));
+      z_error(1, "Error connecting to Zorp SZIG socket, process='%s', error='%s'\n", inst->process_name, strerror(errno));
     }
 
   return res;
@@ -1579,20 +1560,20 @@ z_process_deadlockcheck_status_instance(ZInstance *inst, void *user_data UNUSED)
   int res = 0;
   char timeout[16];
 
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)
     {
       if (z_szig_deadlockcheck(ctx, "GET", timeout, sizeof(timeout)))
         res = 1;
       if (res)
         {
-          printf("Instance: %s: deadlockcheck='%s'\n", inst->virtual_name, timeout);
+          printf("Process: %s: deadlockcheck='%s'\n", inst->process_name, timeout);
         }
       z_szig_context_destroy(ctx);
     }
   if (!res)
     {
-      printf("Instance: %s, error querying deadlock checker information\n", inst->virtual_name);
+      printf("Process: %s, error querying deadlock checker information\n", inst->process_name);
     }
   return res;
 }
@@ -1603,7 +1584,7 @@ z_process_reload_inline(ZInstance *inst, gboolean suppress_message)
   ZSzigContext *ctx;						
   int res = 0;							
                                                                 
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)							
     {								
       if (z_szig_reload(ctx, NULL, NULL, 0) &&
@@ -1614,7 +1595,7 @@ z_process_reload_inline(ZInstance *inst, gboolean suppress_message)
   else
     {
       if (!suppress_message)
-        z_error(1, "Error connecting to Zorp SZIG socket, instance='%s'", inst->virtual_name);
+        z_error(1, "Error connecting to Zorp SZIG socket, process='%s'", inst->process_name);
     }
     
   return res;
@@ -1639,7 +1620,7 @@ z_process_reload_or_restart(ZInstance *inst, void *user_data UNUSED)
     {
       if (!z_process_restart_instance(inst, NULL))
         {
-          z_error(1, "Both reload and restart failed, instance='%s'", inst->virtual_name);
+          z_error(1, "Both reload and restart failed, process='%s'", inst->process_name);
           res = 0;
         }
       else
@@ -1656,7 +1637,7 @@ z_process_coredump(ZInstance *inst, void *user_data UNUSED)
   int res = 0;
   ZSzigContext *ctx;
 
-  ctx = z_szig_context_new(inst->virtual_name);
+  ctx = z_szig_context_new(inst->process_name);
   if (ctx)
     {
       res = z_szig_coredump(ctx);
@@ -1666,96 +1647,244 @@ z_process_coredump(ZInstance *inst, void *user_data UNUSED)
 
   if (!res)
     {
-      printf("Instance: %s, error creating core dump\n", inst->virtual_name);
+      printf("Process: %s, error creating core dump\n", inst->process_name);
     }
 
   return res;
 }
 
 static int
-z_process_args(char *ident, int argc, char *argv[], ZCmdFunc func, void *user_data, int display_instances) G_GNUC_WARN_UNUSED_RESULT;
+z_process_args(char *ident,
+               int argc, char *argv[],
+               ZCmdFunc func,
+               void *user_data,
+               int display_instances,
+               ZCmdAggregation aggregation) G_GNUC_WARN_UNUSED_RESULT;
 
 static int
 z_process_args_withmsg( const char * msg, 
-char *ident, int argc, char *argv[], ZCmdFunc func, void *user_data, int display_instances)
+char *ident, int argc, char *argv[], ZCmdFunc func, void *user_data, int display_instances, ZCmdAggregation aggregation)
 {
   int res;
   printf("%s", msg);
-  res = z_process_args(ident, argc, argv, func, user_data, display_instances);
+  res = z_process_args(ident, argc, argv, func, user_data, display_instances, aggregation);
   printf("\n");
   return res;
 }
 
-static int
-z_process_args_run_cmd_instance(ZCmdFunc func, void *user_data, ZInstance *inst)
+static gboolean
+z_process_name_from_pidfile(const char* pidfile_name, char **process_name)
 {
-  int success = 1;
-
-  /* an instance will have virtual_name already set if:
-   * 1) the instance is non-parallel (parallel_instances == 1), in this
-   *    case the virtual instance name is the same as the real instance
-   *    name
-   * 2) the instance is parallel (parallel_instances > 1), and the user
-   *    supplied a virtual instance name (on that has a '#') as an
-   *    argument for the command to be executed. In this case
-   *    virtual_name contains the name supplied.
-   */
-  if (!inst->virtual_name)
+#define PIDFILE_PREFIX "zorp-"
+  const int PIDFILE_PREFIX_LEN = strlen(PIDFILE_PREFIX);
+  const char *extension = strstr(pidfile_name, ".pid");
+  if (extension && strstr(pidfile_name, PIDFILE_PREFIX) == pidfile_name)
     {
-      int virt_nr;
-      char virtual_name[MAX_ZORPCTL_LINE_LENGTH];
-
-      for (virt_nr = 0; virt_nr < inst->parallel_instances; ++virt_nr)
-        {
-          inst->role = virt_nr ? SLAVE : MASTER;
-          snprintf(virtual_name, MAX_ZORPCTL_LINE_LENGTH, "%s#%d", inst->real_name, virt_nr);
-          inst->virtual_name = virtual_name;
-          success &= func(inst, user_data);
-        }
-      inst->virtual_name = NULL;
+      const char *instance_name = pidfile_name + PIDFILE_PREFIX_LEN;
+      const int process_name_len = extension - instance_name;
+      *process_name = malloc(process_name_len + 1);
+      memcpy(*process_name, instance_name, process_name_len);
+      (*process_name)[process_name_len] = 0;
+      return TRUE;
     }
   else
     {
-      success = func(inst, user_data);
+      return FALSE;
     }
-  return success;
+#undef PIDFILE_PREFIX
 }
 
-static int
-z_process_args_run_cmd_str(ZCmdFunc func, void *user_data, char *instance_name, const char *ident)
+static gboolean
+z_instance_matches(const char *process_name, const char *name)
 {
-  int success = 1;
-  ZInstance *inst = z_search_instance(instance_name);
-  if (inst)
-    {
-      success = z_process_args_run_cmd_instance(func, user_data, inst);
-    }
-  else
-    {
-      z_error(1, "%s: No such instance: %s\n", ident, instance_name);
-    }
-  return success;
+  const int namelen = strlen(name);
+  return strstr(process_name, name) == process_name
+      && (process_name[namelen] == 0 || process_name[namelen] == '#');
 }
 
 static int
-z_process_args(char *ident, int argc, char *argv[], ZCmdFunc func, void *user_data, int display_instances)
+z_aggregate_by_configured_processes(ZCmdFunc func, void *user_data, const char *name)
 {
   ZInstance *inst;
   int success_all = 1;
+  int process_nr;
+  for (inst = instances; inst; inst = inst->next)
+    {
+      if (name && !z_instance_matches(name, inst->instance_name))
+        continue;
+
+      for (process_nr = 0; process_nr < inst->num_of_processes; process_nr++)
+        {
+          int success;
+          char process_name[MAX_ZORPCTL_LINE_LENGTH];
+          z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
+
+          inst->role = process_nr ? SLAVE : MASTER;
+          snprintf(process_name, MAX_ZORPCTL_LINE_LENGTH, "%s#%d", inst->instance_name, process_nr);
+          inst->process_name = process_name;
+          inst->process_num = process_nr;
+
+          if (name && strchr(name, '#') && strcmp(process_name, name))
+            continue;
+
+          success = func(inst, user_data);
+          if (!success && z_ctl_cmd_proc_status > Z_CTL_CMD_PROC_STATUS_SUCCESS_WARN)
+            success_all = 0;
+        }
+    }
+  return success_all;
+}
+
+static ZInstance *
+z_get_instances_from_pidfiles(const char *name)
+{
+  GDir *dir;
+  GError *error;
+  const char *pidfile_name;
+  ZInstance *processes = NULL, *prev_inst = NULL;
+
+  if ((dir = g_dir_open(pidfile_dir, 0, &error)))
+    {
+      while ((pidfile_name = g_dir_read_name(dir)))
+        {
+          char *process_name;
+          char *hash_pos;
+          if (!z_process_name_from_pidfile(pidfile_name, &process_name))
+            continue;
+
+          if (name && !z_instance_matches(process_name, name))
+            continue;
+
+          processes = g_new0(ZInstance, 1);
+          processes->process_name = process_name;
+          processes->instance_name = strdup(process_name);
+          hash_pos = strchr(processes->instance_name, '#');
+          if (hash_pos)
+            {
+              processes->process_num = atoi(hash_pos+1);
+              *hash_pos = 0;
+            }
+
+          processes->next = prev_inst;
+          prev_inst = processes;
+        }
+      g_dir_close(dir);
+    }
+
+  return processes;
+}
+
+static gboolean
+z_is_aggregated_by_config(ZCmdAggregation aggregation)
+{
+  return aggregation == Z_CMD_AGGREGATION_CONFIGURED_PROCESSES
+      || aggregation == Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED;
+}
+
+static gboolean
+z_is_aggregated_by_pidfile(ZCmdAggregation aggregation)
+{
+  return aggregation == Z_CMD_AGGREGATION_ONLY_RUNNING
+      || aggregation == Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED;
+}
+
+static int
+z_aggregate_by_instance_list(ZCmdFunc func, void *user_data, ZInstance *inst, ZCmdAggregation aggregation)
+{
+  int success_all = 1;
+  while (inst)
+    {
+      ZInstance *next = inst->next;
+
+      /* Command will be applied only if process is not in instances.conf
+       * or instances.conf is disregarded. Otherwise the process was
+       * already taken into account in the by_configured_processes branch
+       */
+      if (!z_is_aggregated_by_config(aggregation)
+          || !z_search_instance(inst->instance_name))
+        {
+          int success;
+
+          z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
+
+          success = func(inst, user_data);
+          if (!success && z_ctl_cmd_proc_status > Z_CTL_CMD_PROC_STATUS_SUCCESS_WARN)
+            success_all = 0;
+        }
+
+      z_instance_free(inst);
+      inst = next;
+    }
+  return success_all;
+}
+
+static int
+z_process_args_run_cmd(ZCmdFunc func, void *user_data,
+                const char *name,
+                const char *ident UNUSED,
+                ZCmdAggregation aggregation)
+{
+  int success_all = 1;
+  if (z_is_aggregated_by_config(aggregation))
+    {
+      success_all = z_aggregate_by_configured_processes(func, user_data, name);
+    }
+  if (z_is_aggregated_by_pidfile(aggregation))
+    {
+      ZInstance *processes;
+      processes = z_get_instances_from_pidfiles(name);
+      success_all &= z_aggregate_by_instance_list(func, user_data, processes, aggregation);
+    }
+  return success_all;
+}
+
+typedef struct {
+    ZCmdFunc func;
+    void *user_data;
+} ZDisplayFuncData;
+
+static int
+display_func_wrapper(ZInstance *inst, void *user_data)
+{
+  ZDisplayFuncData *display_func_data = (ZDisplayFuncData*)user_data;
+  int success = display_func_data->func(inst, display_func_data->user_data);
+  printf("%s%s", inst->process_name ? inst->process_name : inst->instance_name, success ? " " : "! ");
+  return success;
+}
+
+static void
+z_create_display_func_wrapper(ZCmdFunc func, void *user_data,
+                            ZCmdFunc *newfunc, void **new_user_data)
+{
+  ZDisplayFuncData *data = malloc(sizeof(ZDisplayFuncData));
+  data->func = func;
+  data->user_data = user_data;
+  *newfunc = display_func_wrapper;
+  *new_user_data = data;
+}
+
+static int
+z_process_args(char *ident,
+               int argc,
+               char *argv[],
+               ZCmdFunc func,
+               void *user_data,
+               int display_instances,
+               ZCmdAggregation aggregation)
+{
+  int success_all = 1;
   int i;
+  ZCmdFunc real_func = func;
+  void *real_user_data = user_data;
+
+  if (display_instances)
+    {
+      z_create_display_func_wrapper(func, user_data, &real_func, &real_user_data);
+    }
 
   if (argc == 0)
     {
-      for (inst = instances; inst; inst = inst->next)
-        {
-          z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
-
-          int success = z_process_args_run_cmd_instance(func, user_data, inst);
-          if (!success && z_ctl_cmd_proc_status > Z_CTL_CMD_PROC_STATUS_SUCCESS_WARN)
-            success_all = 0;
-          if (display_instances)
-            printf("%s%s", inst->real_name, success ? " " : "! ");
-        }
+      success_all = z_process_args_run_cmd(real_func, real_user_data, NULL, ident, aggregation);
     }
   else
     {    
@@ -1770,12 +1899,8 @@ z_process_args(char *ident, int argc, char *argv[], ZCmdFunc func, void *user_da
             {
               while (fgets(inst_buf, sizeof(inst_buf), inst_list))
                 {
-                  int success;
                   chomp(inst_buf);
-                  success = z_process_args_run_cmd_str(func, user_data, inst_buf, ident);
-                  success_all &= success;
-                  if (display_instances)
-                    printf("%s%s", inst_buf, success ? " " : "! ");
+                  success_all &= z_process_args_run_cmd(real_func, real_user_data, inst_buf, ident, aggregation);
                 }
               fclose(inst_list);
             }
@@ -1789,10 +1914,7 @@ z_process_args(char *ident, int argc, char *argv[], ZCmdFunc func, void *user_da
         {
           for (i = 0; i < argc; i++)
             {
-              int success = z_process_args_run_cmd_str(func, user_data, argv[i], ident);
-              success_all &= success;
-              if (display_instances)
-                printf("%s%s", argv[i], success ? " " : "! ");
+              success_all &= z_process_args_run_cmd(real_func, real_user_data, argv[i], ident, aggregation);
             }
         }
     }
@@ -1805,63 +1927,63 @@ static int
 z_cmd_start(int argc, char *argv[])
 {
   return z_process_args_withmsg("Starting Zorp Firewall Suite: ",
-    "start", argc-2, &argv[2], z_process_start_instance, NULL, 1);
+    "start", argc-2, &argv[2], z_process_start_instance, NULL, 1, Z_CMD_AGGREGATION_CONFIGURED_PROCESSES);
 }
 
 static int
 z_cmd_force_start(int argc, char *argv[])
 {
   return z_process_args_withmsg("Starting Zorp Firewall Suite: ",
-    "start", argc-2, &argv[2], z_process_force_start_instance, NULL, 1);
+    "start", argc-2, &argv[2], z_process_force_start_instance, NULL, 1, Z_CMD_AGGREGATION_CONFIGURED_PROCESSES);
 }
 
 static int
 z_cmd_stop(int argc, char *argv[])
 {
   return z_process_args_withmsg("Stopping Zorp Firewall Suite: ",
-    "stop", argc-2, &argv[2], z_process_stop_instance, (void *) SIGTERM, 1);
+    "stop", argc-2, &argv[2], z_process_stop_instance, (void *) SIGTERM, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
 }
 
 static int
 z_cmd_force_stop(int argc, char *argv[])
 {
   return z_process_args_withmsg("Stopping Zorp Firewall Suite: ",
-    "stop", argc-2, &argv[2], z_process_stop_instance, (void *) SIGKILL, 1);
+    "stop", argc-2, &argv[2], z_process_stop_instance, (void *) SIGKILL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
 }
 
 static int
 z_cmd_restart(int argc, char *argv[])
 {
   return z_process_args_withmsg("Restarting Zorp Firewall Suite: ",
-    "restart", argc-2, &argv[2], z_process_restart_instance, (void *) SIGTERM, 1);
+    "restart", argc-2, &argv[2], z_process_restart_instance, (void *) SIGTERM, 1, Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED);
 }
 
 static int
 z_cmd_force_restart(int argc, char *argv[])
 {
   return z_process_args_withmsg("Restarting Zorp Firewall Suite: ",
-    "restart", argc-2, &argv[2], z_process_restart_instance, (void *) SIGKILL, 1);
+    "restart", argc-2, &argv[2], z_process_restart_instance, (void *) SIGKILL, 1, Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED);
 }
 
 static int
 z_cmd_reload(int argc, char *argv[])
 {
   return z_process_args_withmsg("Reloading Zorp Firewall Suite: ",
-    "reload", argc-2, &argv[2], z_process_reload, NULL, 1);
+    "reload", argc-2, &argv[2], z_process_reload, NULL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
 }
 
 static int
 z_cmd_reload_or_restart(int argc, char *argv[])
 {
   return z_process_args_withmsg("Reloading or Restarting Zorp Firewall Suite: ",
-    "reload-or-restart", argc-2, &argv[2], z_process_reload_or_restart, NULL, 1);
+    "reload-or-restart", argc-2, &argv[2], z_process_reload_or_restart, NULL, 1, Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED);
 }
 
 static int
 z_cmd_coredump(int argc, char *argv[])
 {
   return z_process_args_withmsg("Creating Zorp core dumps: ",
-    "coredump", argc - 2, &argv[2], z_process_coredump, NULL, 1);
+    "coredump", argc - 2, &argv[2], z_process_coredump, NULL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
 }
 
 static int
@@ -1875,7 +1997,13 @@ z_cmd_status(int argc, char *argv[])
       status_flags = ZORPCTL_STATUS_VERBOSE;
       processed_args++;
     }
-  return z_process_args("status", argc - processed_args, &argv[processed_args], z_process_status_instance, &status_flags, 0);
+  return z_process_args("status",
+                        argc - processed_args,
+                        &argv[processed_args],
+                        z_process_status_instance,
+                        &status_flags,
+                        0,
+                        Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED);
 }
 
 static int
@@ -1929,7 +2057,13 @@ z_cmd_authorize(int argc, char *argv[])
   {
     char *params[3] = { auth_accept_sid, auth_reject_sid, auth_description };
     ++argv;
-    res = z_process_args("authorize",  1, argv,  z_process_authorize, (void *)params, 0);
+    res = z_process_args("authorize",
+                         1,
+                         argv,
+                         z_process_authorize,
+                         (void *)params,
+                         0,
+                         Z_CMD_AGGREGATION_ONLY_RUNNING);
   }
 
   return res;
@@ -1948,14 +2082,14 @@ static int
 z_cmd_inclog(int argc, char *argv[])
 {
   return z_process_args_withmsg("Raising Zorp loglevel: ",
-    "inclog", argc-2, &argv[2], z_process_signal_instance, (void *) SIGUSR1, 1);
+    "inclog", argc-2, &argv[2], z_process_signal_instance, (void *) SIGUSR1, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
 }
 
 static int
 z_cmd_declog(int argc, char *argv[])
 {
   return z_process_args_withmsg("Lowering Zorp loglevel: ",
-      "declog", argc-2, &argv[2], z_process_signal_instance, (void *) SIGUSR2, 1);
+      "declog", argc-2, &argv[2], z_process_signal_instance, (void *) SIGUSR2, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
 }
 
 static int 
@@ -1994,15 +2128,15 @@ z_cmd_log(int argc, char *argv[])
     printf("Changing Zorp log settings: ");
 
   if (inc_verbosity)
-    res = z_process_args("log", argc, argv, z_process_log_vinc_instance, NULL, 1);
+    res = z_process_args("log", argc, argv, z_process_log_vinc_instance, NULL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
   else if (dec_verbosity)
-    res = z_process_args("log", argc, argv, z_process_log_vdec_instance, NULL, 1);
+    res = z_process_args("log", argc, argv, z_process_log_vdec_instance, NULL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
   else if (verbose_set)
-    res = z_process_args("log", argc, argv, z_process_log_vset_instance, &verbose_set, 1);
+    res = z_process_args("log", argc, argv, z_process_log_vset_instance, &verbose_set, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
   else if (logspec)
-    res = z_process_args("log", argc, argv, z_process_log_logspec_instance, (char *) logspec, 1);
+    res = z_process_args("log", argc, argv, z_process_log_logspec_instance, (char *) logspec, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
   else
-    res = z_process_args("log", argc, argv, z_process_log_status_instance, NULL, 0);
+    res = z_process_args("log", argc, argv, z_process_log_status_instance, NULL, 0, Z_CMD_AGGREGATION_ONLY_RUNNING);
 
   if (inc_verbosity || dec_verbosity || verbose_set || logspec)
     printf("\n");
@@ -2043,11 +2177,11 @@ z_cmd_deadlockcheck(int argc, char *argv[])
     printf("Changing Zorp deadlock checking settings: ");
 
   if (enable_check)
-    res = z_process_args("deadlockcheck", argc, argv, z_process_deadlockcheck_enable_instance, NULL, 1);
+    res = z_process_args("deadlockcheck", argc, argv, z_process_deadlockcheck_enable_instance, NULL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
   else if (disable_check)
-    res = z_process_args("deadlockcheck", argc, argv, z_process_deadlockcheck_disable_instance, NULL, 1);
+    res = z_process_args("deadlockcheck", argc, argv, z_process_deadlockcheck_disable_instance, NULL, 1, Z_CMD_AGGREGATION_ONLY_RUNNING);
   else
-    res = z_process_args("deadlockcheck", argc, argv, z_process_deadlockcheck_status_instance, NULL, 0);
+    res = z_process_args("deadlockcheck", argc, argv, z_process_deadlockcheck_status_instance, NULL, 0, Z_CMD_AGGREGATION_ONLY_RUNNING);
 
   if (enable_check || disable_check)
     printf("\n");
@@ -2086,11 +2220,11 @@ z_cmd_szig(int argc, char *argv[])
   argv++;
   /* currently only the default -w action is supported, but there may be more in the future */
 
-  res = z_process_args("szig", argc, argv, z_process_szig_walk_instance, (void *) root, 0);
+  res = z_process_args("szig", argc, argv, z_process_szig_walk_instance, (void *) root, 0, Z_CMD_AGGREGATION_ONLY_RUNNING);
   g_option_context_free(ctx);
 
   if (!res)
-    res = z_process_args("szig", argc, argv, z_process_kzorp_entries, 0, 0);
+    res = z_process_args("szig", argc, argv, z_process_kzorp_entries, 0, 0, Z_CMD_AGGREGATION_ONLY_RUNNING);
 
   return res;
 }

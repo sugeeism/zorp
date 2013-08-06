@@ -87,7 +87,7 @@ pop3_policy_command_hash_do(Pop3Proxy *self)
   ZPolicyObj *command_where = NULL;
   ZPolicyObj *answer_where = NULL;
   unsigned int command_do;
-  
+
   z_proxy_enter(self);
   if (!tmp)
     {
@@ -95,7 +95,7 @@ pop3_policy_command_hash_do(Pop3Proxy *self)
                   self->command->str);
       tmp = g_hash_table_lookup(self->commands_policy, "*");
     }
-  
+
   if (!tmp)
     {
       /*LOG
@@ -160,7 +160,7 @@ pop3_policy_command_hash_do(Pop3Proxy *self)
               if (!z_policy_var_parse(res, "i", &rc))
                 {
                   /*LOG
-                    This message indicates that the returned value of the callback for the given request policy 
+                    This message indicates that the returned value of the callback for the given request policy
                     is invalid and Zorp aborts the connection. Check the callback function.
                    */
                   z_proxy_log(self, POP3_POLICY, 1, "Cannot parse the return code; req='%s'", self->command->str);
@@ -176,13 +176,13 @@ pop3_policy_command_hash_do(Pop3Proxy *self)
                     case POP3_REQ_ACCEPT:
                       rc = POP3_REQ_ACCEPT;
                       break;
-                      
+
                     case ZV_UNSPEC:
                     case ZV_DROP:
                     case POP3_REQ_REJECT:
                       rc = POP3_REQ_REJECT;
                       break;
-                      
+
                     case POP3_REQ_ABORT:
                     default:
                       rc = POP3_REQ_ABORT;
@@ -207,17 +207,17 @@ pop3_policy_response_hash_do(Pop3Proxy *self)
 {
   guint rc;
   ZPolicyObj *res;
-  ZPolicyObj *tmp; 
+  ZPolicyObj *tmp;
   ZPolicyObj *command_where = NULL;
   ZPolicyObj *answer_where = NULL;
   unsigned int command_do;
-  
+
   z_proxy_enter(self);
   if (self->command->len)
     tmp = g_hash_table_lookup(self->commands_policy, self->command->str);
   else
     tmp = g_hash_table_lookup(self->commands_policy, "GREETING");
-  
+
   if (!tmp)
     {
       z_proxy_log(self, POP3_DEBUG, 6, "Policy does not contain this request, trying the default; request='%s'", self->command->str);
@@ -250,7 +250,7 @@ pop3_policy_response_hash_do(Pop3Proxy *self)
     case POP3_REQ_ACCEPT:
       rc = POP3_RSP_ACCEPT;
       break;
-      
+
     case POP3_REQ_POLICY:
       z_policy_lock(self->super.thread);
       if (!z_policy_var_parse(tmp, "(iOO)", &command_do, &command_where, &answer_where) &&
@@ -284,7 +284,7 @@ pop3_policy_response_hash_do(Pop3Proxy *self)
                   if (!z_policy_var_parse(res, "i", &rc))
                     {
 		      /*LOG
-			This message indicates that the returned value of the callback for the given response policy 
+			This message indicates that the returned value of the callback for the given response policy
 			is invalid and Zorp aborts the connection. Check the callback function.
 		      */
                       z_proxy_log(self, POP3_POLICY, 1, "Cannot parse return code; req='%s'", self->command->str);
@@ -296,12 +296,12 @@ pop3_policy_response_hash_do(Pop3Proxy *self)
                         {
                         case POP3_RSP_ACCEPT:
                           break;
-                          
+
                         case ZV_UNSPEC:
                         case POP3_RSP_REJECT:
                           rc = POP3_RSP_REJECT;
                           break;
-                          
+
                         case POP3_RSP_ABORT:
                         default:
                           rc = POP3_RSP_ABORT;
@@ -317,7 +317,7 @@ pop3_policy_response_hash_do(Pop3Proxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case POP3_REQ_REJECT:
     case POP3_REQ_ABORT:
     default:
@@ -337,11 +337,11 @@ pop3_policy_stack_hash_do(Pop3Proxy *self, ZStackedProxy **stacked)
   ZPolicyObj *stack_proxy = NULL;
   unsigned int command_do;
   gboolean success = TRUE;
-  
+
   z_proxy_enter(self);
   if (!tmp)
     tmp = g_hash_table_lookup(self->command_stack, "*");
-  
+
   if (!tmp)
     z_proxy_return(self, TRUE);
 
@@ -362,7 +362,7 @@ pop3_policy_stack_hash_do(Pop3Proxy *self, ZStackedProxy **stacked)
     case POP3_STK_NONE:
       rc = command_do;
       break;
-      
+
     case POP3_STK_DATA:
     case POP3_STK_MIME:
       if (!z_policy_var_parse(tmp, "(iO)", &rc, &stack_proxy))
@@ -376,7 +376,7 @@ pop3_policy_stack_hash_do(Pop3Proxy *self, ZStackedProxy **stacked)
           success = FALSE;
         }
       break;
-      
+
     case POP3_STK_POLICY:
       if (!z_policy_var_parse(tmp, "(iO)", &rc, &command_where))
         {
@@ -407,7 +407,7 @@ pop3_policy_stack_hash_do(Pop3Proxy *self, ZStackedProxy **stacked)
                   !z_policy_var_parse(res, "(iO)", &rc, &stack_proxy))
                 {
 		  /*LOG
-		    This message indicates that the returned value of the callback for the given response policy 
+		    This message indicates that the returned value of the callback for the given response policy
 		    is invalid and Zorp stacks nothing. Check the callback function.
 		   */
                   z_proxy_log(self, POP3_POLICY, 1, "Cannot parse return code; req='%s'", self->command->str);
@@ -418,7 +418,7 @@ pop3_policy_stack_hash_do(Pop3Proxy *self, ZStackedProxy **stacked)
         }
       break;
     }
-  
+
   if (success && rc != POP3_STK_NONE && stack_proxy)
     success = z_proxy_stack_object(&self->super, stack_proxy, stacked, NULL);
 

@@ -50,8 +50,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-check_PROGRAMS = smtp_sanitize_addr$(EXEEXT)
-TESTS = smtp_sanitize_addr$(EXEEXT)
+check_PROGRAMS = smtp_sanitize_addr$(EXEEXT) smtp_parse$(EXEEXT) \
+	smtp_request$(EXEEXT)
+TESTS = smtp_sanitize_addr$(EXEEXT) smtp_parse$(EXEEXT) \
+	smtp_request$(EXEEXT)
 subdir = modules/smtp/tests
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -62,13 +64,21 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/lib/zorp/zorpconfig.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am_smtp_sanitize_addr_OBJECTS = smtp_sanitize_addr.$(OBJEXT)
-smtp_sanitize_addr_OBJECTS = $(am_smtp_sanitize_addr_OBJECTS)
-smtp_sanitize_addr_DEPENDENCIES = ../smtpcmd.lo ../smtp.lo \
-	../smtppolicy.lo ../smtpdata.lo ../smtpmsg.lo
+smtp_parse_SOURCES = smtp_parse.c
+smtp_parse_OBJECTS = smtp_parse.$(OBJEXT)
+smtp_parse_LDADD = $(LDADD)
+smtp_parse_DEPENDENCIES = ../libsmtp.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
+smtp_request_SOURCES = smtp_request.c
+smtp_request_OBJECTS = smtp_request.$(OBJEXT)
+smtp_request_LDADD = $(LDADD)
+smtp_request_DEPENDENCIES = ../libsmtp.la
+smtp_sanitize_addr_SOURCES = smtp_sanitize_addr.c
+smtp_sanitize_addr_OBJECTS = smtp_sanitize_addr.$(OBJEXT)
+smtp_sanitize_addr_LDADD = $(LDADD)
+smtp_sanitize_addr_DEPENDENCIES = ../libsmtp.la
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/lib/zorp
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -95,8 +105,8 @@ am__v_CCLD_0 = @echo "  CCLD  " $@;
 AM_V_GEN = $(am__v_GEN_@AM_V@)
 am__v_GEN_ = $(am__v_GEN_@AM_DEFAULT_V@)
 am__v_GEN_0 = @echo "  GEN   " $@;
-SOURCES = $(smtp_sanitize_addr_SOURCES)
-DIST_SOURCES = $(smtp_sanitize_addr_SOURCES)
+SOURCES = smtp_parse.c smtp_request.c smtp_sanitize_addr.c
+DIST_SOURCES = smtp_parse.c smtp_request.c smtp_sanitize_addr.c
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -108,6 +118,7 @@ am__tty_colors = \
 red=; grn=; lgn=; blu=; std=
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
+ADPALERTING_MIN_VERSION = @ADPALERTING_MIN_VERSION@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -152,9 +163,11 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBADPALERTING_CFLAGS = @LIBADPALERTING_CFLAGS@
+LIBADPALERTING_LIBS = @LIBADPALERTING_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBPROXY_CPPFLAGS = @LIBPROXY_CPPFLAGS@
-LIBS = @MODULETESTS_LIBS@
+LIBS = @MODULETESTS_LIBS@ @DEPS_LIBS@
 LIBTOOL = @LIBTOOL@
 LIBZORP_LIBS = @LIBZORP_LIBS@
 LIBZORP_LT_COMPAT_BRANCH = @LIBZORP_LT_COMPAT_BRANCH@
@@ -217,9 +230,14 @@ ZORPMISC_CFLAGS = @ZORPMISC_CFLAGS@
 ZORPMISC_LIBS = @ZORPMISC_LIBS@
 ZORPMISC_MIN_VERSION = @ZORPMISC_MIN_VERSION@
 ZORP_LIBS = @ZORP_LIBS@
+ZORP_MUNIN_CONF_DIR = @ZORP_MUNIN_CONF_DIR@
+ZORP_MUNIN_DIR = @ZORP_MUNIN_DIR@
+ZORP_NAGIOS_CONF_DIR = @ZORP_NAGIOS_CONF_DIR@
+ZORP_NAGIOS_DIR = @ZORP_NAGIOS_DIR@
 ZORP_OS = @ZORP_OS@
 ZORP_PACKAGE_LICENSE = @ZORP_PACKAGE_LICENSE@
 ZORP_PROC = @ZORP_PROC@
+ZORP_SUDOERSD_CONF_DIR = @ZORP_SUDOERSD_CONF_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -274,8 +292,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 zorp_srcdir = @zorp_srcdir@
-smtp_sanitize_addr_SOURCES = smtp_sanitize_addr.c
-smtp_sanitize_addr_LDADD = ../smtpcmd.lo ../smtp.lo ../smtppolicy.lo ../smtpdata.lo ../smtpmsg.lo
+LDADD = ../libsmtp.la
 all: all-am
 
 .SUFFIXES:
@@ -319,6 +336,12 @@ clean-checkPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+smtp_parse$(EXEEXT): $(smtp_parse_OBJECTS) $(smtp_parse_DEPENDENCIES) $(EXTRA_smtp_parse_DEPENDENCIES) 
+	@rm -f smtp_parse$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(smtp_parse_OBJECTS) $(smtp_parse_LDADD) $(LIBS)
+smtp_request$(EXEEXT): $(smtp_request_OBJECTS) $(smtp_request_DEPENDENCIES) $(EXTRA_smtp_request_DEPENDENCIES) 
+	@rm -f smtp_request$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(smtp_request_OBJECTS) $(smtp_request_LDADD) $(LIBS)
 smtp_sanitize_addr$(EXEEXT): $(smtp_sanitize_addr_OBJECTS) $(smtp_sanitize_addr_DEPENDENCIES) $(EXTRA_smtp_sanitize_addr_DEPENDENCIES) 
 	@rm -f smtp_sanitize_addr$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(smtp_sanitize_addr_OBJECTS) $(smtp_sanitize_addr_LDADD) $(LIBS)
@@ -329,6 +352,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smtp_parse.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smtp_request.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smtp_sanitize_addr.Po@am__quote@
 
 .c.o:

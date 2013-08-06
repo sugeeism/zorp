@@ -23,7 +23,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
+ * Auditor :
  * Last audited version:
  * Notes:
  *
@@ -68,4 +68,3 @@ ZPolicyObj *z_policy_struct_get_type_object(gint type);
 void z_policy_struct_module_init(void);
 
 #endif
-

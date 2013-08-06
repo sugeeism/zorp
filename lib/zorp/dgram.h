@@ -44,7 +44,6 @@ z_dgram_listener_new(const gchar *session_id,
                      ZAcceptFunc callback,
                      gpointer user_data);
 
-
 extern ZClass ZDGramConnector__class;
 
 static inline ZConnector *
@@ -58,6 +57,5 @@ z_dgram_connector_new(const gchar *session_id,
 {
   return z_connector_new(Z_CLASS(ZDGramConnector), session_id, SOCK_DGRAM, local, remote, sock_flags, callback, user_data, destroy_data);
 }
-
 
 #endif

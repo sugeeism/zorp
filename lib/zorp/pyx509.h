@@ -32,7 +32,6 @@
 #include <zorp/zorp.h>
 #include <zorp/proxy.h>
 
-
 ZPolicyObj *z_py_ssl_privkey_get(ZProxy *self, gchar *name, gpointer value);
 int z_py_ssl_privkey_set(ZProxy *self, gchar *name, gpointer value, ZPolicyObj *new);
 void z_py_ssl_privkey_free(gpointer value);

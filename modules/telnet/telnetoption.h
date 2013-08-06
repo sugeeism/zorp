@@ -24,16 +24,23 @@
  *
  ***************************************************************************/
 
-#ifndef ZORP_MODULES_TELNETOPTION_H_INCLUDED
-#define ZORP_MODULES_TELNETOPTION_H_INCLUDED
+#ifndef ZORP_MODULES_TELNET_TELNETOPTION_H_INCLUDED
+#define ZORP_MODULES_TELNET_TELNETOPTION_H_INCLUDED
 
 #include "telnet.h"
 
-guint telnet_opt_terminal_type(TelnetProxy *self, guint ep);
-guint telnet_opt_terminal_speed(TelnetProxy *self, guint ep);
-guint telnet_opt_x_display(TelnetProxy *self, guint ep);
-guint telnet_opt_new_env(TelnetProxy *self, guint ep);
-guint telnet_opt_naws(TelnetProxy *self, guint ep);
+gboolean telnet_option_do(TelnetProxy *self, const ZEndpoint ep, const guint8 option);
+gboolean telnet_option_will(TelnetProxy *self, const ZEndpoint ep, const guint8 option);
+
+gboolean telnet_option_do_in_progress(TelnetProxy *self, const ZEndpoint ep, const guint8 option);
+gboolean telnet_option_will_in_progress(TelnetProxy *self, const ZEndpoint ep, const guint8 option);
+
+void telnet_option_command_received(TelnetProxy *self, ZEndpoint ep, guint8 command, guint8 option);
+void telnet_option_command_sent(TelnetProxy *self, ZEndpoint ep, guint8 command, guint8 option);
 
 #endif
-
+/*
+# Local Variables:
+# indent-tabs-mode: nil
+# End:
+*/

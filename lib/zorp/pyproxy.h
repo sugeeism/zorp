@@ -39,12 +39,12 @@ gboolean z_policy_proxy_bind_implementation(PyObject *self);
 ZProxy *z_policy_proxy_get_proxy(PyObject *obj);
 
 void z_policy_proxy_module_init(void);
+void z_policy_proxy_module_py_init(ZProxyModulePyInitFunc init_func, const gchar *module_name);
 
-static inline gboolean 
+static inline gboolean
 z_policy_proxy_check(ZPolicyObj *s)
 {
   return PyObject_TypeCheck(s, &z_policy_proxy_type);
 }
 
 #endif
-

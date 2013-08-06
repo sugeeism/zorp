@@ -51,6 +51,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@ALERTING_ENABLED_TRUE@am__append_1 = alerting.c
 subdir = lib
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -91,6 +92,17 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libzorp_la_LIBADD =
+am__libzorp_la_SOURCES_DIST = satyr.c pysatyr.c pyzasauth.c zasauth.c \
+	proxy.c proxystack.c modules.c pycore.c pysockaddr.c \
+	pypolicy.c pyproxy.c pystream.c zorp.c authprovider.c \
+	tpsocket.c dimhash.c szig.c pydispatch.c dispatch.c attach.c \
+	connection.c pyattach.c plugsession.c zpython.c dgram.c \
+	pydict.c pystruct.c audit.c ifmonitor.c proxygroup.c \
+	pyproxygroup.c coredump.c notification.c pybalance.c pyaudit.c \
+	timestamp.c idsconn.c proxyssl.c pyx509.c proxysslhostiface.c \
+	bllookup.c kzorp.c credentials.c certchain.c pyx509chain.c \
+	session.c session_init.c alerting.c
+@ALERTING_ENABLED_TRUE@am__objects_1 = alerting.lo
 am_libzorp_la_OBJECTS = satyr.lo pysatyr.lo pyzasauth.lo zasauth.lo \
 	proxy.lo proxystack.lo modules.lo pycore.lo pysockaddr.lo \
 	pypolicy.lo pyproxy.lo pystream.lo zorp.lo authprovider.lo \
@@ -100,7 +112,8 @@ am_libzorp_la_OBJECTS = satyr.lo pysatyr.lo pyzasauth.lo zasauth.lo \
 	proxygroup.lo pyproxygroup.lo coredump.lo notification.lo \
 	pybalance.lo pyaudit.lo timestamp.lo idsconn.lo proxyssl.lo \
 	pyx509.lo proxysslhostiface.lo bllookup.lo kzorp.lo \
-	credentials.lo
+	credentials.lo certchain.lo pyx509chain.lo session.lo \
+	session_init.lo $(am__objects_1)
 libzorp_la_OBJECTS = $(am_libzorp_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -135,7 +148,7 @@ AM_V_GEN = $(am__v_GEN_@AM_V@)
 am__v_GEN_ = $(am__v_GEN_@AM_DEFAULT_V@)
 am__v_GEN_0 = @echo "  GEN   " $@;
 SOURCES = $(libzorp_la_SOURCES)
-DIST_SOURCES = $(libzorp_la_SOURCES)
+DIST_SOURCES = $(am__libzorp_la_SOURCES_DIST)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -183,6 +196,7 @@ am__relativize = \
   done; \
   reldir="$$dir2"
 ACLOCAL = @ACLOCAL@
+ADPALERTING_MIN_VERSION = @ADPALERTING_MIN_VERSION@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -227,6 +241,8 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBADPALERTING_CFLAGS = @LIBADPALERTING_CFLAGS@
+LIBADPALERTING_LIBS = @LIBADPALERTING_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBPROXY_CPPFLAGS = @LIBPROXY_CPPFLAGS@
 LIBS = @LIBZORP_LIBS@
@@ -292,9 +308,14 @@ ZORPMISC_CFLAGS = @ZORPMISC_CFLAGS@
 ZORPMISC_LIBS = @ZORPMISC_LIBS@
 ZORPMISC_MIN_VERSION = @ZORPMISC_MIN_VERSION@
 ZORP_LIBS = @ZORP_LIBS@
+ZORP_MUNIN_CONF_DIR = @ZORP_MUNIN_CONF_DIR@
+ZORP_MUNIN_DIR = @ZORP_MUNIN_DIR@
+ZORP_NAGIOS_CONF_DIR = @ZORP_NAGIOS_CONF_DIR@
+ZORP_NAGIOS_DIR = @ZORP_NAGIOS_DIR@
 ZORP_OS = @ZORP_OS@
 ZORP_PACKAGE_LICENSE = @ZORP_PACKAGE_LICENSE@
 ZORP_PROC = @ZORP_PROC@
+ZORP_SUDOERSD_CONF_DIR = @ZORP_SUDOERSD_CONF_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -355,29 +376,16 @@ libzorp_la_LDFLAGS = \
 	-release $(LIBZORP_LT_RELEASE) \
 	-export-dynamic
 
-libzorp_la_SOURCES = \
-	satyr.c pysatyr.c \
-	pyzasauth.c zasauth.c \
-	proxy.c proxystack.c modules.c  \
-	pycore.c pysockaddr.c pypolicy.c \
-	pyproxy.c pystream.c \
-	zorp.c \
-	authprovider.c \
-	tpsocket.c dimhash.c \
-	szig.c \
-	pydispatch.c dispatch.c \
-	attach.c connection.c pyattach.c \
-	plugsession.c  zpython.c \
-	dgram.c \
-	pydict.c pystruct.c audit.c \
-	ifmonitor.c proxygroup.c pyproxygroup.c \
-	coredump.c notification.c pybalance.c \
-	pyaudit.c timestamp.c idsconn.c \
-	proxyssl.c pyx509.c proxysslhostiface.c \
-	bllookup.c \
-	kzorp.c \
-	credentials.c
-
+libzorp_la_SOURCES = satyr.c pysatyr.c pyzasauth.c zasauth.c proxy.c \
+	proxystack.c modules.c pycore.c pysockaddr.c pypolicy.c \
+	pyproxy.c pystream.c zorp.c authprovider.c tpsocket.c \
+	dimhash.c szig.c pydispatch.c dispatch.c attach.c connection.c \
+	pyattach.c plugsession.c zpython.c dgram.c pydict.c pystruct.c \
+	audit.c ifmonitor.c proxygroup.c pyproxygroup.c coredump.c \
+	notification.c pybalance.c pyaudit.c timestamp.c idsconn.c \
+	proxyssl.c pyx509.c proxysslhostiface.c bllookup.c kzorp.c \
+	credentials.c certchain.c pyx509chain.c session.c \
+	session_init.c $(am__append_1)
 all: all-recursive
 
 .SUFFIXES:
@@ -453,10 +461,12 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alerting.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attach.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/audit.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/authprovider.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bllookup.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/certchain.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connection.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coredump.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/credentials.Plo@am__quote@
@@ -488,8 +498,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pystream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pystruct.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pyx509.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pyx509chain.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pyzasauth.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/satyr.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/session.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/session_init.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/szig.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timestamp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tpsocket.Plo@am__quote@

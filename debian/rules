@@ -76,7 +76,7 @@ install: build
 	$(MAKE) install DESTDIR=`pwd`/debian/tmp/
 	mv `pwd`/debian/tmp/etc/zorp/zorpctl.conf.sample `pwd`/debian/tmp/etc/zorp/zorpctl.conf
 	dh_movefiles
-	(cd pylib/kznf && python2.6 setup.py install --prefix ../../debian/python-kzorp/usr --install-layout=deb)
+	(cd pylib/kzorp && python2.6 setup.py install --prefix ../../debian/python-kzorp/usr --install-layout=deb)
 
 # Build architecture-independent files here.
 binary-indep: build install

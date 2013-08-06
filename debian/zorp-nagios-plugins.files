@@ -1,0 +1,3 @@
+usr/lib/nagios/plugins/*
+etc/sudoers.d/zorp_nagios_plugins
+etc/nagios/nrpe.d/zorp.cfg

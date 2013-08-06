@@ -40,10 +40,12 @@
 #include <zorp/sockaddr.h>
 #include <zorp/listen.h>
 #include <zorp/coredump.h>
+#include <zorp/policy.h>
 #include <zorp/proxy.h>
 #include <zorp/process.h>
 
 #include <string.h>
+#include <sys/syscall.h>
 
 /*
  * The SZIG framework serves as a means to publish internal statistics. It
@@ -53,7 +55,7 @@
  *   - publish this data through a UNIX domain socket interface
  *
  * Data collection:
- * 
+ *
  *   Primitive data is collected using events. An event is generated (using
  *   a simple function call) when something happens which is interesting
  *   from a statistics standpoint. For example an event is generated when a
@@ -72,7 +74,7 @@
  *
  *   Each aggregator function receives a result node as argument which
  *   specifies a location where results can be stored. This result node also
- *   contains a GStaticMutex which makes it easy to synchronize acceseses to
+ *   contains a mutex which makes it easy to synchronize acceseses to
  *   the result data.
  *
  * Data publishing:
@@ -96,28 +98,27 @@
  *
  * Locking
  *
- *   There are two parallel threads accessing the SZIG tree: 
- *     1) the SZIG thread, which processes incoming events from various 
+ *   There are two parallel threads accessing the SZIG tree:
+ *     1) the SZIG thread, which processes incoming events from various
  *        parts of Zorp,
- *     2) the main thread which gives access to the SZIG tree to zorpctl. 
- * 
+ *     2) the main thread which gives access to the SZIG tree to zorpctl.
+ *
  *   Two different access methods are defined: value changes, in which case
  *   values are changed in the already established tree structure, and
  *   structure changes which involves adding or removing nodes.
- * 
+ *
  *   Locking tree structure changes
  *     This only happens in the SZIG thread, and races with the main thread,
  *     if the main thread is querying the same node that the SZIG thread is
  *     changing. Therefore structure changes need to be protected by a
  *     simple mutex, which is locked by the main thread lookup code and the
  *     code involving structure changes in the SZIG thread.
- *  
+ *
  *   Locking value changes
  *     As it is not strictly necessary to show an exact value to zorpctl,
  *     value changes does not need to be locked, except when a complex data
  *     structure requires that (e.g. GString)
  */
-
 
 #define Z_SZIG_MAX_LINE 4096
 #define Z_SZIG_STATS_INTERVAL 5000      /**< interval at which samples will be taken for the average aggregator */
@@ -170,7 +171,6 @@ typedef struct _ZSzigConnection
   ZStream *stream;
 } ZSzigConnection;
 
-
 /* event descriptors */
 static ZSzigEventDesc event_desc[Z_SZIG_MAX + 1];
 
@@ -202,15 +202,15 @@ z_szig_value_repr(ZSzigValue *v, gchar *buf, gsize buflen)
     case Z_SZIG_TYPE_NOTINIT:
       g_strlcpy(buf, "None", buflen);
       break;
-      
+
     case Z_SZIG_TYPE_LONG:
       g_snprintf(buf, buflen, "%ld", v->u.long_value);
       break;
-      
+
     case Z_SZIG_TYPE_TIME:
       g_snprintf(buf, buflen, "%ld:%ld", (glong) v->u.time_value.tv_sec, (glong) v->u.time_value.tv_usec);
       break;
-      
+
     case Z_SZIG_TYPE_STRING:
       G_LOCK(result_node_gstring_lock);
       if (v->u.string_value)
@@ -228,7 +228,7 @@ z_szig_value_repr(ZSzigValue *v, gchar *buf, gsize buflen)
 
 /**
  * z_szig_value_copy:
- * @target: destination ZSzigValue 
+ * @target: destination ZSzigValue
  * @source: ZSzigValue to copy
  *
  * This function copies the contents of one ZSzigValue to another.
@@ -245,19 +245,19 @@ z_szig_value_copy(ZSzigValue *target, ZSzigValue *source)
     {
     case Z_SZIG_TYPE_NOTINIT:
       break;
-      
+
     case Z_SZIG_TYPE_LONG:
       target->u.long_value = source->u.long_value;
       break;
-      
+
     case Z_SZIG_TYPE_TIME:
       memcpy(&target->u.time_value, &source->u.time_value, sizeof(source->u.time_value));
       break;
-      
+
     case Z_SZIG_TYPE_STRING:
       target->u.string_value = g_string_new(source->u.string_value->str);
       break;
-      
+
     default:
       /* copying this type is not supported */
       g_assert_not_reached();
@@ -268,7 +268,7 @@ z_szig_value_copy(ZSzigValue *target, ZSzigValue *source)
 /**
  * z_szig_value_as_long:
  * @v: ZSzigValue instance
- * 
+ *
  * This inline function asserts that v is of type Z_SZIG_TYPE_LONG, and
  * returns the associated value.
  **/
@@ -282,7 +282,7 @@ z_szig_value_as_long(ZSzigValue *v)
 /**
  * z_szig_value_as_time:
  * @v: ZSzigValue instance
- * 
+ *
  * This inline function asserts that v is of type Z_SZIG_TYPE_TIME, and
  * returns the associated value.
  **/
@@ -296,7 +296,7 @@ z_szig_value_as_time(ZSzigValue *v)
 /**
  * z_szig_value_as_string:
  * @v: ZSzigValue instance
- * 
+ *
  * This inline function asserts that v is of type Z_SZIG_TYPE_STRING, and
  * returns the associated value.
  **/
@@ -310,7 +310,7 @@ z_szig_value_as_string(ZSzigValue *v)
 /**
  * z_szig_value_as_gstring:
  * @v: ZSzigValue instance
- * 
+ *
  * This inline function asserts that v is of type Z_SZIG_TYPE_STRING, and
  * returns the associated value as a GString pointer.
  **/
@@ -321,7 +321,7 @@ z_szig_value_as_gstring(ZSzigValue *v)
   return v->u.string_value;
 }
 
-/** 
+/**
  * z_szig_value_new_long:
  * @val: value to store as a ZSzigValue
  *
@@ -337,7 +337,7 @@ z_szig_value_new_long(glong val)
   return v;
 }
 
-/** 
+/**
  * z_szig_value_new_time:
  * @val: value to store as a ZSzigValue
  *
@@ -353,7 +353,7 @@ z_szig_value_new_time(GTimeVal *val)
   return v;
 }
 
-/** 
+/**
  * z_szig_value_new_string:
  * @val: value to store as a ZSzigValue
  *
@@ -383,7 +383,7 @@ z_szig_value_add_connection_prop(ZSzigValue *v, const gchar *name, const gchar *
 {
   z_enter();
   g_assert(v->type == Z_SZIG_TYPE_CONNECTION_PROPS);
-  
+
   if (v->u.service_props.string_count == Z_SZIG_MAX_PROPS)
     {
       z_log(NULL, CORE_ERROR, 0, "Internal error, error adding service property, service properties are limited to 16 elements; add_name='%s', add_value='%s'", name, value);
@@ -395,7 +395,7 @@ z_szig_value_add_connection_prop(ZSzigValue *v, const gchar *name, const gchar *
   z_return();
 }
 
-/** 
+/**
  * z_szig_value_new_connection_props_va:
  * @service: service name
  * @instance_id: instance id (e.g. sequence number of this service)
@@ -411,7 +411,7 @@ ZSzigValue *
 z_szig_value_new_connection_props_va(const gchar *service, gint instance_id, gushort sec_conn_id, gushort related_id, const gchar *name, va_list l)
 {
   ZSzigValue *v = g_new0(ZSzigValue, 1);
-  
+
   z_enter();
   v->type = Z_SZIG_TYPE_CONNECTION_PROPS;
   v->u.service_props.name = g_strdup(service);
@@ -426,8 +426,7 @@ z_szig_value_new_connection_props_va(const gchar *service, gint instance_id, gus
   z_return(v);
 }
 
-
-/** 
+/**
  * z_szig_value_new_connection_props:
  * @service: service name
  * @instance_id: instance id (e.g. sequence number of this service)
@@ -444,7 +443,7 @@ z_szig_value_new_connection_props(const gchar *service, gint instance_id, gushor
 {
   ZSzigValue *v;
   va_list l;
-  
+
   z_enter();
   va_start(l, name);
   v = z_szig_value_new_connection_props_va(service, instance_id, sec_conn_id, related_id, name, l);
@@ -466,7 +465,7 @@ z_szig_value_add_prop(ZSzigValue *v, const gchar *name, ZSzigValue *value)
 {
   z_enter();
   g_assert(v->type == Z_SZIG_TYPE_PROPS);
-  
+
   if (v->u.service_props.string_count == Z_SZIG_MAX_PROPS)
     {
       z_log(NULL, CORE_ERROR, 0, "Internal error, error adding property, properties are limited to 16 elements; add_name='%s'", name);
@@ -478,8 +477,7 @@ z_szig_value_add_prop(ZSzigValue *v, const gchar *name, ZSzigValue *value)
   z_return();
 }
 
-
-/** 
+/**
  * z_szig_value_new_props_va:
  * @service: service name
  * @name: first property name
@@ -493,7 +491,7 @@ z_szig_value_new_props_va(const gchar *name, const gchar *first_prop, va_list l)
 {
   ZSzigValue *v = g_new0(ZSzigValue, 1);
   const gchar *prop;
-  
+
   z_enter();
   v->type = Z_SZIG_TYPE_PROPS;
   v->u.props_value.name = g_strdup(name);
@@ -506,13 +504,12 @@ z_szig_value_new_props_va(const gchar *name, const gchar *first_prop, va_list l)
   z_return(v);
 }
 
-
-/** 
+/**
  * z_szig_value_new_props:
  * @name: node name
  * @name: first property name
  *
- * ZSzigValue constructor which stores a named 
+ * ZSzigValue constructor which stores a named
  * property list in the newly created ZSzigValue instance. The
  * properties are passed as variable arguments.
  **/
@@ -521,7 +518,7 @@ z_szig_value_new_props(const gchar *name, const gchar *first_prop, ...)
 {
   ZSzigValue *v;
   va_list l;
-  
+
   z_enter();
   va_start(l, first_prop);
   v = z_szig_value_new_props_va(name, first_prop, l);
@@ -540,7 +537,7 @@ z_szig_value_free(ZSzigValue *v, gboolean free_inst)
 {
   gint i;
   gint type;
-  
+
   z_enter();
   if (v)
     {
@@ -552,13 +549,13 @@ z_szig_value_free(ZSzigValue *v, gboolean free_inst)
         case Z_SZIG_TYPE_STRING:
           g_string_free(v->u.string_value, TRUE);
           break;
-          
+
         case Z_SZIG_TYPE_CONNECTION_PROPS:
           for (i = 0; i < v->u.service_props.string_count * 2; i++)
             g_free(v->u.service_props.string_list[i]);
           g_free(v->u.service_props.name);
           break;
-          
+
         case Z_SZIG_TYPE_PROPS:
           for (i = 0; i < v->u.props_value.value_count; i++)
             {
@@ -574,10 +571,9 @@ z_szig_value_free(ZSzigValue *v, gboolean free_inst)
   z_return();
 }
 
-
 /**
  * z_szig_node_new:
- * @name: unescaped name of the SZIG node to create 
+ * @name: unescaped name of the SZIG node to create
  *
  * This function creates a new z_szig_node data structure with data
  * initialized to zero and name initialized to the @name argument. A
@@ -591,7 +587,7 @@ static ZSzigNode *
 z_szig_node_new(const gchar *name)
 {
   ZSzigNode *n = g_new0(ZSzigNode, 1);
-  
+
   z_enter();
   n->name = g_strdup(name);
   n->children = g_ptr_array_new();
@@ -603,7 +599,7 @@ z_szig_node_new(const gchar *name)
  * @node: ZSzigNode instance
  * @agr_data: state needed by an aggregator
  * @notify: GDestroyNotify function to free @agr_data
- * 
+ *
  * This function sets the data associated with node.
  **/
 static inline void
@@ -618,7 +614,7 @@ z_szig_node_set_data(ZSzigNode *node, gpointer agr_data, GDestroyNotify notify)
 /**
  * z_szig_node_get_data:
  * @node: ZSzigNode instance
- * 
+ *
  * This function returns the data associated with node.
  **/
 static inline gpointer
@@ -638,17 +634,17 @@ static void
 z_szig_node_free(ZSzigNode *n)
 {
   guint i;
-  
+
   z_enter();
   if (n->name)
     g_free(n->name);
   if (n->agr_notify)
     n->agr_notify(n->agr_data);
-  
+
   z_szig_value_free(&n->value, FALSE);
   for (i = 0; i < n->children->len; i++)
     z_szig_node_free((ZSzigNode *) n->children->pdata[i]);
-  
+
   g_ptr_array_free(n->children, TRUE);
   g_free(n);
   z_return();
@@ -667,7 +663,7 @@ z_szig_node_lookup_child(ZSzigNode *root, const gchar *name, gint *ndx)
 {
   gint l, h, m = 0, cmp;
   ZSzigNode *n;
-  
+
   z_enter();
   if (!root)
     z_return(NULL);
@@ -733,7 +729,7 @@ static void
 z_szig_node_remove_child(ZSzigNode *root, gint remove_point)
 {
   ZSzigNode *child;
-  
+
   z_enter();
   g_assert((guint) remove_point < root->children->len);
   child = root->children->pdata[remove_point];
@@ -756,7 +752,7 @@ z_szig_node_add_named_child(ZSzigNode *root, const gchar *name)
 {
   gint ndx;
   ZSzigNode *child;
-  
+
   z_enter();
   child = z_szig_node_lookup_child(root, name, &ndx);
   if (!child)
@@ -769,9 +765,9 @@ z_szig_node_add_named_child(ZSzigNode *root, const gchar *name)
 }
 
 /*
- * SZIG Tree 
+ * SZIG Tree
  */
- 
+
 /**
  * z_szig_xdigit_value:
  * @x: hexadecimal character
@@ -802,7 +798,7 @@ z_szig_unescape_name(const gchar *name, gchar **buf)
 {
   const guchar *src;
   GString *dst;
-  
+
   dst = g_string_sized_new(32);
   for (src = (guchar *)name; *src; src++)
     {
@@ -835,7 +831,7 @@ z_szig_escape_name(const gchar *name, gchar **buf)
 {
   const guchar *src;
   GString *dst;
-  
+
   dst = g_string_sized_new(32);
   for (src = (guchar *)name; *src; src++)
     {
@@ -848,22 +844,21 @@ z_szig_escape_name(const gchar *name, gchar **buf)
           g_string_append_c(dst, *src);
         }
     }
-  
+
   *buf = dst->str;
   return g_string_free(dst, FALSE);
 }
-
 
 /**
  * z_szig_tree_lookup:
  * @node_name: the escaped path to the variable to look up
  * @create: specifies whether an empty node should be created if the name is
  *          not found
- * 
+ *
  * This function looks up or creates a node in the result tree. Names are
  * dot separated paths which specify a location in our N-ary tree. Locking
  * depends on whether we are in the SZIG or in the main thread:
- * 
+ *
  *   * in the SZIG thread no locks need to be acquired to look up nodes as
  *     all possible changes are performed in the SZIG thread itself
  *   * if the @create argument is TRUE, even the SZIG thread needs to
@@ -879,7 +874,7 @@ z_szig_tree_lookup(const gchar *node_name, gboolean create, ZSzigNode **parent, 
   gchar **split;
   ZSzigNode *root, *node = NULL;
   gint i;
-  
+
   z_enter();
 
   if (strlen(node_name) == 0)
@@ -906,7 +901,7 @@ z_szig_tree_lookup(const gchar *node_name, gboolean create, ZSzigNode **parent, 
         *parent = root;
       if (parent_ndx)
         *parent_ndx = insert_point;
-      
+
       if (!node && create)
         {
           /* NOTE: tree structure changes should be locked by
@@ -938,9 +933,9 @@ z_szig_tree_lookup(const gchar *node_name, gboolean create, ZSzigNode **parent, 
  * @ev: event, not used
  * @p: event parameter, stored in destination node
  * @user_data: not used
- * 
+ *
  * This aggregator function simply stores its argument in the SZIG tree.
- **/ 
+ **/
 void
 z_szig_agr_store(ZSzigNode *node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gpointer user_data G_GNUC_UNUSED)
 {
@@ -955,10 +950,10 @@ z_szig_agr_store(ZSzigNode *node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gp
  * @ev: event, not used
  * @p: event parameter, not used
  * @user_data: not used
- * 
+ *
  * This aggregator function increments the result value in a thread
  * synchronized manner.
- **/ 
+ **/
 void
 z_szig_agr_count_inc(ZSzigNode *node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p G_GNUC_UNUSED, gpointer user_data G_GNUC_UNUSED)
 {
@@ -974,10 +969,10 @@ z_szig_agr_count_inc(ZSzigNode *node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p
  * @ev: event, not used
  * @p: event parameter, not used
  * @user_data: not used
- * 
+ *
  * This aggregator function decrements the result value in a thread
  * synchronized manner.
- **/ 
+ **/
 void
 z_szig_agr_count_dec(ZSzigNode *node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p G_GNUC_UNUSED, gpointer user_data G_GNUC_UNUSED)
 {
@@ -1168,14 +1163,14 @@ z_szig_agr_average_is_older(GTimeVal check_time, GTimeVal end_time, glong interv
  * @param          ev event, not used
  * @param[in]      p event parameter, assumed to be a time
  * @param[in]      user_data source node name
- * 
+ *
  * This aggregator function should be registered to an event with TIME
  * parameter, it calculates the average value for a node over a time interval
  * that is currently specified by the name of the node: the last numeric characters
  * of the name should be 1, 5 or 15 for 1 minute, 5 minutes and 15 minutes respectively.
  * The source node should be a sequence number, e.g. incremented for each event.
  * The increments will be averaged.
- **/ 
+ **/
 static void
 z_szig_agr_average_rate(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gpointer user_data)
 {
@@ -1186,7 +1181,7 @@ z_szig_agr_average_rate(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSz
   ZSzigAvgStateValue *oldest;
   ZSzigAvgStateValue *new_value;
   glong diff = 0;
-  
+
   z_enter();
   target_node->value.type = Z_SZIG_TYPE_LONG;
   avg_state = (ZSzigAvgState *) z_szig_node_get_data(target_node);
@@ -1278,10 +1273,10 @@ z_szig_agr_average_rate(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSz
  * @ev: event, not used
  * @p: event parameter, should be a string
  * @user_data: not used
- * 
+ *
  * This aggregator function appends its parameter to the value of the target
  * node.
- **/ 
+ **/
 void
 z_szig_agr_append_string(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gpointer user_data G_GNUC_UNUSED)
 {
@@ -1460,22 +1455,22 @@ z_szig_agr_per_zone_count(ZSzigNode *service, ZSzigNode *related)
  * @ev: event, not used
  * @p: event parameter, should be a service_props value
  * @user_data: not used
- * 
+ *
  * This aggregator function lays out a service property parameter as nodes
  * under target_node. It is used to represent service information.
- **/ 
+ **/
 void
 z_szig_agr_flat_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gpointer user_data G_GNUC_UNUSED)
 {
   ZSzigServiceProps *props;
   ZSzigNode *service, *instance, *sec_conn, *related, *node;
-  gchar buf[16];
+  gchar buf[128];
   gint i;
-  
+
   z_enter();
   g_return_if_fail(p->type == Z_SZIG_TYPE_CONNECTION_PROPS);
   props = &p->u.service_props;
-  
+
   /* create service node */
   G_LOCK(result_tree_structure_lock);
   service = z_szig_node_add_named_child(target_node, props->name);
@@ -1485,20 +1480,29 @@ z_szig_agr_flat_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UN
   sec_conn = z_szig_node_add_named_child(instance, buf);
   g_snprintf(buf, sizeof(buf), "%d", props->related_id);
   related = z_szig_node_add_named_child(sec_conn, buf);
-  
+
   for (i = 0; i < props->string_count; i++)
     {
       node = z_szig_node_add_named_child(related, props->string_list[i * 2]);
       if (node->value.type != Z_SZIG_TYPE_NOTINIT)
         z_szig_value_free(&node->value, FALSE);
-        
+
       node->value.type = Z_SZIG_TYPE_STRING;
       node->value.u.string_value = g_string_new(props->string_list[i * 2 + 1]);
     }
+
+  gchar *escaped_name = z_szig_escape_name(props->name, &escaped_name);
+  g_snprintf(buf, sizeof(buf), "service.%s", escaped_name);
+  g_free(escaped_name);
+
+  ZSzigNode *parent;
+  gint parent_ndx;
+  service = z_szig_tree_lookup(buf, TRUE, &parent, &parent_ndx);
   G_UNLOCK(result_tree_structure_lock);
 
   /* called here so that up-to-date data is already available in the tree */
-  z_szig_agr_per_zone_count(service, related);
+  if (service != NULL)
+    z_szig_agr_per_zone_count(service, related);
 
   z_return();
 }
@@ -1509,10 +1513,10 @@ z_szig_agr_flat_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UN
  * @ev: event, not used
  * @p: event parameter, should be a service_props value
  * @user_data: not used
- * 
+ *
  * This aggregator function removes the service specific children from
  * target_node.
- **/ 
+ **/
 void
 z_szig_agr_del_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gpointer user_data G_GNUC_UNUSED)
 {
@@ -1520,7 +1524,7 @@ z_szig_agr_del_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNU
   ZSzigNode *service, *instance;
   gchar buf[16];
   gint ndx;
-  
+
   z_enter();
   g_return_if_fail(p->type == Z_SZIG_TYPE_CONNECTION_PROPS);
   props = &p->u.service_props;
@@ -1539,14 +1543,13 @@ z_szig_agr_del_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNU
   z_return();
 }
 
-
 /**
  * z_szig_agr_flat_props:
  * @target_node: result node
  * @ev: event, not used
  * @p: event parameter, should be a service_props value
  * @user_data: not used
- * 
+ *
  * This aggregator function lays out a property list parameter as nodes
  * under target_node. It is used to represent a generic subtree of information.
  *
@@ -1554,14 +1557,14 @@ z_szig_agr_del_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNU
  * structures and flat those out as a recursive tree structure, but it
  * assumes that any Z_SZIG_TYPE_PROPS value has only a single level of
  * children. But this is enough for current uses (e.g. RELOAD)
- **/ 
+ **/
 void
 z_szig_agr_flat_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UNUSED, ZSzigValue *p, gpointer user_data G_GNUC_UNUSED)
 {
   ZSzigProps *props;
   ZSzigNode *root, *node;
   gint i;
-  
+
   z_enter();
   g_return_if_fail(p->type == Z_SZIG_TYPE_PROPS);
   props = &p->u.props_value;
@@ -1701,7 +1704,7 @@ z_szig_event(ZSzigEvent ev, ZSzigValue *param)
   if (szig_queue)
     {
       static gint warn_counter = 1;
-      
+
       z_trace(NULL, "Sending szig event; object='%p'", q);
       if (g_async_queue_length(szig_queue) > 1000 * warn_counter)
         {
@@ -1726,7 +1729,7 @@ z_szig_process_event(ZSzigEvent ev, ZSzigValue *param)
   ZSzigEventDesc *d;
   ZSzigEventCallback *cb;
   GList *p;
-  
+
   z_enter();
   d = z_szig_event_get_desc(ev);
   for (p = d->callbacks; p; p = g_list_next(p))
@@ -1734,7 +1737,7 @@ z_szig_process_event(ZSzigEvent ev, ZSzigValue *param)
       cb = (ZSzigEventCallback *) p->data;
       cb->func(cb->node, ev, param, cb->user_data);
     }
-    
+
   z_szig_value_free(param, TRUE);
   z_return();
 }
@@ -1754,9 +1757,9 @@ z_szig_register_handler(ZSzigEvent ev, ZSzigEventHandler func, const gchar *node
 {
   ZSzigEventCallback *cb;
   ZSzigEventDesc *d;
-  
+
   d = z_szig_event_get_desc(ev);
-  
+
   cb = g_new0(ZSzigEventCallback, 1);
   cb->node = z_szig_tree_lookup(node_name, TRUE, NULL, NULL);
   cb->user_data = user_data;
@@ -1774,7 +1777,7 @@ z_szig_register_handler(ZSzigEvent ev, ZSzigEventHandler func, const gchar *node
  * This function is registered as a thread startup function. It simply generates a
  * Z_SZIG_THREAD_START event.
  **/
-static void 
+static void
 z_szig_thread_started(ZThread *self G_GNUC_UNUSED, gpointer user_data G_GNUC_UNUSED)
 {
   z_szig_event(Z_SZIG_THREAD_START, NULL);
@@ -1788,7 +1791,7 @@ z_szig_thread_started(ZThread *self G_GNUC_UNUSED, gpointer user_data G_GNUC_UNU
  * This function is registered as a thread stop function. It simply generates a
  * Z_SZIG_THREAD_STOP event.
  **/
-static void 
+static void
 z_szig_thread_stopped(ZThread *self G_GNUC_UNUSED, gpointer user_data G_GNUC_UNUSED)
 {
   z_szig_event(Z_SZIG_THREAD_STOP, NULL);
@@ -1804,7 +1807,7 @@ z_szig_tick_callback(GSource *source G_GNUC_UNUSED)
 {
   GTimeVal current_time;
   static guint ticks = 0;
-  
+
   g_get_current_time(&current_time);
   z_szig_event(Z_SZIG_TICK, z_szig_value_new_time(&current_time));
 
@@ -1827,7 +1830,7 @@ z_szig_thread(gpointer st G_GNUC_UNUSED)
   while (1)
     {
       ZSzigQueueItem *q = (ZSzigQueueItem *) g_async_queue_pop(szig_queue);
-      
+
       z_trace(NULL, "Received szig event; object='%p'", q);
       z_szig_process_event(q->event, q->param);
       g_free(q);
@@ -1886,7 +1889,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
   const gchar *logspec;
   gint direction, value;
   gboolean new_state;
-  
+
   z_enter();
   argv = g_strsplit(cmd_line, " ", 0);
   if (!argv || !argv[0])
@@ -1895,7 +1898,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
         g_strfreev(argv);
       z_return(FALSE);
     }
-  
+
   cmd = argv[0];
   g_strlcpy(response, "None\n", sizeof(response));
   if (strcmp(cmd, "GETVALUE") == 0 ||
@@ -1909,8 +1912,8 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
         {
           if (node)
             {
-              z_szig_value_repr(&node->value, response, sizeof(response)-1);
-              strncat(response, "\n", sizeof(response));
+              z_szig_value_repr(&node->value, response, sizeof(response) - 1);
+              strncat(response, "\n", sizeof(response) - strlen(response) - 1);
             }
         }
       else if (strcmp(cmd, "GETCHILD") == 0)
@@ -1918,7 +1921,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
           if (node && node->children->len)
             {
               node = (ZSzigNode *) node->children->pdata[0];
-              
+
               z_szig_node_print_full_name(response, sizeof(response), name, node);
             }
         }
@@ -1927,7 +1930,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
           if (node && node_parent && (gint) (node_parent->children->len - 1) > node_ndx)
             {
               gchar *e = name + strlen(name) - 1;
-              
+
               node = (ZSzigNode *) node_parent->children->pdata[node_ndx+1];
               while (e > name && *e != '.')
                 e--;
@@ -1958,7 +1961,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
             value = strtol(argv[2], NULL, 10);
           else
             value = 0;
-            
+
           if (z_log_change_verbose_level(direction, value, &value))
             g_snprintf(response, sizeof(response), "OK %d\n", value);
           else
@@ -1970,7 +1973,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
             g_snprintf(response, sizeof(response), "OK %d\n", value);
           else
             g_snprintf(response, sizeof(response), "FAIL Error querying verbose level\n");
-            
+
         }
       else if (strcmp(argv[1], "GETSPEC") == 0)
         {
@@ -2045,7 +2048,7 @@ z_szig_handle_command(ZSzigConnection *conn, gchar *cmd_line)
     {
       g_strlcpy(response, "FAIL No such command", sizeof(response));
     }
-    
+
   g_strfreev(argv);
   if (z_stream_write_buf(conn->stream, response, strlen(response), TRUE, FALSE) != G_IO_STATUS_NORMAL)
     z_return(FALSE);
@@ -2071,7 +2074,7 @@ z_szig_read_callback(ZStream *stream, GIOCondition cond G_GNUC_UNUSED, gpointer 
   gsize buflen = sizeof(buf) - 1;
   GIOStatus res;
   ZStream *tmp_stream;
-  
+
   z_enter();
   res = z_stream_line_get_copy(stream, buf, &buflen, NULL);
   if (res == G_IO_STATUS_NORMAL)
@@ -2120,17 +2123,17 @@ z_szig_accept_callback(ZStream *fdstream,
   z_stream_set_nonblock(fdstream, TRUE);
   linestream = z_stream_line_new(fdstream, Z_SZIG_MAX_LINE, ZRL_EOL_NL);
   bufstream = z_stream_buf_new(linestream, 1024, 2048);
-  
+
   z_stream_unref(fdstream);
   z_stream_unref(linestream);
-  
+
   conn = g_new0(ZSzigConnection, 1);
   conn->ref_cnt = 1;
   conn->stream = bufstream;
-  
+
   z_stream_set_callback(conn->stream, G_IO_IN, z_szig_read_callback, conn, (GDestroyNotify) z_szig_connection_unref);
   z_stream_set_cond(conn->stream, G_IO_IN, TRUE);
-  
+
   z_stream_attach_source(conn->stream, g_main_context_default());
   z_sockaddr_unref(client);
   z_sockaddr_unref(dest);
@@ -2151,11 +2154,11 @@ z_szig_init(const gchar *instance_name)
   ZListener *listen;
   gchar buf[256];
   GSource *tick_source;
-  
+
   result_tree_root = z_szig_node_new(instance_name);
   memset(event_desc, 0, sizeof(event_desc));
   szig_queue = g_async_queue_new();
-  
+
   z_szig_register_handler(Z_SZIG_CONNECTION_START, z_szig_agr_count_inc, "stats.sessions_running", NULL);
   z_szig_register_handler(Z_SZIG_CONNECTION_STOP, z_szig_agr_count_dec, "stats.sessions_running", NULL);
 
@@ -2196,9 +2199,9 @@ z_szig_init(const gchar *instance_name)
   g_source_attach(tick_source, g_main_context_default());
 
   g_snprintf(buf, sizeof(buf), "%s.%s", ZORP_SZIG_SOCKET_NAME, instance_name);
-  
+
   sockaddr = z_sockaddr_unix_new(buf);
-  
+
   listen = z_stream_listener_new("szig/listen", sockaddr, FALSE, 255, z_szig_accept_callback, NULL);
   if (listen)
     {
@@ -2222,4 +2225,41 @@ void
 z_szig_destroy(void)
 {
   /* FIXME: free result tree */
+}
+
+void
+z_szig_value_add_thread_id(ZProxy *proxy)
+{
+  PyObject *container;
+  PyObject *service_name_value;
+  PyObject *instance_id_value;
+  gchar *service_name = NULL;
+  gint instance_id;
+  gboolean vars_parsed;
+
+  z_policy_thread_acquire(proxy->thread);
+  container = (PyObject *) proxy->handler;
+
+  service_name_value = z_policy_getattr_expr(container, "session.owner.service.name");
+  instance_id_value = z_policy_getattr_expr(container, "session.owner.instance_id");
+
+  vars_parsed = z_policy_var_parse_str(service_name_value, &service_name) &&
+                z_policy_var_parse_int(instance_id_value, &instance_id);
+
+  if (vars_parsed)
+    {
+      pid_t tid;
+      ZSzigValue *sv;
+      gchar *tid_str;
+
+      tid = (pid_t) syscall(SYS_gettid);
+      tid_str = g_strdup_printf("%d", tid);
+      sv = z_szig_value_new_connection_props(service_name, instance_id, 0, 0, NULL);
+      z_szig_value_add_connection_prop(sv, "thread_id", tid_str);
+      z_szig_event(Z_SZIG_CONNECTION_PROPS, sv);
+      g_free(tid_str);
+    }
+
+  g_free(service_name);
+  z_policy_thread_release(proxy->thread);
 }

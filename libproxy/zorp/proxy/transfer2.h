@@ -59,7 +59,7 @@ struct _ZTransfer2Buffer
   gsize ofs, end;
 };
 
-struct _ZTransfer2 
+struct _ZTransfer2
 {
   ZObject super;
   ZProxy *owner;
@@ -71,7 +71,7 @@ struct _ZTransfer2
   gsize buffer_size;
   glong timeout, progress_interval;
   guint32 flags;
-  
+
   ZStackedProxy *stacked;
   GSource *timeout_source;
   GSource *progress_source;
@@ -79,7 +79,7 @@ struct _ZTransfer2
   /* internal state */
   guint32 status;
   gint suspend_reason;
-  
+
   /* info returned by the stacked proxy */
   const gchar *content_format;
   ZVerdict stack_decision;
@@ -88,7 +88,7 @@ struct _ZTransfer2
   gboolean our_content_length_hint_set;
   gint64 child_content_length_hint;
   gboolean child_content_length_hint_set;
-  
+
   /* Note: This mutex save a race condition in
    * transfer startup. In the function z_transfer2_start
    * the stacking is called before z_transfer2_setup is called.
@@ -113,7 +113,6 @@ typedef struct _ZTransfer2Funcs
 
 extern ZClass ZTransfer2__class;
 
-
 gboolean z_transfer2_start(ZTransfer2 *self);
 void z_transfer2_suspend(ZTransfer2 *self, gint suspend_reason);
 gboolean z_transfer2_rollback(ZTransfer2 *self);
@@ -121,17 +120,15 @@ gboolean z_transfer2_cancel(ZTransfer2 *self);
 void z_transfer2_enable_progress(ZTransfer2 *elf, glong progress_interval);
 gboolean z_transfer2_simple_run(ZTransfer2 *self);
 
-
 ZTransfer2 *
-z_transfer2_new(ZClass *class, 
-                ZProxy *owner, ZPoll *poll, 
-                ZStream *source, ZStream *dest, 
-                gsize buffer_size, 
-                glong timeout, 
+z_transfer2_new(ZClass *class,
+                ZProxy *owner, ZPoll *poll,
+                ZStream *source, ZStream *dest,
+                gsize buffer_size,
+                glong timeout,
                 guint32 flags);
 
 void z_transfer2_free_method(ZObject *s);
-
 
 static inline gint
 z_transfer2_get_suspend_reason(ZTransfer2 *self)
@@ -157,7 +154,7 @@ z_transfer2_set_stacked_proxy(ZTransfer2 *self, ZStackedProxy *stacked)
 
 static inline void
 z_transfer2_set_content_format(ZTransfer2 *self, const gchar *content_format)
-{ 
+{
   self->content_format = content_format;
 }
 
@@ -229,7 +226,7 @@ z_transfer2_dst_shutdown(ZTransfer2 *self, ZStream *s, GError **err)
   else
     return G_IO_STATUS_NORMAL;
 }
-  
+
 static inline gboolean
 z_transfer2_stack_proxy(ZTransfer2 *self, ZStackedProxy **stacked)
 {

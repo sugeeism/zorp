@@ -45,7 +45,6 @@ typedef struct _ZDimHashTable
 
 typedef gboolean (*ZDimHashFreeFunc)(void *value);
 
-
 void z_dim_hash_key_free(int num, gchar **key);
 
 ZDimHashTable *z_dim_hash_table_new(guint minnum, guint num, ...);

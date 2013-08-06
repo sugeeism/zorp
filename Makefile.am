@@ -1,8 +1,9 @@
-SUBDIRS = lib libproxy modules zorp pylib doc debian zorpctl scripts tests
+SUBDIRS = lib libproxy modules zorp pylib doc debian zorpctl scripts tests munin_plugins nagios_plugins
 DIST_SUBDIRS = $(SUBDIRS)
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libzorp.pc libzorpproxy.pc
+
 
 pkgdatadir=@datadir@/zorp
 pkgdata_DATA = moduledist.conf

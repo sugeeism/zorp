@@ -41,7 +41,7 @@
  *
  * This function opens the module specified by @modname as a shared object
  * and initializes it by calling its zorp_module_init function.
- * 
+ *
  * Returns TRUE on success
  **/
 gint

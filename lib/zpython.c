@@ -23,8 +23,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
- * Last audited version: 
+ * Auditor :
+ * Last audited version:
  * Notes:
  *
  ***************************************************************************/
@@ -55,13 +55,13 @@ z_python_init(void)
       g_snprintf(buf, sizeof(buf), "PYTHONPATH=%s:%s", ZORP_DATADIR "/pylib", getenv("PYTHONPATH"));
     }
   putenv(buf);
+  putenv("PYTHONOPTIMIZE=2");
   PySys_AddWarnOption("ignore:hex/oct constants > sys.maxint will return positive values in Python 2.4 and up:FutureWarning");
   PySys_AddWarnOption("ignore:x<<y losing bits or changing sign will return a long in Python 2.4 and up:FutureWarning");
   PySys_AddWarnOption("ignore:Non-ASCII character:DeprecationWarning");
   Py_Initialize();
   PyEval_InitThreads();
-  
-  
+
   initial_thread = PyEval_SaveThread();
   return TRUE;
 }
@@ -90,7 +90,7 @@ z_python_destroy(void)
  *
  * Lock the python interpreter, without setting the current thread pointer.
  **/
-void 
+void
 z_python_lock(void)
 {
   PyEval_AcquireLock();
@@ -101,9 +101,8 @@ z_python_lock(void)
  *
  * Unlock the python interpreter.
  **/
-void 
+void
 z_python_unlock(void)
 {
   PyEval_ReleaseLock();
 }
-

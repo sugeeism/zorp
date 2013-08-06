@@ -50,7 +50,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = pylib/kznf/kznf
+subdir = pylib/kzorp/kzorp
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -75,6 +75,7 @@ am__can_run_installinfo = \
   esac
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
+ADPALERTING_MIN_VERSION = @ADPALERTING_MIN_VERSION@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -119,6 +120,8 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBADPALERTING_CFLAGS = @LIBADPALERTING_CFLAGS@
+LIBADPALERTING_LIBS = @LIBADPALERTING_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBPROXY_CPPFLAGS = @LIBPROXY_CPPFLAGS@
 LIBS = @LIBS@
@@ -184,9 +187,14 @@ ZORPMISC_CFLAGS = @ZORPMISC_CFLAGS@
 ZORPMISC_LIBS = @ZORPMISC_LIBS@
 ZORPMISC_MIN_VERSION = @ZORPMISC_MIN_VERSION@
 ZORP_LIBS = @ZORP_LIBS@
+ZORP_MUNIN_CONF_DIR = @ZORP_MUNIN_CONF_DIR@
+ZORP_MUNIN_DIR = @ZORP_MUNIN_DIR@
+ZORP_NAGIOS_CONF_DIR = @ZORP_NAGIOS_CONF_DIR@
+ZORP_NAGIOS_DIR = @ZORP_NAGIOS_DIR@
 ZORP_OS = @ZORP_OS@
 ZORP_PACKAGE_LICENSE = @ZORP_PACKAGE_LICENSE@
 ZORP_PROC = @ZORP_PROC@
+ZORP_SUDOERSD_CONF_DIR = @ZORP_SUDOERSD_CONF_DIR@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -241,7 +249,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 zorp_srcdir = @zorp_srcdir@
-EXTRA_DIST = __init__.py nfnetlink.py kznfnetlink.py
+EXTRA_DIST = __init__.py netlink.py kzorp_netlink.py
 all: all-am
 
 .SUFFIXES:
@@ -254,9 +262,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign pylib/kznf/kznf/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign pylib/kzorp/kzorp/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign pylib/kznf/kznf/Makefile
+	  $(AUTOMAKE) --foreign pylib/kzorp/kzorp/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

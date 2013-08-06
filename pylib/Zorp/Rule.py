@@ -20,196 +20,466 @@
 ##
 ############################################################################
 """
+<module maturity="stable">
+    <summary>Module defining firewall rules</summary>
+    <description>
+        <para>The Rule module defines the classes needed to create Zorp firewall rules.</para>
+        <xi:include href="../zorp-admin-guide/chapters/zorp-firewall-rules.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="element(zorp-firewall-rules-evaluation)"/>
+        <section id="sample-rules">
+            <title>Sample rules</title>
+            <example id="example-rules">
+                <title>Sample rule definitions</title>
+                <para>The following rule starts the service called <parameter>MyPFService</parameter> for every incoming TCP connection (<parameter>proto=6</parameter>).</para>
+                <synopsis>Rule(proto=6,
+    service='MyPFService'
+    )</synopsis>
+                <para>The following rule starts a service for TCP or UDP connections from the <parameter>office</parameter> zone.</para>
+                <synopsis>Rule(proto=(6,17),
+    src_zone='office',
+    service='MyService'
+    )</synopsis>
+            <para>The following rule permits connections from the <parameter>192.168.0.0/16</parameter> IPv4 and the <parameter>2001:db8:c001:ba80::/58</parameter> IPv6 subnets. Note that since the <parameter>src_subnet</parameter> parameter has two values, they are specified as a Python tuple: <parameter>('value1','value2')</parameter>.</para>
+            <synopsis>Rule(proto=6,
+    src_subnet=('192.168.0.0/16', '2001:db8:c001:ba80::/58'),
+    service='MyService'
+    )</synopsis>
+            <para>The following rule has almost every parameter set:</para>
+            <synopsis>Rule(src_iface=('eth0', ),
+    proto=6,
+    dst_port=443,
+    src_subnet=('192.168.10.0/24', ),
+    src_zone=('office', ),
+    dst_subnet=('192.168.50.50/32', ),
+    dst_zone=('finance', ),
+    service='MyHttpsService'
+    )</synopsis>
+            </example>
+        </section>
+        <section id="rules-metadata">
+            <title>Adding metadata to rules: tags and description</title>
+            <para>To make the configuration file more readable and informative, you can add descriptions and tags to the rules. Descriptions can be longer texts, while tags are simple labels, for example, to identify rules that belong to the same type of traffic. Adding metadata to rules is not necessary, but can be a great help when maintaining large configurations.</para>
+            <itemizedlist>
+                <listitem>
+                    <para>To add a description to a rule, add the text of the description before the rule, enclosed between three double-quotes:</para>
+                    <synopsis>&quot;&quot;&quot;This rule is ...&quot;&quot;&quot;</synopsis>
+                </listitem>
+                <listitem>
+                    <para>To tag a rule, add a comment line before the rule that contains the list of tags applicable to the rule, separated with commas.</para>
+                    <synopsis>#Tags: tag1, tag2</synopsis>
+                </listitem>
+            </itemizedlist>
+            <example>
+                <title>Tagging rules</title>
+                <para>The following rule has two tags, marking the traffic type and the source zone: <parameter>http</parameter> and <parameter>office</parameter>.</para>
+                <synopsis>#Tags: http, office
+    &quot;&quot;&quot;Description&quot;&quot;&quot;
+    Rule(proto=(6),
+    src_zone='office',
+    service='MyHttpService'
+    )</synopsis>
+            </example>
+        </section>
+    </description>
+</module>
 """
 
 from Util import makeSequence
+from Util import parseIfaceGroupAliases
 from Subnet import Subnet
 from Zone import Zone
-import kznf.kznfnetlink as kznf
+import kzorp.kzorp_netlink as kzorp
 import Globals
 import Dispatch
 
 class RuleSet(object):
+    """
+    <class maturity="stable" internal="yes">
+      <summary>
+      </summary>
+      <description>
+        <para>
+        </para>
+      </description>
+    </class>
+    """
+    def __init__(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self._rules = []
+        self._rule_id_index = 1
+        self._rule_id_set = set()
 
-        def __init__(self):
-                self._rules = []
-                self._rule_id_index = 1
-                self._rule_id_set = set()
+    def _getNextId(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        while (self._rule_id_index in self._rule_id_set):
+            self._rule_id_index += 1
 
-        def _getNextId(self):
-                while (self._rule_id_index in self._rule_id_set):
-                        self._rule_id_index += 1
+        return self._rule_id_index
 
-                return self._rule_id_index
+    def add(self, rule):
+        """
+        <method internal="yes">
+        </method>
+        """
+        rule_id = rule.getId()
+        if not rule_id:
+            # generate a unique id
+            rule_id = self._getNextId()
+            rule.setId(rule_id)
+        elif rule_id in self._rule_id_set:
+            # the specified id is not unique
+            raise ValueError, "Duplicate rule id found; id='%d'" % (rule_id,)
 
-        def add(self, rule):
-                rule_id = rule.getId()
-                if not rule_id:
-                        # generate a unique id
-                        rule_id = self._getNextId()
-                        rule.setId(rule_id)
-                elif rule_id in self._rule_id_set:
-                        # the specified id is not unique
-                        raise ValueError, "Duplicate rule id found; id='%d'" % (rule_id,)
+        self._rule_id_set.add(rule_id)
+        self._rules.append(rule)
 
-                self._rule_id_set.add(rule_id)
-                self._rules.append(rule)
+    def _sortRules(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self._rules.sort(lambda a, b: cmp(a.getId(), b.getId()))
 
-        def _sortRules(self):
-                self._rules.sort(lambda a, b: cmp(a.getId(), b.getId()))
+    def __iter__(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self._sortRules()
+        return iter(self._rules)
 
-        def __iter__(self):
-                self._sortRules()
-                return iter(self._rules)
-
-        @property
-        def length(self):
-                return len(self._rules)
+    @property
+    def length(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        return len(self._rules)
 
 class PortRange(object):
-        def __init__(self, low, high):
-                self._low = low
-                self._high = high
+    """
+    <class maturity="stable">
+        <summary>Specifies a port range for a rule</summary>
+        <description>
+            <para>This class specifies a port range for a firewall rule. It can be used in the <parameter>src_port</parameter> and <parameter>dst_port</parameter> parameters of a rule. For example: <parameter>src_port=PortRange(2000, 2100)</parameter>, or <parameter>src_port=(PortRange(2000, 2100), PortRange(2500, 2600))</parameter>. When listing multiple elements, ports and port ranges can be mixed, for example: <parameter>src_port=(4433, PortRange(2000, 2100), PortRange(2500, 2600))</parameter></para>
+        </description>
+        <metainfo>
+            <attributes>
+                <attribute>
+                    <name>low</name>
+                    <type><integer/></type>
+                    <description>The lower value of the port range.</description>
+                </attribute>
+                <attribute>
+                    <name>high</name>
+                    <type><integer/></type>
+                    <description>The higher value of the port range.</description>
+                </attribute>
+            </attributes>
+        </metainfo>
+    </class>
+    """
+    def __init__(self, low, high):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self._low = low
+        self._high = high
 
-        def getTuple(self):
-                return (self._low, self._high)
+    def getTuple(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        return (self._low, self._high)
 
 class Rule(object):
-        valid_dimensions = { 'iface'       : kznf.KZA_N_DIMENSION_IFACE, \
-                             'ifgroup'     : kznf.KZA_N_DIMENSION_IFGROUP, \
-                             'proto'       : kznf.KZA_N_DIMENSION_PROTO, \
-                             'src_port'    : kznf.KZA_N_DIMENSION_SRC_PORT, \
-                             'dst_port'    : kznf.KZA_N_DIMENSION_DST_PORT, \
-                             'src_subnet'  : kznf.KZA_N_DIMENSION_SRC_IP, \
-                             'src_subnet6' : kznf.KZA_N_DIMENSION_SRC_IP6, \
-                             'src_zone'    : kznf.KZA_N_DIMENSION_SRC_ZONE, \
-                             'dst_subnet'  : kznf.KZA_N_DIMENSION_DST_IP, \
-                             'dst_subnet6' : kznf.KZA_N_DIMENSION_DST_IP6, \
-                             'dst_zone'    : kznf.KZA_N_DIMENSION_DST_ZONE }
+    """
+    <class maturity="stable">
+        <summary>This class implements firewall rules</summary>
+        <description>
+            <para>This class implements Zorp firewall rules. For details, see <xref linkend="python.Rule"/>.</para>
+        </description>
+        <metainfo>
+          <attributes/>
+        </metainfo>
+    </class>
+    """
+    valid_dimensions = { 'reqid'       : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
+                         'iface'       : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
+                         'ifgroup'     : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
+                         'proto'       : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
+                         'src_port'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
+                         'dst_port'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
+                         'src_subnet'  : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
+                         'src_subnet6' : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
+                         'src_zone'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
+                         'dst_subnet'  : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
+                         'dst_subnet6' : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
+                         'dst_iface'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
+                         'dst_ifgroup' : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
+                         'dst_zone'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE}
 
-        def __init__(self, **kw):
+    dimension_aliases = {
+                          'src_iface' : 'iface',
+                          'src_ifgroup' : 'ifgroup',
+                        }
 
-                def parseSubnets(subnet_list):
-                        """
-                        Helper function to convert a string-based
-                        subnet list to two tuples consisting of
-                        InetSubnet and InetSubnet6 instances.
-                        """
-                        import socket
-                        subnets = { socket.AF_INET: [], socket.AF_INET6: [] }
+    iface_group_aliases = parseIfaceGroupAliases()
 
-                        subnet_list = makeSequence(subnet_list)
+    def __init__(self, **kw):
+        """
+        <method>
+            <summary>Initializes a rule</summary>
+            <description>Initializes a rule</description>
+            <metainfo>
+                <arguments>
+                    <argument>
+                        <name>dst_iface</name>
+                        <type><interface/></type>
+                        <description>Permit traffic only for connections that target a configured IP address of the listed interfaces. This parameter can be used to provide nontransparent service on an interface that received its IP address dynamically. For example, <parameter>dst_iface='eth0',</parameter> or <parameter>dst_iface=('eth0', 'tun1'),</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>dst_ifgroup</name>
+                        <type><integer/></type>
+                        <description>Permit traffic only for connections that target a configured IP address of the listed interface group. This parameter can be used to provide nontransparent service on an interface that received its IP address dynamically. For example, <parameter>dst_ifgroup=1</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>dst_port</name>
+                        <type><integer/></type>
+                        <description>Permit traffic only if the client targets the listed port. For example, <parameter>dst_port=80</parameter>, or <parameter>dst_port=(80, 443)</parameter>. To specify port ranges, use the <link linkend="python.Rule.PortRange">PortRange</link> class, for example, <parameter>dst_port=PortRange(2000, 2100)</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>dst_subnet</name>
+                        <type><subnet/></type>
+                        <description>Permit traffic only for connections targeting a listed IP address, or an address belonging to the listed subnet. The subnet can be IPv4 or IPv6 subnet. When listing multiple subnets, you can list both IPv4 and IPv6 subnets. IP addresses are treated as subnets with a /32 (IPv4) or /128 (IPv6) netmask. If no netmask is set for a subnet, it is treated as a specific IP address. For example, <parameter>dst_subnet='192.168.10.16'</parameter> or <parameter>dst_subnet=('192.168.0.0/16', '2001:db8:c001:ba80::/58')</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>dst_zone</name>
+                        <type><zone/></type>
+                        <description>Permit traffic only for connections targeting an address belonging to the listed zones. For example, <parameter>dst_zone='office'</parameter> or <parameter>dst_zone=('office', 'finance')</parameter>. Note that this applies to destination address of the client-side connection request: the actual address of the server-side connection can be different (for example, if a DirectedRouter is used in the service).</description>
+                    </argument>
+                    <argument>
+                        <name>proto</name>
+                        <type><integer/></type>
+                        <description>Permit only connections using the specified transport protocol. This is the transport layer (Layer 4) protocol of the OSI model, for example, TCP, UDP, ICMP, and so on. The protocol must be specified using a number: the decimal value of the "protocol" field of the IP header. This value is 6 for the TCP and 17 for the UDP protocol. For a list of protocol numbers, see the <ulink url="http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xml">Assigned Internet Protocol Numbers page of IANA</ulink>. For example: <parameter>proto=(6,17)</parameter>.
+                        <para>To permit any protocol, do not add the <parameter>proto</parameter> parameter to the rule.</para></description>
+                    </argument>
+                    <argument>
+                        <name>rule_id</name>
+                        <type><integer/></type>
+                        <description>A unique ID number for the rule. This parameter is optional, Zorp automatically generates an ID number for the rule during startup.</description>
+                    </argument>
+                    <argument>
+                        <name>service</name>
+                        <type><service/></type>
+                        <description>The name of the service to start for matching connections. This is the only required parameter for the rule, everything else is optional. For example, <parameter>service='MyService'</parameter></description>
+                    </argument>
+                    <argument>
+                        <name>src_iface</name>
+                        <type><interface/></type>
+                        <description>Permit traffic only for connections received on the listed interface. For example, <parameter>src_iface='eth0',</parameter> or <parameter>src_iface=('eth0', 'tun1'),</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>src_ifgroup</name>
+                        <type><integer/></type>
+                        <description>Permit traffic only for connections received on the listed interfacegroup. For example, <parameter>src_iface=1</parameter>. Interface groups can be defined in the <filename>/etc/network/interfaces</filename> file, for example:
+                        <synopsis>iface eth0 inet dhcp
+            group 1
+        iface eth1 inet dhcp
+            group 1</synopsis></description>
+                    </argument>
+                    <argument>
+                        <name>src_port</name>
+                        <type><integer/></type>
+                        <description>Permit traffic only if the client sends the connection request from the listed port. For example, <parameter>src_port=4455</parameter>. To specify port ranges, use the <link linkend="python.Rule.PortRange">PortRange</link> class, for example, <parameter>src_port=PortRange(2000, 2100)</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>src_subnet</name>
+                        <type><subnet/></type>
+                        <description>Permit traffic only for the clients of the listed subnet or IP addresses. The subnet can be IPv4 or IPv6 subnet. When listing multiple subnets, you can list both IPv4 and IPv6 subnets. IP addresses are treated as subnets with a /32 (IPv4) or /128 (IPv6) netmask. If no netmask is set for a subnet, it is treated as a specific IP address. For example, <parameter>src_subnet='192.168.10.16'</parameter> or <parameter>src_subnet=('192.168.0.0/16', '2001:db8:c001:ba80::/58')</parameter>.</description>
+                    </argument>
+                    <argument>
+                        <name>src_zone</name>
+                        <type><zone/></type>
+                        <description>Permit traffic only for the clients of the listed zones. For example, <parameter>src_zone='office'</parameter> or <parameter>src_zone=('office', 'finance')</parameter>.</description>
+                    </argument>
+                </arguments>
+            </metainfo>
+        </method>
+        """
 
-                        for item in subnet_list:
-                                if isinstance(item, basestring):
-                                        subnet = Subnet.create(item)
-                                elif isinstance(item, Subnet):
-                                        subnet = item
-                                else:
-                                        raise ValueError, "Invalid subnet specification: value='%s'" % (item,)
+        def parseSubnets(subnet_list):
+            """
+            <method internal="yes">
+            Helper function to convert a string-based
+            subnet list to two tuples consisting of
+            InetSubnet and InetSubnet6 instances.
+            </method>
+            """
+            import socket
+            subnets = { socket.AF_INET: [], socket.AF_INET6: [] }
 
-                                subnets[subnet.get_family()].append((subnet.addr_packed(), subnet.netmask_packed()))
+            subnet_list = makeSequence(subnet_list)
 
-                        return (tuple(subnets[socket.AF_INET]), tuple(subnets[socket.AF_INET6]))
+            for item in subnet_list:
+                if isinstance(item, basestring):
+                    subnet = Subnet.create(item)
+                elif isinstance(item, Subnet):
+                    subnet = item
+                else:
+                    raise ValueError, "Invalid subnet specification: value='%s'" % (item,)
 
-                def resolveZones(name_list):
-                        """
-                        Helper function to convert a list of zone
-                        names to a list of Zone instnaces
-                        """
-                        name_list = makeSequence(name_list)
+                subnets[subnet.get_family()].append((subnet.addr_packed(), subnet.netmask_packed()))
 
-                        for name in name_list:
-                                if Zone.lookup_by_name(name) == None:
-                                        raise ValueError, "No zone was defined with that name; zone='%s'" % (name,)
+            return (tuple(subnets[socket.AF_INET]), tuple(subnets[socket.AF_INET6]))
 
-                def parsePorts(port_list):
-                        """
-                        Helper function to convert a port or port
-                        range list to a list of port ranges. Accepted
-                        input formats are:
+        def resolveZones(name_list):
+            """
+            <method internal="yes">
+            Helper function to convert a list of zone
+            names to a list of Zone instnaces
+            </method>
+            """
+            name_list = makeSequence(name_list)
 
-                        (port1, port2, port3) - list of ports
-                        (port1, (begin, end), port3) - list of ports mixed with ranges
-                        """
-                        ports = []
-                        port_list = makeSequence(port_list)
+            for name in name_list:
+                if Zone.lookup_by_name(name) == None:
+                    raise ValueError, "No zone was defined with that name; zone='%s'" % (name,)
 
-                        for item in port_list:
-                                if isinstance(item, PortRange):
-                                        ports.append(item.getTuple())
-                                else:
-                                        if isinstance(item, basestring):
-                                                item = int(item)
+        def parsePorts(port_list):
+            """
+            <method internal="yes">
+            Helper function to convert a port or port
+            range list to a list of port ranges. Accepted
+            input formats are:
 
-                                        if not isinstance(item, int):
-                                                raise ValueError, "Integer port value expected; value='%s'" % (item,)
+            (port1, port2, port3) - list of ports
+            (port1, (begin, end), port3) - list of ports mixed with ranges
+            </method>
+            """
+            ports = []
+            port_list = makeSequence(port_list)
 
-                                        ports.append((item, item))
+            for item in port_list:
+                if isinstance(item, PortRange):
+                    ports.append(item.getTuple())
+                else:
+                    if isinstance(item, basestring):
+                        item = int(item)
 
-                        return ports
+                    if not isinstance(item, int):
+                        raise ValueError, "Integer port value expected; value='%s'" % (item,)
 
-                # store id
-                self._id = kw.pop('rule_id', None)
+                    ports.append((item, item))
 
-                # store service
-                service_name = kw.pop('service', None)
-                self._service = Globals.services.get(service_name, None)
-                if not self._service:
-                        raise ValueError, "No valid service was specified for the rule; service='%s'" % (service_name,)
+            return ports
 
-                # convert and check special dimensions: subnets, ports and zones at the moment
-                (kw['src_subnet'], kw['src_subnet6']) = parseSubnets(kw.get('src_subnet', []))
-                (kw['dst_subnet'], kw['dst_subnet6']) = parseSubnets(kw.get('dst_subnet', []))
-                kw['src_port'] = parsePorts(kw.get('src_port', []))
-                kw['dst_port'] = parsePorts(kw.get('dst_port', []))
-                resolveZones(kw.get('src_zone', []))
-                resolveZones(kw.get('dst_zone', []))
+        def parseGroups(group_list):
+            groups = []
+            group_list = makeSequence(group_list)
 
-                # store values specified
-                self._dimensions = {}
-                for key, value in kw.items():
-                        if key not in self.valid_dimensions:
-                                raise ValueError, "Unknown dimension '%s'" % (key,)
+            for item in group_list:
+                if isinstance(item, int):
+                    groups.append(item)
+                elif isinstance(item, basestring):
+                    try:
+                        item = int(item)
+                    except ValueError:
+                        if item not in self.iface_group_aliases:
+                            raise ValueError, "Valid group name expected; value='%s' %s" % (item, str(self.iface_group_aliases))
+                        item = self.iface_group_aliases[item]
 
-                        self._dimensions[key] = makeSequence(value)
+                    groups.append(item)
 
-                Globals.rules.add(self)
-                Dispatch.RuleDispatcher.createOneInstance()
+            return groups
 
-        def getId(self):
-                return self._id
+        # store id
+        self._id = kw.pop('rule_id', None)
 
-        def setId(self, rule_id):
-                self._id = rule_id
+        # store service
+        service_name = kw.pop('service', None)
+        self._service = Globals.services.get(service_name, None)
+        if not self._service:
+            raise ValueError, "No valid service was specified for the rule; service='%s'" % (service_name,)
 
-        def buildKZorpMessage(self, dispatcher_name):
-                messages = []
+        # convert and check special dimensions: subnets, ports and zones at the moment
 
-                # determine maximum dimension length
+        for ip_keyword in ['src_subnet', 'dst_subnet']:
+            ipv6_keyword = ip_keyword + '6'
+            # forbid usage of ipv6 related keywords:
+            if ipv6_keyword in kw:
+                raise ValueError, "Invalid dimension specification '%s'" % ipv6_keyword
+            (kw[ip_keyword], kw[ipv6_keyword]) = parseSubnets(kw.get(ip_keyword, []))
 
-                kzorp_dimensions = {}
-                for (key, value) in self._dimensions.items():
-                        kzorp_dimensions[self.valid_dimensions[key]] = value
+        kw['src_ifgroup'] = parseGroups(kw.get('src_ifgroup', []))
+        kw['dst_ifgroup'] = parseGroups(kw.get('dst_ifgroup', []))
+        kw['src_port'] = parsePorts(kw.get('src_port', []))
+        kw['dst_port'] = parsePorts(kw.get('dst_port', []))
+        resolveZones(kw.get('src_zone', []))
+        resolveZones(kw.get('dst_zone', []))
 
-                kzorp_dimension_sizes = dict(map(lambda (key, value): (key, len(value)), kzorp_dimensions.items()))
-                max_dimension_length = max(kzorp_dimension_sizes.values()) if len(kzorp_dimension_sizes) > 0 else 0
+        # store values specified
+        self._dimensions = {}
+        for key, value in kw.items():
+            if key not in self.valid_dimensions:
+                if key in self.dimension_aliases:
+                    key = self.dimension_aliases[key]
+                else:
+                    raise ValueError, "Unknown dimension '%s'" % (key,)
 
-                messages.append((kznf.KZNL_MSG_ADD_RULE,
-                                 kznf.create_add_n_dimension_rule_msg(dispatcher_name,
-                                                                      self.getId(),
-                                                                      self._service.name,
-                                                                      kzorp_dimension_sizes)))
+            self._dimensions.setdefault(key, []).extend(makeSequence(value))
 
-                for i in xrange(max_dimension_length):
-                        data = {}
+        Globals.rules.add(self)
+        Dispatch.RuleDispatcher.createOneInstance()
 
-                        for dimension, values in kzorp_dimensions.items():
-                                if len(values) > i:
-                                        data[dimension] = values[i]
+    def getId(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        return self._id
 
-                        messages.append((kznf.KZNL_MSG_ADD_RULE_ENTRY,
-                                         kznf.create_add_n_dimension_rule_entry_msg(dispatcher_name,
-                                                                                    self.getId(),
-                                                                                    data)))
-                return messages
+    def setId(self, rule_id):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self._id = rule_id
+
+    def buildKZorpMessage(self, dispatcher_name):
+        """
+        <method internal="yes">
+        </method>
+        """
+        messages = []
+
+        # determine maximum dimension length
+
+        kzorp_dimensions = {}
+        for (key, value) in self._dimensions.items():
+            kzorp_dimensions[self.valid_dimensions[key]] = value
+
+        kzorp_dimension_sizes = dict(map(lambda (key, value): (key, len(value)), kzorp_dimensions.items()))
+        max_dimension_length = max(kzorp_dimension_sizes.values()) if len(kzorp_dimension_sizes) > 0 else 0
+
+        messages.append(kzorp.KZorpAddRuleMessage(dispatcher_name,
+                                                 self.getId(),
+                                                 self._service.name,
+                                                 kzorp_dimension_sizes))
+
+        for i in xrange(max_dimension_length):
+            data = {}
+
+            for dimension, values in kzorp_dimensions.items():
+                if len(values) > i:
+                    data[dimension] = values[i]
+
+            messages.append(kzorp.KZorpAddRuleEntryMessage(dispatcher_name, self.getId(), data))
+        return messages

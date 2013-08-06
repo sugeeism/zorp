@@ -31,7 +31,7 @@
 
 #include "pop3.h"
 
-guint 
+guint
 Pop3ParseNoarg(Pop3Proxy *self)
 {
   z_proxy_enter(self);
@@ -42,12 +42,12 @@ Pop3ParseNoarg(Pop3Proxy *self)
      */
     z_proxy_log(self, POP3_REQUEST, 4, "Dropping request parameter, no parameter allowed; req='%s', req_prm='%s'",
 	self->command->str, self->command_param->str);
-  
+
   g_string_assign(self->command_param, "");
   z_proxy_return(self, POP3_REQ_ACCEPT);
 }
 
-guint 
+guint
 Pop3ParseNum_One(Pop3Proxy *self)
 {
   long int arg;
@@ -65,7 +65,7 @@ Pop3ParseNum_One(Pop3Proxy *self)
 	  self->command->str, self->command_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   if (errno == ERANGE)
     {
       /*LOG
@@ -76,7 +76,7 @@ Pop3ParseNum_One(Pop3Proxy *self)
 	  self->command->str, self->command_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   if (arg < 0)
     {
       /*LOG
@@ -107,7 +107,7 @@ Pop3ParseNum_One(Pop3Proxy *self)
       z_proxy_log(self, POP3_REQUEST, 4, "The numerical parameter of the request contains junk after the number; req='%s', req_prm='%s'",
                   self->command->str, self->command_param->str);
     }
-  
+
   g_string_printf(self->command_param, "%ld", arg);
   z_proxy_return(self, POP3_REQ_ACCEPT);
 }
@@ -120,7 +120,7 @@ Pop3ParseNum_OneOptional(Pop3Proxy *self)
   z_proxy_enter(self);
   if (strlen(self->command_param->str) == 0)
     z_proxy_return(self, POP3_REQ_ACCEPT);
-  
+
   self->response_multiline = FALSE;
   ret = Pop3ParseNum_One(self);
   z_proxy_return(self, ret);
@@ -146,7 +146,7 @@ Pop3ParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->command_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   if (arg1 < 0)
     {
       /*LOG
@@ -157,7 +157,7 @@ Pop3ParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->command_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   next = err;
   err = NULL;
   if (*next == 0)
@@ -182,7 +182,7 @@ Pop3ParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->command_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   if (arg2 < 0)
     {
       /*LOG
@@ -193,7 +193,7 @@ Pop3ParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->command_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   if (*err != 0)
     {
       /*LOG
@@ -203,7 +203,7 @@ Pop3ParseNum_Two(Pop3Proxy *self)
       z_proxy_log(self, POP3_REQUEST, 4, "The numerical parameter of the request contain junk after the number; req='%s', req_prm='%s'",
 	self->command->str, self->command_param->str);
     }
-  
+
   g_snprintf(newline, sizeof(newline), "%ld %ld", arg1, arg2);
   g_string_assign(self->command_param, newline);
   z_proxy_return(self, POP3_REQ_ACCEPT);
@@ -213,13 +213,13 @@ guint
 Pop3ParseRETR(Pop3Proxy *self)
 {
   guint ret;
-  
+
   z_proxy_enter(self);
   ret = Pop3ParseNum_One(self);
   z_proxy_return(self, ret);
 }
 
-guint 
+guint
 Pop3ParseUSER(Pop3Proxy *self)
 {
   gchar username[self->max_username_length + 1];
@@ -231,7 +231,7 @@ Pop3ParseUSER(Pop3Proxy *self)
       g_string_assign(self->username, username);
       z_proxy_return(self, POP3_REQ_ACCEPT);
     }
-  
+
   /*LOG
     This message indicates that the username parameter of the request is too long and Zorp
     rejects the request. Check the 'max_username_length' attribute.
@@ -241,11 +241,11 @@ Pop3ParseUSER(Pop3Proxy *self)
   z_proxy_return(self, POP3_REQ_REJECT);
 }
 
-guint 
+guint
 Pop3ParsePASS(Pop3Proxy *self)
 {
   gchar password[self->max_password_length + 1];
-  
+
   z_proxy_enter(self);
   if (self->command_param->len <= self->max_password_length)
     {
@@ -253,7 +253,7 @@ Pop3ParsePASS(Pop3Proxy *self)
       g_string_assign(self->password, password);
       z_proxy_return(self, POP3_REQ_ACCEPT);
     }
-  
+
   /*LOG
     This message indicates that the password parameter of the request is too long and Zorp
     rejects the request. Check the 'max_password_length' attribute.
@@ -263,7 +263,7 @@ Pop3ParsePASS(Pop3Proxy *self)
   z_proxy_return(self, POP3_REQ_REJECT);
 }
 
-guint 
+guint
 Pop3ParseAPOP(Pop3Proxy *self)
 {
   gchar username[self->max_username_length + 1];
@@ -291,9 +291,9 @@ Pop3ParseAPOP(Pop3Proxy *self)
     i++;
   buf = &buf[i];
 
-  for (i = 0; i < 32 && buf[i] != 0 && 
-       ((buf[i] >= '0' && buf[i] <= '9') || 
-        (buf[i] >= 'a' && buf[i] <= 'f') || 
+  for (i = 0; i < 32 && buf[i] != 0 &&
+       ((buf[i] >= '0' && buf[i] <= '9') ||
+        (buf[i] >= 'a' && buf[i] <= 'f') ||
         (buf[i] >= 'A' && buf[i] <= 'F')); i++)
     ;
 
@@ -309,7 +309,7 @@ Pop3ParseAPOP(Pop3Proxy *self)
   z_proxy_return(self, POP3_REQ_ACCEPT);
 }
 
-guint 
+guint
 Pop3AnswerParseUSER(Pop3Proxy *self)
 {
   z_proxy_enter(self);
@@ -318,7 +318,7 @@ Pop3AnswerParseUSER(Pop3Proxy *self)
   z_proxy_return(self, POP3_RSP_ACCEPT);
 }
 
-guint 
+guint
 Pop3AnswerParsePASS(Pop3Proxy *self)
 {
   z_proxy_enter(self);
@@ -329,7 +329,7 @@ Pop3AnswerParsePASS(Pop3Proxy *self)
   z_proxy_return(self, POP3_RSP_ACCEPT);
 }
 
-guint 
+guint
 Pop3AnswerParseAPOP(Pop3Proxy *self)
 {
   z_proxy_enter(self);
@@ -340,7 +340,7 @@ Pop3AnswerParseAPOP(Pop3Proxy *self)
   z_proxy_return(self, POP3_RSP_ACCEPT);
 }
 
-guint 
+guint
 Pop3AnswerParseQUIT(Pop3Proxy *self)
 {
   z_proxy_enter(self);
@@ -348,7 +348,7 @@ Pop3AnswerParseQUIT(Pop3Proxy *self)
   z_proxy_return(self, POP3_RSP_ACCEPT);
 }
 
-guint 
+guint
 Pop3ParseAUTH(Pop3Proxy *self)
 {
   z_proxy_enter(self);
@@ -357,7 +357,7 @@ Pop3ParseAUTH(Pop3Proxy *self)
   z_proxy_return(self, POP3_RSP_ACCEPT);
 }
 
-guint 
+guint
 Pop3AnswerParseNum_One(Pop3Proxy *self)
 {
   long int arg;
@@ -367,7 +367,7 @@ Pop3AnswerParseNum_One(Pop3Proxy *self)
   z_proxy_enter(self);
   if (!strcmp(self->response->str, "-ERR"))
     z_proxy_return(self, POP3_RSP_ACCEPT);
-  
+
   arg = strtol(self->response_param->str, &err, 10);
   if ( err == self->response_param->str )
     {
@@ -379,7 +379,7 @@ Pop3AnswerParseNum_One(Pop3Proxy *self)
 	self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   if (errno == ERANGE)
     {
       /*LOG
@@ -390,7 +390,7 @@ Pop3AnswerParseNum_One(Pop3Proxy *self)
 	self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   if (arg < 0)
     {
       /*LOG
@@ -411,16 +411,16 @@ Pop3AnswerParseNum_One(Pop3Proxy *self)
       z_proxy_log(self, POP3_RESPONSE, 4, "The numerical parameter of the response contains junk after the number; req='%s', rsp_prm='%s'",
 	  self->command->str, self->response_param->str);
     }
-  
+
   g_snprintf(newline, sizeof(newline), "%ld", arg);
-  
+
   g_string_assign(self->response_param, newline);
-  
+
   z_proxy_leave(self);
   return POP3_RSP_ACCEPT;
 }
 
-guint 
+guint
 Pop3AnswerParseNum_Two(Pop3Proxy *self)
 {
   long int arg1, arg2;
@@ -443,7 +443,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   if (err == self->response_param->str)
     {
       /*LOG
@@ -454,7 +454,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-    
+
   if (arg1 < 0)
     {
       /*LOG
@@ -465,7 +465,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   next = err;
   err = NULL;
   arg2 = strtol(next, &err, 10);
@@ -479,7 +479,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   if (err == next)
     {
       /*LOG
@@ -490,7 +490,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_REQ_ABORT);
     }
-  
+
   if (arg2 < 0)
     {
       /*LOG
@@ -501,7 +501,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
 	  self->command->str, self->response_param->str);
       z_proxy_return(self, POP3_RSP_ABORT);
     }
-  
+
   if (*err != 0)
     {
       /*LOG
@@ -511,7 +511,7 @@ Pop3AnswerParseNum_Two(Pop3Proxy *self)
       z_proxy_log(self, POP3_REQUEST, 4, "The second numerical parameter of the response contains junk after the number; req='%s', rsp_prm='%s'",
                   self->command->str, self->response_param->str);
     }
-  
+
   g_snprintf(newline, sizeof(newline), "%ld %ld", arg1, arg2);
   g_string_assign(self->response_param, newline);
   z_proxy_return(self, POP3_RSP_ACCEPT);

@@ -29,7 +29,7 @@
 
 #include "pop3.h"
 
-void 
+void
 pop3_get_timestamp(Pop3Proxy *self);
 
 #endif

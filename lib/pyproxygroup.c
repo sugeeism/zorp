@@ -53,13 +53,13 @@ z_policy_proxy_group_start(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw 
       PyErr_SetString(PyExc_ValueError, "Expecting Proxy instance as argument");
       return NULL;
     }
-  
+
   if (!z_policy_proxy_bind_implementation(proxy_instance))
     {
       PyErr_SetString(PyExc_RuntimeError, "Error binding proxy implementation");
       return NULL;
     }
-  
+
   if (z_proxy_group_start_session(proxy_group, z_policy_proxy_get_proxy(proxy_instance)))
     {
       return PyInt_FromLong(1);
@@ -68,11 +68,10 @@ z_policy_proxy_group_start(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw 
   return z_policy_none_ref();
 }
 
-
 /**
  * z_policy_proxy_group_new_instance:
  * @o unused
- * @args Python arguments: 
+ * @args Python arguments:
  *
  * Returns:
  * The new instance
@@ -84,22 +83,21 @@ z_policy_proxy_group_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
   ZProxyGroup *proxy_group;
   ZPolicyDict *dict;
   ZPolicyObj *res;
-  
+
   if (!PyArg_Parse(args, "(i)", &max_sessions))
     return NULL;
 
   proxy_group = z_proxy_group_new(max_sessions);
 
   dict = z_policy_dict_new();
-  
-  
+
   /* NOTE: we need to add a reference to proxy_group here as our instance
    * might be freed earlier than the method reference, in a construct like
    * ProxyGroup(1).start(proxy).
    */
-  
+
   z_policy_dict_register(dict, Z_VT_METHOD, "start", Z_VF_READ, z_policy_proxy_group_start, proxy_group, NULL);
-  
+
   z_policy_dict_set_app_data(dict, proxy_group, (GDestroyNotify) z_proxy_group_orphan);
   res = z_policy_struct_new(dict, Z_PST_PROXY_GROUP);
   return res;
@@ -110,7 +108,6 @@ PyMethodDef z_policy_proxy_group_funcs[] =
   { "ProxyGroup", (PyCFunction) z_policy_proxy_group_new_instance, METH_VARARGS, NULL },
   { NULL,      NULL, 0, NULL }   /* sentinel*/
 };
-
 
 /**
  * z_policy_proxy_group_init:

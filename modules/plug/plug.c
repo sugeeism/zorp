@@ -63,17 +63,17 @@ typedef struct _PlugProxy
 } PlugProxy;
 
 extern ZClass PlugProxy__class;
-            
+
 static gboolean
 plug_packet_stat_event(ZPlugSession *session,
-                       guint64 client_bytes, guint64 client_pkts, 
+                       guint64 client_bytes, guint64 client_pkts,
                        guint64 server_bytes, guint64 server_pkts,
                        gpointer user_data);
 static void
 plug_finish(ZPlugSession *session, gpointer user_data);
 static void
 plug_timeout(ZPlugSession *session, gpointer user_data);
-                       
+
 void
 plug_config_set_defaults(PlugProxy *self)
 {
@@ -86,7 +86,7 @@ plug_config_set_defaults(PlugProxy *self)
   self->session_data.packet_stats = plug_packet_stat_event;
   self->session_data.finish = plug_finish;
   self->session_data.timeout_cb = plug_timeout;
-  
+
   if (self->super.parent_proxy)
     self->session_data.shutdown_soft = TRUE;
 
@@ -143,7 +143,7 @@ plug_register_vars(PlugProxy *self)
 
 static gboolean
 plug_packet_stat_event(ZPlugSession *session G_GNUC_UNUSED,
-                       guint64 client_bytes, guint64 client_pkts, 
+                       guint64 client_bytes, guint64 client_pkts,
                        guint64 server_bytes, guint64 server_pkts,
                        gpointer user_data)
 {
@@ -199,7 +199,7 @@ static void
 plug_finish(ZPlugSession *session G_GNUC_UNUSED, gpointer user_data)
 {
   PlugProxy *self = (PlugProxy *) user_data;
-  
+
   z_proxy_nonblocking_stop(&self->super);
 }
 
@@ -252,21 +252,21 @@ plug_nonblocking_init(ZProxy *s, ZPoll *poll)
 {
   PlugProxy *self = Z_CAST(s, PlugProxy);
   ZStackedProxy *stacked;
-  
+
   z_proxy_enter(self);
-  
+
   if (!z_proxy_connect_server(&self->super, NULL, 0))
     {
       z_proxy_leave(self);
       return FALSE;
     }
-    
+
   if (!plug_request_stack_event(self, &stacked))
     {
       z_proxy_leave(self);
       return FALSE;
     }
-  
+
   self->session = z_plug_session_new(&self->session_data, self->super.endpoints[EP_CLIENT], self->super.endpoints[EP_SERVER], stacked, &self->super);
   if (!self->session)
     {
@@ -274,13 +274,13 @@ plug_nonblocking_init(ZProxy *s, ZPoll *poll)
       return FALSE;
     }
   z_plug_session_register_vars(self->session, self->super.dict);
-  
+
   if (!z_plug_session_start(self->session, poll))
     {
       z_proxy_leave(self);
       return FALSE;
     }
-    
+
   z_proxy_leave(self);
   return TRUE;
 }
@@ -289,7 +289,7 @@ static void
 plug_nonblocking_deinit(ZProxy *s)
 {
   PlugProxy *self = Z_CAST(s, PlugProxy);
-  
+
   if (self->session)
     z_plug_session_cancel(self->session);
 }
@@ -313,36 +313,36 @@ ZProxy *
 plug_proxy_new(ZProxyParams *params)
 {
   PlugProxy *self;
-  
+
   z_enter();
   self = Z_CAST(z_proxy_new(Z_CLASS(PlugProxy), params), PlugProxy);
   self->super.flags |= ZPF_NONBLOCKING;
-  
+
   z_leave();
   return &self->super;
 }
-    
+
 static void
 plug_proxy_free(ZObject *s)
 {
   PlugProxy *self = Z_CAST(s, PlugProxy);
-  
+
   z_proxy_enter(self);
-  
+
   z_plug_session_destroy(self->session);
   if (self->poll)
     {
       z_poll_unref(self->poll);
       self->poll = NULL;
     }
-    
+
   z_proxy_free_method(s);
   z_return();
 }
 
 ZProxyFuncs plug_proxy_funcs =
 {
-  { 
+  {
     Z_FUNCS_COUNT(ZProxy),
     plug_proxy_free,
   },
@@ -356,9 +356,14 @@ ZProxyFuncs plug_proxy_funcs =
 
 Z_CLASS_DEF(PlugProxy, ZProxy, plug_proxy_funcs);
 
+static ZProxyModuleFuncs plug_module_funcs =
+  {
+    .create_proxy = plug_proxy_new,
+  };
+
 gint
 zorp_module_init(void)
 {
-  z_registry_add("plug", ZR_PROXY, plug_proxy_new);
+  z_registry_add("plug", ZR_PROXY, &plug_module_funcs);
   return TRUE;
 }

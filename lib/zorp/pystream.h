@@ -53,10 +53,9 @@ static inline ZStream *
 z_policy_stream_get_stream(PyObject *s)
 {
   ZPolicyStream *self = (ZPolicyStream *) s;
-  
+
   g_assert(z_policy_stream_check(s));
   return z_stream_ref(self->stream);
 }
 
 #endif
-

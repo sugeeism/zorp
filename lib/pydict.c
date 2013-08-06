@@ -23,12 +23,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
+ * Auditor :
  * Last audited version:
  * Notes:
  *
  ***************************************************************************/
- 
+
 #include <zorp/pydict.h>
 #include <zorp/log.h>
 #include <zorp/dimhash.h>
@@ -47,7 +47,7 @@
  *   A dictionary is a mapping of (variable name -> C storage description),
  *   where storage description is usually a type (one of Z_VT_*) and a
  *   pointer. The primary user of this interface is pystruct which is a
- *   generic Python type that uses ZPolicyDict as its instance dictionary. 
+ *   generic Python type that uses ZPolicyDict as its instance dictionary.
  *   Simple types like integers and strings are constructed when the
  *   variable of the given type is requested, more complex types (methods,
  *   hashes etc) are constructed on demand, and a reference is cached for
@@ -75,7 +75,7 @@
  *   thus variable registration is not protected by mutexes. The reference
  *   counter is an atomic variable, so _ref and _unref can be called from
  *   different threads.
- * 
+ *
  **/
 
 typedef struct _ZPolicyDictType ZPolicyDictType;
@@ -91,7 +91,7 @@ struct _ZPolicyDictType
 
 /**
  * ZPolicyDictEntry:
- * 
+ *
  * This structure represents an entry in the dictionary.
  **/
 struct _ZPolicyDictEntry
@@ -102,7 +102,7 @@ struct _ZPolicyDictEntry
   guint flags;
   gpointer value;
   /* type specific internal storage, to avoid allocation when literals are used */
-  union 
+  union
   {
     guint int_value;
     guint8 int8_value;
@@ -140,25 +140,28 @@ struct _ZPolicyDictEntry
       ZDimHashTable *table;
       gboolean consume;
     } dimhash;
+    struct
+    {
+      gsize length;
+    } bytearray;
   } ts;
 };
 
 /**
  * z_policy_dict_entry_free:
- * @e: ZPolicyDictEntry instance
+ * @entry: ZPolicyDictEntry instance
  *
- * Frees @e by calling the destructor function and freeing the structure itself.
+ * Frees @entry by calling the destructor function and freeing the structure itself.
  **/
 static void
-z_policy_dict_entry_free(ZPolicyDictEntry *e)
+z_policy_dict_entry_free(ZPolicyDictEntry *entry)
 {
-  if (e->flags & Z_VF_CONSUME)
-    e->type_funcs->free_fn(e);
+  if (entry->flags & Z_VF_CONSUME)
+    entry->type_funcs->free_fn(entry);
 
-  g_free((gchar *) e->name);
-  g_free(e);
+  g_free((gchar *) entry->name);
+  g_free(entry);
 }
-
 
 /**
  * ZPolicyDict:
@@ -166,7 +169,7 @@ z_policy_dict_entry_free(ZPolicyDictEntry *e)
  * An interface between C and Python, contains a mapping of attributes
  * stored in C variables, can be used as a getattr/setattr backend for
  * Python exported objects, but is not ZPolicyObj compatible on its
- * own 
+ * own
  */
 struct _ZPolicyDict
 {
@@ -175,56 +178,55 @@ struct _ZPolicyDict
      references */
 
   ZRefCount ref_cnt;
-  ZPolicyObj *wrapper; 
+  ZPolicyObj *wrapper;
   /* hashtable that contains the registered variables */
   GHashTable *vars;
   gpointer app_data;
   GDestroyNotify app_data_free;
 };
 
-
 /* support functions for types above */
 
 /******************************************************************************
- * int attributes support 
+ * int attributes support
  * value points to a gint
  */
 
 /**
  * z_policy_dict_int_parse_args:
  * @self: ZPolicyDict instance
- * @e: ZPolicyDictEntry being parsed
+ * @entry: ZPolicyDictEntry being parsed
  * @args: argument list to parse
  **/
 static void
-z_policy_dict_int_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_int_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
 
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_CONSUME)) == 0);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_CONSUME)) == 0);
 
-  if (e->flags & Z_VF_LITERAL)
+  if (entry->flags & Z_VF_LITERAL)
     {
-      switch (e->type)
+      switch (entry->type)
         {
         case Z_VT_INT:
-          e->value = &e->ts.int_value;
-          e->ts.int_value = va_arg(args, gint);
+          entry->value = &entry->ts.int_value;
+          entry->ts.int_value = va_arg(args, gint);
           break;
         case Z_VT_INT8:
-          e->value = &e->ts.int8_value;
-          e->ts.int8_value = va_arg(args, gint);
+          entry->value = &entry->ts.int8_value;
+          entry->ts.int8_value = va_arg(args, gint);
           break;
         case Z_VT_INT16:
-          e->value = &e->ts.int16_value;
-          e->ts.int16_value = (guint16) va_arg(args, gint);
+          entry->value = &entry->ts.int16_value;
+          entry->ts.int16_value = (guint16) va_arg(args, gint);
           break;
         case Z_VT_INT32:
-          e->value = &e->ts.int32_value;
-          e->ts.int32_value = va_arg(args, guint32);
+          entry->value = &entry->ts.int32_value;
+          entry->ts.int32_value = va_arg(args, guint32);
           break;
         case Z_VT_INT64:
-          e->value = &e->ts.int64_value;
-          e->ts.int64_value = va_arg(args, guint64);
+          entry->value = &entry->ts.int64_value;
+          entry->ts.int64_value = va_arg(args, guint64);
           break;
         default:
           g_assert_not_reached();
@@ -233,51 +235,45 @@ z_policy_dict_int_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *
     }
   else
     {
-      e->value = va_arg(args, gpointer);
+      entry->value = va_arg(args, gpointer);
     }
 }
 
 /**
  * z_policy_dict_int_get_value:
- * @self: not used
- * @name: not used
- * @value: (gint*) pointer to the value
  *
  * Gets the value of an integer variable
- *
- * Returns:
- * PyInt value
  */
 static ZPolicyObj *
-z_policy_dict_int_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry  *e)
+z_policy_dict_int_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry  *entry)
 {
   ZPolicyObj *res;
   glong value;
 
   z_enter();
-  switch (e->type)
+  switch (entry->type)
     {
     case Z_VT_INT:
-      value = *(gint *) e->value;
-      if (e->flags & Z_VF_INT_NET)
+      value = *(gint *) entry->value;
+      if (entry->flags & Z_VF_INT_NET)
         value = ntohl(value);
       break;
     case Z_VT_INT8:
-      value = *(guint8 *) e->value;
+      value = *(guint8 *) entry->value;
       break;
     case Z_VT_INT16:
-      value = *(guint16 *) e->value;
-      if (e->flags & Z_VF_INT_NET)
+      value = *(guint16 *) entry->value;
+      if (entry->flags & Z_VF_INT_NET)
         value = ntohs(value);
       break;
     case Z_VT_INT32:
-      value = *(guint32 *) e->value;
-      if (e->flags & Z_VF_INT_NET)
+      value = *(guint32 *) entry->value;
+      if (entry->flags & Z_VF_INT_NET)
         value = ntohl(value);
       break;
     case Z_VT_INT64:
-      value = *(guint64 *) e->value;
-      if (e->flags & Z_VF_INT_NET)
+      value = *(guint64 *) entry->value;
+      if (entry->flags & Z_VF_INT_NET)
         value = GUINT64_FROM_BE(value);
       break;
     default:
@@ -292,48 +288,43 @@ z_policy_dict_int_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry  *
 
 /**
  * z_policy_dict_int_set_value:
- * @self: not used
- * @name: not used
- * @value: (gint*) pointer to the value
- * @new: New value
- *
  * Sets the value of an integer variable
  *
  * Returns:
  * 0 on success, nonzero otherwise
  */
 static gint
-z_policy_dict_int_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, ZPolicyObj *new)
+z_policy_dict_int_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, ZPolicyObj *new)
 {
   gint value;
 
   z_enter();
   if (!z_policy_var_parse(new, "i", &value))
     z_return(1);
-  switch (e->type)
+  switch (entry->type)
     {
     case Z_VT_INT:
-      if (e->flags & Z_VF_INT_NET)
+      if (entry->flags & Z_VF_INT_NET)
         value = htonl(value);
-      *((gint *) e->value) = value;
+      *((gint *) entry->value) = value;
       break;
     case Z_VT_INT8:
-      *((guint8 *) e->value) = value;
+      *((guint8 *) entry->value) = value;
       break;
     case Z_VT_INT16:
-      if (e->flags & Z_VF_INT_NET)
+      if (entry->flags & Z_VF_INT_NET)
         value = htons(value);
-      *((guint16 *) e->value) = value;
+      *((guint16 *) entry->value) = value;
       break;
     case Z_VT_INT32:
-      if (e->flags & Z_VF_INT_NET)
+      if (entry->flags & Z_VF_INT_NET)
         value = htonl(value);
-      *((guint32 *) e->value) = value;
+      *((guint32 *) entry->value) = value;
       break;
     case Z_VT_INT64:
-      if (e->flags & Z_VF_INT_NET)
+      if (entry->flags & Z_VF_INT_NET)
         value = GUINT64_TO_BE(value);
-      *((guint64 *) e->value) = value;
+      *((guint64 *) entry->value) = value;
       break;
     default:
       g_assert_not_reached();
@@ -345,7 +336,7 @@ z_policy_dict_int_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e
 
 /******************************************************************************
  * string attributes support (Z_VT_STRING and Z_VT_CSTRING
- *  Z_VT_STRING 
+ *  Z_VT_STRING
  *    literal arguments:
  *      const gchar *
  *    non-literal arguments:
@@ -360,52 +351,51 @@ z_policy_dict_int_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e
 /**
  * z_policy_dict_string_parse_args:
  * @self: ZPolicyDict instance
- * @e: ZPolicyDictEntry being parsed
+ * @entry: ZPolicyDictEntry being parsed
  * @args: argument list to parse
  **/
 static void
-z_policy_dict_string_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_string_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  switch (e->type)
+  switch (entry->type)
     {
     case Z_VT_STRING:
-      if (e->flags & Z_VF_LITERAL)
+      if (entry->flags & Z_VF_LITERAL)
         {
-          e->value = g_string_new(va_arg(args, gchar *));
-          e->flags |= Z_VF_CONSUME;
+          entry->value = g_string_new(va_arg(args, gchar *));
+          entry->flags |= Z_VF_CONSUME;
         }
       else
         {
-          e->value = va_arg(args, gpointer);
+          entry->value = va_arg(args, gpointer);
         }
       break;
     case Z_VT_CSTRING:
-      if (e->flags & Z_VF_LITERAL)
+      if (entry->flags & Z_VF_LITERAL)
         {
-          if (e->flags & Z_VF_DUP)
+          if (entry->flags & Z_VF_DUP)
             {
               gchar *s;
 
               s = va_arg(args, gchar *);
-              e->ts.cstring_buflen = va_arg(args, gsize);
-              e->value = g_malloc(e->ts.cstring_buflen);
-              g_strlcpy(e->value, s, e->ts.cstring_buflen);
-              e->flags |= Z_VF_CONSUME;
+              entry->ts.cstring_buflen = va_arg(args, gsize);
+              entry->value = g_malloc(entry->ts.cstring_buflen);
+              g_strlcpy(entry->value, s, entry->ts.cstring_buflen);
+              entry->flags |= Z_VF_CONSUME;
             }
           else
             {
-              g_assert((e->flags & (Z_VF_WRITE+Z_VF_CFG_WRITE)) == 0);
+              g_assert((entry->flags & (Z_VF_WRITE+Z_VF_CFG_WRITE)) == 0);
 
-              e->value = va_arg(args, gchar *);
+              entry->value = va_arg(args, gchar *);
               va_arg(args, gsize); // pop size argument
-              e->ts.cstring_buflen = strlen((gchar *) e->value);
-          
+              entry->ts.cstring_buflen = strlen((gchar *) entry->value);
             }
         }
       else
         {
-          e->value = va_arg(args, gchar *);
-          e->ts.cstring_buflen = va_arg(args, gsize);
+          entry->value = va_arg(args, gchar *);
+          entry->ts.cstring_buflen = va_arg(args, gsize);
         }
       break;
     default:
@@ -416,9 +406,6 @@ z_policy_dict_string_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntr
 
 /**
  * z_policy_dict_string_get_value:
- * @self: not used
- * @name: not used
- * @value: (GString*) pointer to the value
  *
  * Gets the value of a GString variable
  *
@@ -426,18 +413,18 @@ z_policy_dict_string_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntr
  * PyString value
  */
 static ZPolicyObj *
-z_policy_dict_string_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e)
+z_policy_dict_string_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry)
 {
   ZPolicyObj *res;
 
   z_enter();
-  switch (e->type)
+  switch (entry->type)
     {
     case Z_VT_STRING:
-      res = PyString_FromStringAndSize(((GString *) e->value)->str, ((GString *) e->value)->len);
+      res = PyString_FromStringAndSize(((GString *) entry->value)->str, ((GString *) entry->value)->len);
       break;
     case Z_VT_CSTRING:
-      res = PyString_FromString((gchar *) e->value);
+      res = PyString_FromString((gchar *) entry->value);
       break;
     default:
       g_assert_not_reached();
@@ -451,34 +438,30 @@ z_policy_dict_string_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry
 /**
  * z_policy_dict_string_set_value:
  * @self: not used
- * @name: not used
- * @value: (GString*) pointer to the value
- * @new: New value
- *
  * Sets the value of an integer variable
  *
  * Returns:
  * 0 on success, nonzero otherwise
  */
-static gint 
-z_policy_dict_string_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, ZPolicyObj *new)
+static gint
+z_policy_dict_string_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, ZPolicyObj *new)
 {
   gchar *str;
   guint len;
-  
+
   z_enter();
   if (!PyArg_Parse(new, "s#", &str, &len))
     {
       z_leave();
       return 1;
     }
-  switch (e->type)
+  switch (entry->type)
     {
     case Z_VT_STRING:
-      g_string_assign((GString *) e->value, str);
+      g_string_assign((GString *) entry->value, str);
       break;
     case Z_VT_CSTRING:
-      g_strlcpy((gchar *) e->value, str, MIN(len + 1, e->ts.cstring_buflen));
+      g_strlcpy((gchar *) entry->value, str, MIN(len + 1, entry->ts.cstring_buflen));
       break;
     default:
       g_assert_not_reached();
@@ -495,16 +478,16 @@ z_policy_dict_string_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry
  * Deallocates a string variable
  */
 static void
-z_policy_dict_string_free(ZPolicyDictEntry *e)
+z_policy_dict_string_free(ZPolicyDictEntry *entry)
 {
   z_enter();
-  switch (e->type)
+  switch (entry->type)
     {
     case Z_VT_STRING:
-      g_string_free((GString *) e->value, TRUE);
+      g_string_free((GString *) entry->value, TRUE);
       break;
     case Z_VT_CSTRING:
-      g_free(e->value);
+      g_free(entry->value);
       break;
     default:
       g_assert_not_reached();
@@ -522,7 +505,7 @@ z_policy_dict_string_free(ZPolicyDictEntry *e)
  *   user_data_free (GDestroyNotify): function to free user_data with
  *
  * Represented as:
- *   The value field contains a reference to the newly created 
+ *   The value field contains a reference to the newly created
  */
 
 typedef struct _ZPolicyMethod
@@ -533,7 +516,6 @@ typedef struct _ZPolicyMethod
   GDestroyNotify user_data_free;
   ZPolicyDictMethodFunc method;
 } ZPolicyMethod;
-
 
 static PyTypeObject z_policy_method_type;
 
@@ -569,7 +551,7 @@ static ZPolicyObj *
 z_policy_method_new(ZPolicyDict *dict, ZPolicyDictMethodFunc method, gpointer user_data, GDestroyNotify user_data_free)
 {
   ZPolicyMethod *self;
-  
+
   self = PyObject_New(ZPolicyMethod, &z_policy_method_type);
   if (!self)
     return NULL;
@@ -579,7 +561,6 @@ z_policy_method_new(ZPolicyDict *dict, ZPolicyDictMethodFunc method, gpointer us
   self->dict = z_policy_dict_ref(dict);
   return (ZPolicyObj *) self;
 }
-
 
 /**
  * z_py_zorp_method_free:
@@ -596,7 +577,7 @@ z_policy_method_free(ZPolicyMethod *self)
   PyObject_Del(self);
 }
 
-static PyTypeObject z_policy_method_type = 
+static PyTypeObject z_policy_method_type =
 {
   PyVarObject_HEAD_INIT(&PyType_Type, 0)
   .tp_name = "ZPolicyMethod",
@@ -609,28 +590,24 @@ static PyTypeObject z_policy_method_type =
 /**
  * z_policy_dict_method_parse_args:
  * @self: ZPolicyDict instance
- * @e: ZPolicyDictEntry being parsed
+ * @entry: ZPolicyDictEntry being parsed
  * @args: argument list to parse
  **/
 static void
-z_policy_dict_method_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_method_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_CONSUME+Z_VF_LITERAL)) == 0);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_CONSUME+Z_VF_LITERAL)) == 0);
 
-  e->flags |= Z_VF_CONSUME;
-  
-  e->ts.method.method = va_arg(args, ZPolicyDictMethodFunc);
-  e->ts.method.user_data = va_arg(args, gpointer);
-  e->ts.method.user_data_free = va_arg(args, gpointer);
-  e->value = NULL;
+  entry->flags |= Z_VF_CONSUME;
+
+  entry->ts.method.method = va_arg(args, ZPolicyDictMethodFunc);
+  entry->ts.method.user_data = va_arg(args, gpointer);
+  entry->ts.method.user_data_free = va_arg(args, gpointer);
+  entry->value = NULL;
 }
-
 
 /**
  * z_policy_dict_method_get_value:
- * @self: not used
- * @name: not used
- * @value: (PyObject*) pointer to the value
  *
  * Get the value of a ZorpMethod variable.
  * Note that this is not the same as _object_get(), since there the argument is
@@ -640,38 +617,37 @@ z_policy_dict_method_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntr
  * The PyObject value
  */
 static ZPolicyObj *
-z_policy_dict_method_get_value(ZPolicyDict *self, ZPolicyDictEntry *e)
+z_policy_dict_method_get_value(ZPolicyDict *self, ZPolicyDictEntry *entry)
 {
   ZPolicyObj *res;
 
-  if (!e->value)
+  if (!entry->value)
     {
-      e->value = z_policy_method_new(self, e->ts.method.method, e->ts.method.user_data, e->ts.method.user_data_free);
-      e->ts.method.user_data_free = NULL;
+      entry->value = z_policy_method_new(self, entry->ts.method.method, entry->ts.method.user_data, entry->ts.method.user_data_free);
+      entry->ts.method.user_data_free = NULL;
     }
-  
-  res = (ZPolicyObj *) e->value;
+
+  res = (ZPolicyObj *) entry->value;
   z_policy_var_ref(res);
   return res;
 }
 
 /**
  * z_policy_dict_method_free:
- * @value: this
  *
  * Decrements the reference counter of the stored ZPolicyMethod instance.
  */
 static void
-z_policy_dict_method_free(ZPolicyDictEntry *e)
+z_policy_dict_method_free(ZPolicyDictEntry *entry)
 {
-  if (e->value)
+  if (entry->value)
     {
-      z_policy_var_unref((ZPolicyObj *) e->value);
+      z_policy_var_unref((ZPolicyObj *) entry->value);
     }
-  else if (e->ts.method.user_data && e->ts.method.user_data_free)
+  else if (entry->ts.method.user_data && entry->ts.method.user_data_free)
     {
-      e->ts.method.user_data_free(e->ts.method.user_data);
-      e->ts.method.user_data = NULL;
+      entry->ts.method.user_data_free(entry->ts.method.user_data);
+      entry->ts.method.user_data = NULL;
     }
 }
 
@@ -682,22 +658,22 @@ z_policy_dict_method_free(ZPolicyDictEntry *e)
 /**
  * z_policy_dict_object_parse_args:
  * @self: ZPolicyDict instance
- * @e: ZPolicyDictEntry being parsed
+ * @entry: ZPolicyDictEntry being parsed
  * @args: argument list to parse
  **/
 static void
-z_policy_dict_object_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_object_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & Z_VF_DUP) == 0);
+  g_assert((entry->flags & Z_VF_DUP) == 0);
 
-  if (e->flags & Z_VF_LITERAL)
+  if (entry->flags & Z_VF_LITERAL)
     {
-      e->value = &e->ts.object_ref;
-      e->ts.object_ref = va_arg(args, ZPolicyObj *);
+      entry->value = &entry->ts.object_ref;
+      entry->ts.object_ref = va_arg(args, ZPolicyObj *);
     }
   else
     {
-      e->value = va_arg(args, ZPolicyObj **);
+      entry->value = va_arg(args, ZPolicyObj **);
     }
 
 }
@@ -714,21 +690,18 @@ z_policy_dict_object_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntr
  * The ZPolicyObj value
  */
 static ZPolicyObj *
-z_policy_dict_object_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e)
+z_policy_dict_object_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry)
 {
   ZPolicyObj *r;
-  
+
   z_enter();
-  r = *((ZPolicyObj **) e->value);
+  r = *((ZPolicyObj **) entry->value);
   z_policy_var_ref(r);
   z_return(r);
 }
 
 /**
  * z_policy_dict_object_set_value:
- * @self: not used
- * @name: not used
- * @value: (ZPolicyObj**) pointer to the value
  * @new: New value
  *
  * Sets the value of a ZPolicyObj variable
@@ -736,27 +709,26 @@ z_policy_dict_object_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry
  * Returns:
  * 1 (always succeeds)
  */
-static gint 
-z_policy_dict_object_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, ZPolicyObj *new_value)
+static gint
+z_policy_dict_object_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, ZPolicyObj *new_value)
 {
   z_enter();
-  z_policy_var_unref(*(ZPolicyObj **) e->value);
-  *((ZPolicyObj **) e->value) = new_value;
+  z_policy_var_unref(*(ZPolicyObj **) entry->value);
+  *((ZPolicyObj **) entry->value) = new_value;
   z_policy_var_ref(new_value);
   z_return(0);
 }
 
 /**
  * z_policy_dict_object_free:
- * @value: (ZPolicyObj**) pointer to the value
  *
  * Decrements the reference counter of a ZPolicyObj variable
  */
 static void
-z_policy_dict_object_free(ZPolicyDictEntry *e)
+z_policy_dict_object_free(ZPolicyDictEntry *entry)
 {
   z_enter();
-  z_policy_var_unref(*((ZPolicyObj **) e->value));
+  z_policy_var_unref(*((ZPolicyObj **) entry->value));
   z_return();
 }
 
@@ -767,22 +739,20 @@ z_policy_dict_object_free(ZPolicyDictEntry *e)
 /**
  * z_policy_dict_object_parse_args:
  * @self: ZPolicyDict instance
- * @e: ZPolicyDictEntry being parsed
+ * @entry: ZPolicyDictEntry being parsed
  * @args: argument list to parse
  **/
 static void
-z_policy_dict_ip_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_ip_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_LITERAL)) == 0);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_LITERAL)) == 0);
 
-  e->value = va_arg(args, gpointer);
+  entry->value = va_arg(args, gpointer);
 }
 
 /**
  * z_policy_dict_object_get_value:
  * @self: not used
- * @name: not used
- * @value: (ZPolicyObj**) pointer to the value
  *
  * Gets the value of a ZPolicyObj variable
  *
@@ -790,27 +760,27 @@ z_policy_dict_ip_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e
  * The ZPolicyObj value
  */
 static ZPolicyObj *
-z_policy_dict_ip_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e)
+z_policy_dict_ip_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry)
 {
   ZPolicyObj *res;
 
   z_enter();
-  if (e->flags & Z_VF_IP_STR)
+  if (entry->flags & Z_VF_IP_STR)
     {
       gchar buf[64];
 
-      inet_ntop(e->type == Z_VT_IP ? AF_INET : AF_INET6, e->value, buf, sizeof(buf));
+      inet_ntop(entry->type == Z_VT_IP ? AF_INET : AF_INET6, entry->value, buf, sizeof(buf));
       res = PyString_FromString(buf);
     }
-  else if (e->type == Z_VT_IP)
+  else if (entry->type == Z_VT_IP)
     {
-      res = PyInt_FromLong(((struct in_addr *) e->value)->s_addr);
+      res = PyInt_FromLong(((struct in_addr *) entry->value)->s_addr);
     }
   else
     {
-      struct in6_addr *in6 = (struct in6_addr *) e->value;
+      struct in6_addr *in6 = (struct in6_addr *) entry->value;
 
-      res = Py_BuildValue("(iiiiiiii)", 
+      res = Py_BuildValue("(iiiiiiii)",
                           in6->s6_addr16[0],
                           in6->s6_addr16[1],
                           in6->s6_addr16[2],
@@ -826,36 +796,33 @@ z_policy_dict_ip_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e)
 /**
  * z_policy_dict_object_set_value:
  * @self: not used
- * @name: not used
- * @value: (ZPolicyObj**) pointer to the value
- * @new: New value
  *
  * Sets the value of a ZPolicyObj variable
  *
  * Returns:
  * 0 on success, nonzero otherwise
  */
-static gint 
-z_policy_dict_ip_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, ZPolicyObj *new_value)
+static gint
+z_policy_dict_ip_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, ZPolicyObj *new_value)
 {
   z_enter();
-  if (e->flags & Z_VF_IP_STR)
+  if (entry->flags & Z_VF_IP_STR)
     {
       gchar *ip;
-      
+
       if (!PyArg_Parse(new_value, "s", &ip))
         z_return(1);
-      inet_pton(e->type == Z_VT_IP ? AF_INET : AF_INET6, ip, e->value);
+      inet_pton(entry->type == Z_VT_IP ? AF_INET : AF_INET6, ip, entry->value);
     }
   else
     {
-      switch (e->type)
+      switch (entry->type)
         {
         case Z_VT_IP6:
           {
-            struct in6_addr *in6 = (struct in6_addr *) e->value;
+            struct in6_addr *in6 = (struct in6_addr *) entry->value;
 
-            if (!PyArg_Parse(new_value, "(iiiiiiii)", 
+            if (!PyArg_Parse(new_value, "(iiiiiiii)",
                              &in6->s6_addr16[0],
                              &in6->s6_addr16[1],
                              &in6->s6_addr16[2],
@@ -869,8 +836,8 @@ z_policy_dict_ip_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e,
           }
         case Z_VT_IP:
           {
-            struct in_addr *in = (struct in_addr *) e->value;
-            
+            struct in_addr *in = (struct in_addr *) entry->value;
+
             if (!PyArg_Parse(new_value, "I", &in->s_addr))
               return 1;
             break;
@@ -880,22 +847,21 @@ z_policy_dict_ip_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e,
           break;
         }
     }
-      
+
   z_leave();
   return 0;
 }
 
 /**
  * z_policy_dict_object_free:
- * @value: (ZPolicyObj**) pointer to the value
  *
  * Decrements the reference counter of a ZPolicyObj variable
  */
 static void
-z_policy_dict_ip_free(ZPolicyDictEntry *e)
+z_policy_dict_ip_free(ZPolicyDictEntry *entry)
 {
   z_enter();
-  g_free(e->value);
+  g_free(entry->value);
   z_return();
 }
 
@@ -904,29 +870,26 @@ z_policy_dict_ip_free(ZPolicyDictEntry *e)
  */
 
 static void
-z_policy_dict_alias_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_alias_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_CONSUME+Z_VF_LITERAL)) == 0);
-  e->value = va_arg(args, gchar *);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_CONSUME+Z_VF_LITERAL)) == 0);
+  entry->value = va_arg(args, gchar *);
 }
 
 /**
  * z_policy_dict_alias_get_value:
- * @self: this
- * @name: not used
- * @value: Name of the alias
  *
  * Gets the real name of an alias-variable
  *
  * Returns:
- * The real name of the variable 
+ * The real name of the variable
  */
 static ZPolicyObj *
-z_policy_dict_alias_get_value(ZPolicyDict *self, ZPolicyDictEntry *e)
+z_policy_dict_alias_get_value(ZPolicyDict *self, ZPolicyDictEntry *entry)
 {
   g_assert(self->wrapper);
 
-  return PyObject_GetAttrString(self->wrapper, (gchar *) e->value);
+  return PyObject_GetAttrString(self->wrapper, (gchar *) entry->value);
 }
 
 /**
@@ -942,10 +905,10 @@ z_policy_dict_alias_get_value(ZPolicyDict *self, ZPolicyDictEntry *e)
  * ???
  */
 static gint
-z_policy_dict_alias_set_value(ZPolicyDict *self, ZPolicyDictEntry *e, ZPolicyObj *new_value)
+z_policy_dict_alias_set_value(ZPolicyDict *self, ZPolicyDictEntry *entry, ZPolicyObj *new_value)
 {
   g_assert(self->wrapper);
-  return PyObject_SetAttrString(self->wrapper, (gchar *) e->value, new_value);
+  return PyObject_SetAttrString(self->wrapper, (gchar *) entry->value, new_value);
 }
 
 /******************************************************************************
@@ -964,7 +927,6 @@ typedef struct _ZPolicyHash
 } ZPolicyHash;
 
 extern PyTypeObject z_policy_hash_type;
-
 
 /**
  * z_policy_hash_subscript:
@@ -1062,7 +1024,6 @@ z_policy_hash_new(ZPolicyDict *dict, GHashTable *hash, gboolean consume)
   return self;
 }
 
-
 /**
  * z_policy_hash_unref_items:
  * @key: not used
@@ -1122,23 +1083,20 @@ PyTypeObject z_policy_hash_type =
 };
 
 void
-z_policy_dict_hash_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_hash_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_LITERAL)) == 0);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_LITERAL)) == 0);
 
-  e->ts.hash.consume = !!(e->flags & Z_VF_CONSUME);
-  e->flags |= Z_VF_CONSUME;  
-  e->ts.hash.table = va_arg(args, GHashTable *);
+  entry->ts.hash.consume = !!(entry->flags & Z_VF_CONSUME);
+  entry->flags |= Z_VF_CONSUME;
+  entry->ts.hash.table = va_arg(args, GHashTable *);
 
-  e->value = NULL;
+  entry->value = NULL;
 
 }
 
 /**
  * z_policy_dict_hash_get:
- * @self: not used
- * @name: not used
- * @value: (ZPolicyHash*) pointer to the value
  *
  * Get the value to a ZPolicyHash variable - cast to ZPolicyObj, just like at
  * z_policy_dict_method_get.
@@ -1147,14 +1105,14 @@ z_policy_dict_hash_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry 
  * The ZPolicyHash value
  */
 static ZPolicyObj *
-z_policy_dict_hash_get_value(ZPolicyDict *self, ZPolicyDictEntry *e)
+z_policy_dict_hash_get_value(ZPolicyDict *self, ZPolicyDictEntry *entry)
 {
   ZPolicyObj *res;
 
-  if (!e->value)
-    e->value = z_policy_hash_new(self, e->ts.hash.table, e->ts.hash.consume);
+  if (!entry->value)
+    entry->value = z_policy_hash_new(self, entry->ts.hash.table, entry->ts.hash.consume);
 
-  res = (ZPolicyObj *) e->value;
+  res = (ZPolicyObj *) entry->value;
   z_policy_var_ref(res);
   return res;
 }
@@ -1166,15 +1124,15 @@ z_policy_dict_hash_get_value(ZPolicyDict *self, ZPolicyDictEntry *e)
  * Destructor of ZPolicyHash
  */
 static void
-z_policy_dict_hash_free(ZPolicyDictEntry *e)
+z_policy_dict_hash_free(ZPolicyDictEntry *entry)
 {
-  if (e->value)
+  if (entry->value)
     {
-      z_policy_var_unref((ZPolicyObj *) e->value);
+      z_policy_var_unref((ZPolicyObj *) entry->value);
     }
-  else if (e->ts.hash.consume)
+  else if (entry->ts.hash.consume)
     {
-      z_policy_hash_destroy_table(e->ts.hash.table);
+      z_policy_hash_destroy_table(entry->ts.hash.table);
     }
 }
 
@@ -1229,8 +1187,7 @@ z_policy_dim_hash_subscript(ZPolicyDimHash *self, ZPolicyObj *k)
   ZPolicyObj *stritem;
   ZPolicyObj *res;
   guint i;
-  
-  
+
   if (PyArg_Parse(k, "s", &key))
     {
       keynum = 1;
@@ -1243,15 +1200,15 @@ z_policy_dim_hash_subscript(ZPolicyDimHash *self, ZPolicyObj *k)
       if (z_policy_seq_check(k))
         {
           keynum = z_policy_seq_length(k);
-      
+
           keys = g_new0(gchar *, keynum);
-      
+
           for (i = 0; i < keynum; i++)
             {
               item = z_policy_seq_getitem(k, i);
               stritem = z_policy_var_str(item);
               z_policy_var_unref(item);
-          
+
               key = z_policy_str_as_string(stritem);
               keys[i] = g_new0(gchar, strlen(key)+1);
               strcpy(keys[i], key);
@@ -1285,11 +1242,11 @@ z_policy_dim_hash_subscript(ZPolicyDimHash *self, ZPolicyObj *k)
  * Assemble a composite key from the sequence @u, and assign @v to it
  * in the hash, creating a new entry if the key was a new one, or replacing
  * the previous value if it wasn't.
- * 
+ *
  * Returns:
  * 0 on success, -1 on error
  */
-static gint 
+static gint
 z_policy_dim_hash_ass_subscript(ZPolicyDimHash *self, ZPolicyObj *u, ZPolicyObj *v)
 {
   gchar **keys;
@@ -1299,7 +1256,7 @@ z_policy_dim_hash_ass_subscript(ZPolicyDimHash *self, ZPolicyObj *u, ZPolicyObj 
   ZPolicyObj *item;
   ZPolicyObj *stritem;
   guint i;
-  
+
   if (PyArg_Parse(u, "s", &key))
     {
       keynum = 1;
@@ -1313,15 +1270,15 @@ z_policy_dim_hash_ass_subscript(ZPolicyDimHash *self, ZPolicyObj *u, ZPolicyObj 
       if (z_policy_seq_check(u))
         {
           keynum = z_policy_seq_length(u);
-      
+
           keys = g_new0(gchar *, keynum);
-      
+
           for (i = 0; i < keynum; i++)
             {
               item = z_policy_seq_getitem(u, i);
               stritem = z_policy_var_str(item);
               z_policy_var_unref(item);
-          
+
               key = z_policy_str_as_string(stritem);
               keys[i] = g_new0(gchar, strlen(key)+1);
               strcpy(keys[i], key);
@@ -1372,13 +1329,12 @@ static ZPolicyDimHash *
 z_policy_dim_hash_new(ZPolicyDict *dict, ZDimHashTable *hash, gboolean consume)
 {
   ZPolicyDimHash *self = PyObject_New(ZPolicyDimHash, &z_policy_dim_hash_type);
-  
+
   self->dict = z_policy_dict_ref(dict);
   self->hash = hash;
   self->consume = consume;
   return self;
 }
-
 
 /**
  * z_policy_dim_hash_free:
@@ -1395,14 +1351,14 @@ z_policy_dim_hash_free(ZPolicyDimHash *self)
   PyObject_Del(self);
 }
 
-PyMappingMethods z_policy_dim_hash_mapping = 
+PyMappingMethods z_policy_dim_hash_mapping =
 {
   NULL,
   (binaryfunc) z_policy_dim_hash_subscript,
   (objobjargproc) z_policy_dim_hash_ass_subscript
 };
 
-PyTypeObject z_policy_dim_hash_type = 
+PyTypeObject z_policy_dim_hash_type =
 {
   PyVarObject_HEAD_INIT(&PyType_Type, 0)
   .tp_name = "Zorp Multidimensional hash",
@@ -1413,21 +1369,18 @@ PyTypeObject z_policy_dim_hash_type =
 };
 
 static void
-z_policy_dict_dimhash_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_dimhash_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_LITERAL)) == 0);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_LITERAL)) == 0);
 
-  e->ts.dimhash.consume = !!(e->flags & Z_VF_CONSUME);
-  e->flags |= Z_VF_CONSUME;
-  e->ts.dimhash.table = va_arg(args, ZDimHashTable *);
-  e->value = NULL;
+  entry->ts.dimhash.consume = !!(entry->flags & Z_VF_CONSUME);
+  entry->flags |= Z_VF_CONSUME;
+  entry->ts.dimhash.table = va_arg(args, ZDimHashTable *);
+  entry->value = NULL;
 }
 
 /**
  * z_policy_dict_dimhash_get_value:
- * @self: not used
- * @name: not used
- * @value: (ZPolicyDimHash*) pointer to the value
  *
  * Get the value to a ZPolicyDimHash variable - cast to ZPolicyObj.
  *
@@ -1435,146 +1388,115 @@ z_policy_dict_dimhash_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEnt
  * The value
  */
 static ZPolicyObj *
-z_policy_dict_dimhash_get_value(ZPolicyDict *self, ZPolicyDictEntry *e)
+z_policy_dict_dimhash_get_value(ZPolicyDict *self, ZPolicyDictEntry *entry)
 {
   ZPolicyObj *res;
 
-  if (!e->value)
-    e->value = z_policy_dim_hash_new(self, e->ts.dimhash.table, e->ts.dimhash.consume);
+  if (!entry->value)
+    entry->value = z_policy_dim_hash_new(self, entry->ts.dimhash.table, entry->ts.dimhash.consume);
 
-  res = (ZPolicyObj *) e->value;
+  res = (ZPolicyObj *) entry->value;
   z_policy_var_ref(res);
   return res;
 }
 
 /**
  * z_policy_dict_dimhash_free:
- * @value: this
  *
  * Free a dimhash value in a a ZPolicyDict
  */
 static void
-z_policy_dict_dimhash_free(ZPolicyDictEntry *e)
+z_policy_dict_dimhash_free(ZPolicyDictEntry *entry)
 {
-  if (e->value)
-    z_policy_var_unref((ZPolicyObj *) e->value);
-  else if (e->ts.dimhash.consume)
-    z_dim_hash_table_free(e->ts.dimhash.table, z_policy_dim_hash_unref_items);
+  if (entry->value)
+    z_policy_var_unref((ZPolicyObj *) entry->value);
+  else if (entry->ts.dimhash.consume)
+    z_dim_hash_table_free(entry->ts.dimhash.table, z_policy_dim_hash_unref_items);
 }
 
 /******************************************************************************
  * custom attributes
  */
 
-
 static void
-z_policy_dict_custom_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_custom_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  e->flags |= Z_VF_CONSUME;
+  entry->flags |= Z_VF_CONSUME;
 
-  e->value = va_arg(args, gpointer);
-  e->ts.custom.get_value = va_arg(args, gpointer);
-  e->ts.custom.set_value = va_arg(args, gpointer);
-  e->ts.custom.free_value = va_arg(args, gpointer);
-  e->ts.custom.user_data = va_arg(args, gpointer);
-  e->ts.custom.user_data_free = va_arg(args, GDestroyNotify);
+  entry->value = va_arg(args, gpointer);
+  entry->ts.custom.get_value = va_arg(args, gpointer);
+  entry->ts.custom.set_value = va_arg(args, gpointer);
+  entry->ts.custom.free_value = va_arg(args, gpointer);
+  entry->ts.custom.user_data = va_arg(args, gpointer);
+  entry->ts.custom.user_data_free = va_arg(args, GDestroyNotify);
 }
 
-/**
- * z_policy_dict_custom_get_value:
- * @self: not used
- * @name: not used
- * @value: 
- *
- * Returns:
- * The value
- */
 static ZPolicyObj *
-z_policy_dict_custom_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e)
+z_policy_dict_custom_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry)
 {
-  return e->ts.custom.get_value(e->ts.custom.user_data, e->name, e->value);
+  return entry->ts.custom.get_value(entry->ts.custom.user_data, entry->name, entry->value);
 }
 
-/**
- * z_policy_dict_custom_set_value:
- * @self: not used
- * @name: not used
- * @value: 
- *
- * Returns:
- */
 static gint
-z_policy_dict_custom_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, ZPolicyObj *new_value)
+z_policy_dict_custom_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, ZPolicyObj *new_value)
 {
-  return e->ts.custom.set_value(e->ts.custom.user_data, e->name, e->value, new_value);
+  return entry->ts.custom.set_value(entry->ts.custom.user_data, entry->name, entry->value, new_value);
 }
 
 static void
-z_policy_dict_custom_free(ZPolicyDictEntry *e)
+z_policy_dict_custom_free(ZPolicyDictEntry *entry)
 {
-  if (e->ts.custom.free_value)
-    e->ts.custom.free_value(e->value, e->ts.custom.user_data);
-      
-  if (e->ts.custom.user_data && e->ts.custom.user_data_free)
-    e->ts.custom.user_data_free(e->ts.custom.user_data);
+  if (entry->ts.custom.free_value)
+    entry->ts.custom.free_value(entry->value, entry->ts.custom.user_data);
+
+  if (entry->ts.custom.user_data && entry->ts.custom.user_data_free)
+    entry->ts.custom.user_data_free(entry->ts.custom.user_data);
 }
 
 /******************************************************************************
- * pointer attributes support 
+ * pointer attributes support
  * value is a gpointer
  */
 
 /**
  * z_policy_dict_ptr_parse_args:
  * @self: ZPolicyDict instance
- * @e: ZPolicyDictEntry being parsed
+ * @entry: ZPolicyDictEntry being parsed
  * @args: argument list to parse
  **/
 static void
-z_policy_dict_ptr_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e, va_list args)
+z_policy_dict_ptr_parse_args(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry, va_list args)
 {
-  g_assert((e->flags & (Z_VF_DUP+Z_VF_CONSUME)) == 0);
+  g_assert((entry->flags & (Z_VF_DUP+Z_VF_CONSUME)) == 0);
 
-  if (e->flags & Z_VF_LITERAL)
+  if (entry->flags & Z_VF_LITERAL)
     {
-      e->value = &e->ts.ptr.ptr;
-      e->ts.ptr.ptr = va_arg(args, gpointer);
+      entry->value = &entry->ts.ptr.ptr;
+      entry->ts.ptr.ptr = va_arg(args, gpointer);
     }
   else
     {
-      e->value = va_arg(args, gpointer *);
+      entry->value = va_arg(args, gpointer *);
     }
-  e->ts.ptr.desc = va_arg(args, gchar *);
+  entry->ts.ptr.desc = va_arg(args, gchar *);
 }
 
-/**
- * z_policy_dict_ptr_get_value:
- * @self: not used
- * @name: not used
- * @value: (gint*) pointer to the value
- *
- * Gets the value of an integer variable
- *
- * Returns:
- * PyInt value
- */
 static ZPolicyObj *
-z_policy_dict_ptr_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry  *e)
+z_policy_dict_ptr_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry  *entry)
 {
   ZPolicyObj *res;
 
   z_enter();
   /* FIXME: we could support properly reference counted values here, though
    * nothing would use them for now */
-  res = PyCObject_FromVoidPtrAndDesc(*(gpointer *) e->value, e->ts.ptr.desc, NULL);
+  res = PyCObject_FromVoidPtrAndDesc(*(gpointer *) entry->value, entry->ts.ptr.desc, NULL);
   z_return(res);
 }
 
 /**
  * z_policy_dict_ptr_set_value:
  * @self: not used
- * @name: not used
- * @value: (gint*) pointer to the value
+ * @entry not used
  * @new: New value
  *
  * Sets the value of an integer variable
@@ -1583,12 +1505,82 @@ z_policy_dict_ptr_get_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry  *
  * 0 on success, nonzero otherwise
  */
 static gint
-z_policy_dict_ptr_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *e G_GNUC_UNUSED, ZPolicyObj *new G_GNUC_UNUSED)
+z_policy_dict_ptr_set_value(ZPolicyDict *self G_GNUC_UNUSED, ZPolicyDictEntry *entry G_GNUC_UNUSED, ZPolicyObj *new G_GNUC_UNUSED)
 {
   return 0;
 }
 
+/******************************************************************************
+ * byte array attributes support
+ * value is a gpointer
+ */
 
+static void
+z_policy_dict_bytearray_parse_args(ZPolicyDict *self G_GNUC_UNUSED,
+                                   ZPolicyDictEntry *entry,
+                                   va_list args)
+{
+  z_enter();
+
+  if (entry->flags & Z_VF_WRITE ||
+      entry->flags & Z_VF_CFG_WRITE)
+    {
+      z_log(NULL, CORE_POLICY, 1, "Byte array attributes must be read-only;");
+      g_assert_not_reached();
+    }
+
+  gchar *bytes = va_arg(args, gchar *);
+  gsize length = va_arg(args, gsize);
+
+  if (entry->flags & Z_VF_LITERAL &&
+      entry->flags & Z_VF_DUP)
+    {
+      entry->ts.bytearray.length = length;
+      entry->value = g_malloc(length);
+      memmove(entry->value, bytes, length);
+      entry->flags |= Z_VF_CONSUME;
+    }
+  else
+    {
+      entry->ts.bytearray.length = length;
+      entry->value = bytes;
+    }
+
+  z_leave();
+}
+
+static ZPolicyObj *
+z_policy_dict_bytearray_get_value(ZPolicyDict *self G_GNUC_UNUSED,
+                                  ZPolicyDictEntry *entry)
+{
+  z_enter();
+
+  ZPolicyObj *res = PyString_FromStringAndSize((gchar *) entry->value,
+                                               entry->ts.bytearray.length);
+
+  z_return(res);
+}
+
+static void
+z_policy_dict_bytearray_free(ZPolicyDictEntry *entry)
+{
+  z_enter();
+
+  if (entry->flags & Z_VF_CONSUME)
+    g_free(entry->value);
+
+  z_leave();
+}
+
+static gint
+z_policy_dict_bytearray_set_value(ZPolicyDict *self G_GNUC_UNUSED,
+                                  ZPolicyDictEntry *entry G_GNUC_UNUSED,
+                                  ZPolicyObj *new G_GNUC_UNUSED)
+{
+  z_enter();
+
+  z_return(-1);
+}
 
 /******************************************************************************
  * ZPolicyDict core
@@ -1640,20 +1632,20 @@ z_policy_dict_unwrap(ZPolicyDict *self, ZPolicyObj *wrapper)
 ZPolicyObj *
 z_policy_dict_get_value(ZPolicyDict *self, gboolean is_config, const gchar *name)
 {
-  ZPolicyDictEntry *e;
+  ZPolicyDictEntry *entry;
 
-  e = g_hash_table_lookup(self->vars, name);
-  
-  if (e)
+  entry = g_hash_table_lookup(self->vars, name);
+
+  if (entry)
     {
-      if ((is_config && (e->flags & Z_VF_CFG_READ)) ||
-          (!is_config && (e->flags & Z_VF_READ)))
+      if ((is_config && (entry->flags & Z_VF_CFG_READ)) ||
+          (!is_config && (entry->flags & Z_VF_READ)))
         {
-          if (e->flags & Z_VF_OBSOLETE)
+          if (entry->flags & Z_VF_OBSOLETE)
             {
               z_log(NULL, CORE_POLICY, 3, "Fetching obsolete attribute; name='%s'", name);
             }
-          return e->type_funcs->get_value(self, e);
+          return entry->type_funcs->get_value(self, entry);
         }
       else
         {
@@ -1674,23 +1666,23 @@ z_policy_dict_get_value(ZPolicyDict *self, gboolean is_config, const gchar *name
  * used by various Python extension types (like ZPolicyStruct or ZProxy) to
  * implement their "setattr" method.
  **/
-gint 
+gint
 z_policy_dict_set_value(ZPolicyDict *self, gboolean is_config, const gchar *name, ZPolicyObj *new_value)
 {
-  ZPolicyDictEntry *e;
+  ZPolicyDictEntry *entry;
 
-  e = g_hash_table_lookup(self->vars, name);
-  
-  if (e)
+  entry = g_hash_table_lookup(self->vars, name);
+
+  if (entry)
     {
-      if ((is_config && (e->flags & Z_VF_CFG_WRITE)) ||
-          (!is_config && (e->flags & Z_VF_WRITE)))
+      if ((is_config && (entry->flags & Z_VF_CFG_WRITE)) ||
+          (!is_config && (entry->flags & Z_VF_WRITE)))
         {
-          if (e->flags & Z_VF_OBSOLETE)
+          if (entry->flags & Z_VF_OBSOLETE)
             {
               z_log(NULL, CORE_POLICY, 3, "Changing obsolete attribute; name='%s'", name);
             }
-          return e->type_funcs->set_value(self, e, new_value);
+          return entry->type_funcs->set_value(self, entry, new_value);
         }
       else
         {
@@ -1722,7 +1714,7 @@ z_policy_dict_insert_values(gpointer key, gpointer entry G_GNUC_UNUSED, gpointer
   value = z_policy_dict_get_value(self, FALSE, (gchar *) key);
   PyDict_SetItemString(dict, (gchar *) key, value);
   z_policy_var_unref(value);
-  
+
 }
 
 /**
@@ -1749,7 +1741,6 @@ z_policy_dict_get_dict(ZPolicyDict *self)
   return proxy_dict;
 }
 
-
 ZPolicyDictType z_policy_dict_types[] =
 {
   [Z_VT_NONE]    = { NULL, NULL, NULL, NULL },
@@ -1769,43 +1760,43 @@ ZPolicyDictType z_policy_dict_types[] =
   [Z_VT_DIMHASH] = { z_policy_dict_dimhash_parse_args, z_policy_dict_dimhash_get_value, NULL, z_policy_dict_dimhash_free },
   [Z_VT_CUSTOM]  = { z_policy_dict_custom_parse_args, z_policy_dict_custom_get_value, z_policy_dict_custom_set_value, z_policy_dict_custom_free },
   [Z_VT_PTR]     = { z_policy_dict_ptr_parse_args, z_policy_dict_ptr_get_value, z_policy_dict_ptr_set_value, NULL },
+  [Z_VT_BYTEARRAY] = { z_policy_dict_bytearray_parse_args, z_policy_dict_bytearray_get_value, z_policy_dict_bytearray_set_value, z_policy_dict_bytearray_free},
 };
 
-static void 
+static void
 z_policy_dict_register_va(ZPolicyDict *self, ZVarType var_type, va_list args)
 {
-  ZPolicyDictEntry *e;
+  ZPolicyDictEntry *entry;
   va_list args_copy;
 
   g_assert((guint) var_type < sizeof(z_policy_dict_types) / sizeof(z_policy_dict_types[0]));
 
-  e = g_new0(ZPolicyDictEntry, 1);
-  e->name = g_strdup(va_arg(args, gchar *));
-  e->flags = va_arg(args, guint);
-  e->type = var_type;
-  e->type_funcs = &z_policy_dict_types[var_type];
+  entry = g_new0(ZPolicyDictEntry, 1);
+  entry->name = g_strdup(va_arg(args, gchar *));
+  entry->flags = va_arg(args, guint);
+  entry->type = var_type;
+  entry->type_funcs = &z_policy_dict_types[var_type];
 
-  g_assert((e->flags & (Z_VF_WRITE+Z_VF_CFG_WRITE)) == 0 || e->type_funcs->set_value);
-  g_assert((e->flags & (Z_VF_READ+Z_VF_CFG_READ)) == 0 || e->type_funcs->get_value);
+  g_assert((entry->flags & (Z_VF_WRITE+Z_VF_CFG_WRITE)) == 0 || entry->type_funcs->set_value);
+  g_assert((entry->flags & (Z_VF_READ+Z_VF_CFG_READ)) == 0 || entry->type_funcs->get_value);
 
   va_copy(args_copy, args);
-  e->type_funcs->parse_args(self, e, args_copy);
+  entry->type_funcs->parse_args(self, entry, args_copy);
   va_end(args_copy);
-  
-  g_hash_table_insert(self->vars, (gchar *) e->name, e);
 
+  g_hash_table_insert(self->vars, (gchar *) entry->name, entry);
 }
 
 /**
  * z_policy_dict_register:
- * @self: ZPolicyDict instance 
+ * @self: ZPolicyDict instance
  * @var_type: type of the variable to register
  *
  * This is a vararg function that implements registering variables in the
  * dictionary. The type of the variable determines the remaining arguments.
  * See the type specific parse_args function for more information.
  **/
-void 
+void
 z_policy_dict_register(ZPolicyDict *self, ZVarType var_type, ...)
 {
   va_list args;
@@ -1861,20 +1852,20 @@ void
 z_policy_dict_iterate(ZPolicyDict *self, ZPolicyDictIterFunc iter, gpointer user_data)
 {
   gpointer args[3] = { self, iter, user_data };
-  
+
   g_hash_table_foreach(self->vars, z_policy_dict_call_iter, args);
 }
 
 /**
  * z_policy_dict_new:
- * 
+ *
  * ZPolicyDict constructor, prepares the dictionary for variable registrations.
  **/
 ZPolicyDict *
 z_policy_dict_new(void)
 {
   ZPolicyDict *self = g_new0(ZPolicyDict, 1);
-  
+
   z_refcount_set(&self->ref_cnt, 1);
   self->vars = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify) z_policy_dict_entry_free);
   return self;
@@ -1917,8 +1908,8 @@ z_policy_dict_unref(ZPolicyDict *self)
 /**
  * z_policy_dict_destroy:
  * @self: ZPolicyDict instance
- * 
- * Start disposing the dictionary by breaking possible circular references. 
+ *
+ * Start disposing the dictionary by breaking possible circular references.
  * This function must be called exactly once for each dictionary. See the
  * notes in the top of the file for more information.
  **/

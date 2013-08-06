@@ -39,9 +39,9 @@ typedef struct _ZPlugSessionData
   gboolean shutdown_soft;
   guint buffer_size;
   guint packet_stats_interval_time, packet_stats_interval_packet;
-  
-  gboolean (*packet_stats)(ZPlugSession *self, 
-                           guint64 client_bytes, guint64 client_pkts, 
+
+  gboolean (*packet_stats)(ZPlugSession *self,
+                           guint64 client_bytes, guint64 client_pkts,
                            guint64 server_bytes, guint64 server_pkts,
                            gpointer user_data);
   void (*finish)(ZPlugSession *self, gpointer user_data);
@@ -53,9 +53,9 @@ void z_plug_session_cancel(ZPlugSession *self);
 void z_plug_session_register_vars(ZPlugSession *self, ZPolicyDict *dict);
 
 ZPlugSession *
-z_plug_session_new(ZPlugSessionData *session_data, 
-                   ZStream *client_stream, 
-                   ZStream *server_stream, 
+z_plug_session_new(ZPlugSessionData *session_data,
+                   ZStream *client_stream,
+                   ZStream *server_stream,
                    ZStackedProxy *stacked,
                    gpointer user_data);
 
@@ -63,6 +63,5 @@ void z_plug_session_destroy(ZPlugSession *self);
 
 ZPlugSession *z_plug_session_ref(ZPlugSession *self);
 void z_plug_session_unref(ZPlugSession *self);
-
 
 #endif

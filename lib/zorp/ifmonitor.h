@@ -55,9 +55,7 @@ gboolean z_ifmon_get_ifindex(const gchar *iface, guint *if_index);
 
 guint z_ifmon_get_iface_flags(guint ifindex);
 
-
 void z_ifmon_init(void);
 void z_ifmon_destroy(void);
-
 
 #endif
