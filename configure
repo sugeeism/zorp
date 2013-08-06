@@ -636,6 +636,7 @@ LTLIBOBJS
 LIBOBJS
 pidfiledir
 CURRDATE
+TRE_MIN_VERSION
 ADPALERTING_MIN_VERSION
 PYTHON_MIN_VERSION
 OPENSSL_MIN_VERSION
@@ -643,6 +644,7 @@ ZORPMISC_MIN_VERSION
 ZORPLIC_MIN_VERSION
 ZORPLL_MIN_VERSION
 GLIB_MIN_VERSION
+LIBZORP_LT_COMPAT_PL
 LIBZORP_LT_COMPAT_BRANCH
 LIBZORP_LT_RELEASE
 TESTCASES
@@ -682,6 +684,8 @@ ZORPMISC_LIBS
 ZORPMISC_CFLAGS
 ZORPLIC_LIBS
 ZORPLIC_CFLAGS
+TRE_LIBS
+TRE_CFLAGS
 OPENSSL_LIBS
 OPENSSL_CFLAGS
 ZORPLL_LIBS
@@ -858,6 +862,8 @@ ZORPLL_CFLAGS
 ZORPLL_LIBS
 OPENSSL_CFLAGS
 OPENSSL_LIBS
+TRE_CFLAGS
+TRE_LIBS
 ZORPLIC_CFLAGS
 ZORPLIC_LIBS
 ZORPMISC_CFLAGS
@@ -1542,6 +1548,8 @@ Some influential environment variables:
               C compiler flags for OPENSSL, overriding pkg-config
   OPENSSL_LIBS
               linker flags for OPENSSL, overriding pkg-config
+  TRE_CFLAGS  C compiler flags for TRE, overriding pkg-config
+  TRE_LIBS    linker flags for TRE, overriding pkg-config
   ZORPLIC_CFLAGS
               C compiler flags for ZORPLIC, overriding pkg-config
   ZORPLIC_LIBS
@@ -2566,12 +2574,13 @@ ZORP_LICENSE_VERSION="3.4"
 
 
 GLIB_MIN_VERSION="2.2.1"
-ZORPLL_MIN_VERSION="3.9.3.1"
+ZORPLL_MIN_VERSION="3.9.4.1"
 ZORPLIC_MIN_VERSION="3.9.2.1"
 ZORPMISC_MIN_VERSION="3.9.2.2"
 OPENSSL_MIN_VERSION="0.9.8"
 PYTHON_MIN_VERSION="2.6"
 ADPALERTING_MIN_VERSION=1.0.3
+TRE_MIN_VERSION=0.8.0
 
 
 # We want an absolute path to the source-dir.
@@ -13085,6 +13094,78 @@ $as_echo "yes" >&6; }
 
 fi
 
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for TRE" >&5
+$as_echo_n "checking for TRE... " >&6; }
+
+if test -n "$TRE_CFLAGS"; then
+    pkg_cv_TRE_CFLAGS="$TRE_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"tre >= \$TRE_MIN_VERSION\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "tre >= $TRE_MIN_VERSION") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_TRE_CFLAGS=`$PKG_CONFIG --cflags "tre >= $TRE_MIN_VERSION" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$TRE_LIBS"; then
+    pkg_cv_TRE_LIBS="$TRE_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"tre >= \$TRE_MIN_VERSION\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "tre >= $TRE_MIN_VERSION") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_TRE_LIBS=`$PKG_CONFIG --libs "tre >= $TRE_MIN_VERSION" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        TRE_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "tre >= $TRE_MIN_VERSION" 2>&1`
+        else
+	        TRE_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "tre >= $TRE_MIN_VERSION" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$TRE_PKG_ERRORS" >&5
+
+	as_fn_error $? "Cannot find TRE regexp matching library version >= $TRE_MIN_VERSION: is pkg-config in path?" "$LINENO" 5
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	as_fn_error $? "Cannot find TRE regexp matching library version >= $TRE_MIN_VERSION: is pkg-config in path?" "$LINENO" 5
+else
+	TRE_CFLAGS=$pkg_cv_TRE_CFLAGS
+	TRE_LIBS=$pkg_cv_TRE_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+fi
+
 if test "$ZORP_PACKAGE_LICENSE" = "pro"; then
 
 	save_CPPFLAGS=$CPPFLAGS
@@ -13966,6 +14047,7 @@ VERSION_COMPAT=`echo $VERSION_NOSNAPSHOT |  cut -d '.' -f 3`
 
 LIBZORP_LT_RELEASE="$VERSION_MAJOR.$VERSION_MINOR"
 LIBZORP_LT_COMPAT_BRANCH="$VERSION_MAJOR.$VERSION_MINOR-$VERSION_COMPAT"
+LIBZORP_LT_COMPAT_PL="$VERSION_COMPAT"
 
 # The cast to long int works around a bug in the HP C Compiler
 # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
@@ -14118,6 +14200,10 @@ fi
 
 
 
+
+
+
+
 date=`date +%Y/%m/%d`
 
 cat >>confdefs.h <<_ACEOF
@@ -14145,6 +14231,8 @@ License: $ZORP_PACKAGE_LICENSE
 EOF
 
 ac_config_commands="$ac_config_commands runtest-exe"
+
+
 
 
 

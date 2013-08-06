@@ -11,6 +11,7 @@ libzorpproxy_la_PRO_SOURCES =
 endif
 
 libzorpproxy_la_LDFLAGS =	\
+	-version-info $(LIBZORP_LT_COMPAT_PL) \
 	-release $(LIBZORP_LT_RELEASE)	\
 	-export-dynamic
 

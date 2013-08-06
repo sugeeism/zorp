@@ -416,8 +416,8 @@ Rule(src_zone='office',
     def __init__(self, name, proxy_class, router=None, chainer=None, snat_policy=None, snat=None,
                     dnat_policy=None, dnat=None, authentication_policy=None, authorization_policy=None,
                     max_instances=0, max_sessions=0, auth_name=None, resolver_policy=None, auth=None,
-                    auth_policy=None, keepalive=None, session_counting=True,
-                    encryption_policy=None, limit_target_zones_to=None):
+                    auth_policy=None, keepalive=None, encryption_policy=None, limit_target_zones_to=None
+                    ):
         """
         <method maturity="stable">
           <summary>
@@ -665,7 +665,6 @@ Rule(src_zone='office',
         self.num_instances = 0
         self.proxy_group = ProxyGroup(self.max_sessions)
         self.lock = thread.allocate_lock()
-        self.session_counting = session_counting
 
     def startInstance(self, session):
         """
@@ -697,14 +696,6 @@ Rule(src_zone='office',
         session.name = self.name
         session.setServiceInstance(instance_id)
 
-        if self.session_counting:
-            session_status = registerSession()
-
-            if session_status == Z_SESSION_LIMIT_GRACEFULLY_REACHED:
-                log(session.session_id, CORE_SESSION, 2, "Session limit of the license reached, permitted to exceed it by 10 percents to a maximum of {0} connections.".format(getLicenseValue("Limit")))
-            elif session_status != Z_SESSION_LIMIT_NOT_REACHED:
-                log(session.session_id, CORE_SESSION, 2, "Session limit of the license exceeded by 10 percents, rejecting additional connection request.")
-                raise LimitException, "Session limit exceeded"
 
         self.lock.acquire()
         self.num_instances = self.num_instances + 1
@@ -785,8 +776,6 @@ Rule(src_zone='office',
         </method>
         """
 
-        if self.session_counting:
-            unregisterSession()
         if session.started:
             self.lock.acquire()
             self.num_instances = self.num_instances - 1

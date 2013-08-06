@@ -22,10 +22,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
+ * Author:
+ * Auditor:
+ * Last audited version:
+ * Notes:
+ *
  ***************************************************************************/
 
-#ifndef ZORP_MODULES_TELNETPATTERNMATCH_H_INCLUDED
-#define ZORP_MODULES_TELNETPATTERNMATCH_H_INCLUDED
-
-
-#endif

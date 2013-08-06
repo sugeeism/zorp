@@ -147,6 +147,7 @@ z_attach_setup_connector(ZAttach *self)
     {
       z_connector_set_timeout(self->connector, self->params.timeout < 0 ? -1 : (self->params.timeout + 999) / 1000);
       z_connector_set_tos(self->connector, self->params.tos);
+      z_connector_set_mark(self->connector, self->params.server_socket_mark);
     }
 
   z_session_leave(self->session_id);

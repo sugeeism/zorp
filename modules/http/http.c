@@ -31,6 +31,8 @@
  ***************************************************************************/
 
 #include "http.h"
+#include "http-audit-repository.h"
+#include "http-audit-stream.h"
 
 #include <zorp/thread.h>
 #include <zorp/registry.h>
@@ -474,10 +476,6 @@ http_register_vars(HttpProxy *self)
   z_proxy_var_new(&self->super, "permit_http09_responses",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_GET_CONFIG,
                   &self->permit_http09_responses);
-
-  z_proxy_var_new(&self->super, "permit_both_connection_headers",
-                  Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_GET_CONFIG,
-                  &self->permit_both_connection_headers);
 
   z_proxy_var_new(&self->super, "permit_ftp_over_http",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_GET_CONFIG,
@@ -1485,6 +1483,114 @@ http_get_default_port_for_protocol(HttpProxy *self)
 }
 
 
+static guint
+http_get_request_type(HttpProxy *self)
+{
+  guint request_type;
+
+  if (self->proto_version[EP_CLIENT] < 0x0100)
+    {
+      /* no proxy protocol for version 0.9 */
+      request_type = HTTP_REQTYPE_SERVER;
+    }
+  else
+    {
+      if (self->request_url->str[0] == '/')
+        request_type = HTTP_REQTYPE_SERVER;
+      else
+        request_type = HTTP_REQTYPE_PROXY;
+    }
+
+  return request_type;
+}
+
+static HttpHeader *
+http_add_proxy_connection_header_as_connection_header(HttpProxy *self, HttpHeader *pconn_hdr)
+{
+  gchar header_name[] = "Connection";
+  guint header_name_size = strlen(header_name);
+  HttpHeader *conn_hdr = http_add_header(&self->headers[EP_CLIENT],
+                                         header_name, header_name_size,
+                                         pconn_hdr->value->str, pconn_hdr->value->len);
+  return conn_hdr;
+}
+
+static gboolean
+http_process_proxy_connection_header(HttpProxy *self)
+{
+  HttpHeader *pconn_hdr;
+  HttpHeader *conn_hdr;
+
+  gboolean has_proxy_conn_hdr = http_lookup_header(&self->headers[EP_CLIENT], "Proxy-Connection", &pconn_hdr);
+  if (has_proxy_conn_hdr)
+    {
+      gboolean is_proxy_connection_header_possible = (self->proto_version[EP_CLIENT] >= 0x0100);
+      if (!is_proxy_connection_header_possible)
+        has_proxy_conn_hdr = FALSE;
+
+      pconn_hdr->present = FALSE;
+    }
+
+  gboolean has_conn_hdr = http_lookup_header(&self->headers[EP_CLIENT], "Connection", &conn_hdr) &&
+                          conn_hdr->present;
+  gboolean has_proxy_connection_header_only = has_proxy_conn_hdr && !has_conn_hdr;
+  if (has_proxy_connection_header_only)
+    self->connection_hdr = http_add_proxy_connection_header_as_connection_header(self, pconn_hdr);
+  else if (has_conn_hdr)
+    self->connection_hdr = conn_hdr;
+
+  return (self->connection_hdr != NULL);
+}
+
+static void
+http_process_connection_headers(HttpProxy *self)
+{
+  self->connection_hdr = NULL;
+  http_process_proxy_connection_header(self);
+}
+
+static void
+http_iterate_connection_header_tokens(HttpHeaders *headers, HttpHeader *conn_hdr)
+{
+  const gchar *linear_white_spaces = " \t,";
+  gchar **conn_hdr_tokens = g_strsplit_set(conn_hdr->value->str, linear_white_spaces, -1);
+  GString *conn_hdr_new_value = g_string_sized_new(conn_hdr->value->len);
+  for (gchar **conn_hdr_token = conn_hdr_tokens;
+       *conn_hdr_token != NULL;
+       conn_hdr_token++)
+    {
+      if (**conn_hdr_token == '\0')
+        continue;
+
+      HttpHeader *token_hdr;
+      if (http_lookup_header(headers, *conn_hdr_token, &token_hdr))
+        {
+          token_hdr->present = FALSE;
+        }
+      else
+        {
+          if (conn_hdr_new_value->len)
+            g_string_append_c(conn_hdr_new_value, ' ');
+          g_string_append(conn_hdr_new_value, *conn_hdr_token);
+        }
+    }
+  g_strfreev(conn_hdr_tokens);
+
+  gboolean is_new_connection_hdr_empty = (conn_hdr_new_value->len == 0);
+  if (is_new_connection_hdr_empty)
+    conn_hdr->present = FALSE;
+  else
+    g_string_assign(conn_hdr->value, conn_hdr_new_value->str);
+
+  g_string_free(conn_hdr_new_value, TRUE);
+}
+
+static void
+http_process_connection_header_tokens(HttpHeaders *headers, HttpHeader *conn_hdr)
+{
+  http_iterate_connection_header_tokens(headers, conn_hdr);
+}
+
 static gboolean
 http_process_request(HttpProxy *self)
 {
@@ -1637,85 +1743,17 @@ http_process_request(HttpProxy *self)
       z_proxy_return(self, FALSE);
     }
 
-  /* detect request type and set connection header in self */
-  self->connection_hdr = NULL;
-
-  if (self->proto_version[EP_CLIENT] < 0x0100)
-    {
-      /* no proxy protocol for version 0.9 */
-      self->request_type = HTTP_REQTYPE_SERVER;
-    }
-  else
-    {
-      HttpHeader *pconn_hdr = NULL, *conn_hdr = NULL;
-
-      http_lookup_header(&self->headers[EP_CLIENT], "Proxy-Connection", &pconn_hdr);
-      http_lookup_header(&self->headers[EP_CLIENT], "Connection", &conn_hdr);
-
-      if (pconn_hdr && conn_hdr)
-        {
-          if (!self->permit_both_connection_headers)
-            {
-              /* both Proxy-Connection & Connection headers ... */
-              self->error_code = HTTP_MSG_CLIENT_SYNTAX;
-              g_string_sprintf(self->error_info, "Both Proxy-Connection and Connection headers exist.");
-              /*LOG
-                This message indicates that the client sent both Connection and
-                Proxy-Connection headers, but these are mutually exclusive. It
-                is likely sent by a buggy proxy/browser on the client side.
-              */
-              z_proxy_log(self, HTTP_VIOLATION, 1, "Both Proxy-Connection and Connection headers exist;");
-              z_proxy_return(self, FALSE);
-            }
-          else
-            {
-              if (self->request_url->str[0] == '/')
-                self->request_type = HTTP_REQTYPE_SERVER;
-              else
-                self->request_type = HTTP_REQTYPE_PROXY;
-            }
-        }
-      else if (pconn_hdr)
-        {
-          self->request_type = HTTP_REQTYPE_PROXY;
-        }
-      else if (conn_hdr)
-        {
-          self->request_type = HTTP_REQTYPE_SERVER;
-        }
-      else if (self->request_url->str[0] != '/')
-        {
-          /* neither Connection nor Proxy-Connection header exists, and URI
-             doesn't seem to be a simple filename */
-          self->request_type = HTTP_REQTYPE_PROXY;
-        }
-      else
-        {
-          /* default */
-          self->request_type = HTTP_REQTYPE_SERVER;
-        }
-
-      if (self->request_type == HTTP_REQTYPE_SERVER)
-        {
-          if (pconn_hdr)
-            pconn_hdr->present = FALSE;
-
-          self->connection_hdr = conn_hdr;
-        }
-
-      if (self->request_type == HTTP_REQTYPE_PROXY)
-        {
-          if (conn_hdr)
-            conn_hdr->present = FALSE;
-
-          self->connection_hdr = pconn_hdr;
-        }
-    }
+  self->request_type = http_get_request_type(self);
+  http_process_connection_headers(self);
 
   if (self->connection_hdr)
     {
+      gint connection_mode;
+
+      http_process_connection_header_tokens(&self->headers[EP_CLIENT], self->connection_hdr);
+
       /* connection_mode overridden by connection header */
-      gint connection_mode = http_parse_connection_hdr_value(self, self->connection_hdr);
+      connection_mode = http_parse_connection_hdr_value(self, self->connection_hdr);
 
       if (connection_mode != HTTP_CONNECTION_UNKNOWN)
         self->connection_mode = connection_mode;

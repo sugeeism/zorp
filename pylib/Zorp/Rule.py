@@ -211,27 +211,35 @@ class Rule(object):
         </metainfo>
     </class>
     """
-    valid_dimensions = { 'reqid'       : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
-                         'iface'       : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
-                         'ifgroup'     : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
-                         'proto'       : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
-                         'src_port'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
-                         'dst_port'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
-                         'src_subnet'  : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
-                         'src_subnet6' : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
-                         'src_zone'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
-                         'dst_subnet'  : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
-                         'dst_subnet6' : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
-                         'dst_iface'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
-                         'dst_ifgroup' : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
-                         'dst_zone'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE}
+    valid_dimensions = { 'reqid'         : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
+                         'iface'         : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
+                         'ifgroup'       : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
+                         'proto'         : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
+                         'proto_type'    : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
+                         'proto_subtype' : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
+                         'src_port'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
+                         'dst_port'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
+                         'src_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
+                         'src_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
+                         'src_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
+                         'dst_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
+                         'dst_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
+                         'dst_iface'     : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
+                         'dst_ifgroup'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
+                         'dst_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE,
+                       }
 
     dimension_aliases = {
-                          'src_iface' : 'iface',
-                          'src_ifgroup' : 'ifgroup',
+                          'src_iface'    : 'iface',
+                          'src_ifgroup'  : 'ifgroup',
+                          'icmp_type'    : 'proto_type',
+                          'icmp_code'    : 'proto_subtype',
                         }
 
-    iface_group_aliases = parseIfaceGroupAliases()
+    try:
+        iface_group_aliases = parseIfaceGroupAliases()
+    except IOError as e:
+        iface_group_aliases = {}
 
     def __init__(self, **kw):
         """

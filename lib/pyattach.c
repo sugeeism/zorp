@@ -164,8 +164,8 @@ z_policy_attach_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args, PyObject
   PyObject *local, *remote;
   PyObject *fake_args, *proxy_instance;
   ZAttachParams params;
-  static gchar *tcp_keywords[] = { "timeout", "local_loose", "tos", "local_random", NULL };
-  static gchar *udp_keywords[] = { "timeout", "local_loose", "tos", "local_random", NULL };
+  static gchar *tcp_keywords[] = { "timeout", "local_loose", "tos", "local_random", "server_socket_mark", NULL };
+  static gchar *udp_keywords[] = { "timeout", "local_loose", "tos", "local_random", "server_socket_mark", NULL };
   gchar buf1[MAX_SOCKADDR_STRING], buf2[MAX_SOCKADDR_STRING];
   ZSockAddr *local_sa, *remote_sa;
   guint protocol;
@@ -197,14 +197,16 @@ z_policy_attach_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args, PyObject
   switch (protocol)
     {
     case ZD_PROTO_TCP:
-      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiii", tcp_keywords, &params.timeout, &params.loose, &params.tos, &params.random))
+      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiiii", tcp_keywords, &params.timeout, &params.loose,
+                                       &params.tos, &params.random, &params.server_socket_mark))
         {
           Py_XDECREF(fake_args);
           z_return(NULL);
         }
       break;
     case ZD_PROTO_UDP:
-      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiii", udp_keywords, &params.timeout, &params.loose, &params.tos, &params.random))
+      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiiii", udp_keywords, &params.timeout, &params.loose,
+                                       &params.tos, &params.random, &params.server_socket_mark))
         {
           Py_XDECREF(fake_args);
           z_return(NULL);

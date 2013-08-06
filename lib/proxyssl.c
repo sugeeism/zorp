@@ -38,6 +38,8 @@
 #include <zorp/source.h>
 #include <zorp/error.h>
 
+static void z_proxy_ssl_handshake_destroy(ZProxySSLHandshake *self);
+
 /**
  * Create a new SSL handshake object.
  *
@@ -69,8 +71,8 @@ z_proxy_ssl_handshake_new(ZProxy * proxy, ZStream *stream, gint side)
   self->session = NULL;
   self->timeout = NULL;
 
-  /* append the handshake to the list of handshakes done by this proxy */
-  proxy->ssl_opts.handshakes = g_list_append(proxy->ssl_opts.handshakes, self);
+  /* append the handshake to the list of handshakes done on this stream */
+  z_stream_ssl_add_handshake(self->stream, self, (GDestroyNotify) z_proxy_ssl_handshake_destroy);
 
   z_proxy_return(proxy, self);
 }
@@ -414,7 +416,6 @@ void
 z_proxy_ssl_free_vars(ZProxy *self)
 {
   gint ep;
-  GList *p;
 
   z_enter();
 
@@ -435,14 +436,6 @@ z_proxy_ssl_free_vars(ZProxy *self)
           self->ssl_opts.ssl_sessions[ep] = NULL;
         }
     }
-
-  for (p = self->ssl_opts.handshakes; p; p = p->next)
-    {
-      z_proxy_ssl_handshake_destroy((ZProxySSLHandshake *) p->data);
-    }
-
-  g_list_free(self->ssl_opts.handshakes);
-  self->ssl_opts.handshakes = NULL;
 
   z_leave();
 }

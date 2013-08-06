@@ -142,6 +142,7 @@ struct _ZProxy
   ZStream *endpoints[EP_MAX];
   ZPolicyObj *py_endpoints[EP_MAX];
 
+  int server_socket_mark;
   GString *language;
   GString *alerting_config;
 

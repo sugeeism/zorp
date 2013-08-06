@@ -183,7 +183,7 @@ Service(name="office_http_inter", proxy_class=HttpProxy, snat_policy="demo_natpo
                 addr.ip_s = cached
             else:
                 addr = self.nat.performTranslation(session, addrs, nat_type)
-                self.nat_cache.store(key, addr.ip_s)
+                self.nat_cache.store(key, addr.ip_s if addr else None)
         else:
             addr = self.nat.performTranslation(session, addrs, nat_type)
 
@@ -404,7 +404,7 @@ class GeneralNAT(AbstractNAT):
                 hostaddr = map[nat_type].getHostAddr(addrs[nat_type])
                 addr.ip = map_dom.mapHostAddr(hostaddr)
                 return addr
-        return addrs[nat_type]
+        return None
 
     def getKZorpMapping(self):
         """

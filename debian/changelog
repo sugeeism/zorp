@@ -1,8 +1,8 @@
-zorp (3.9.7) zorp35gpl; urgency=low
+zorp (3.9.8) zorp35gpl; urgency=low
 
   * New upstream version.
 
- -- BalaBit Development Team <devel@balabit.hu>  Tue, 06 Aug 2013 16:58:07 +0200
+ -- BalaBit Development Team <devel@balabit.hu>  Tue, 06 Aug 2013 19:29:52 +0200
 
 zorp (3.9.0-0.1) unstable; urgency=low
 

@@ -132,10 +132,10 @@
 #define STDC_HEADERS 1
 
 /* Zorp package version */
-#define VERSION "3.9.7"
+#define VERSION "3.9.8"
 
 /* Configuration date */
-#define ZORP_CONFIG_DATE "2013/08/06"
+#define ZORP_CONFIG_DATE "2014/03/18"
 
 /* datadir */
 #define ZORP_DATADIR "/home/coroner/zwa/install/zorp-gpl-5.0/share/zorp"
@@ -153,7 +153,7 @@
 #define ZORP_PRODUCT_NAME "Zorp Professional"
 
 /* Zorp source revision number */
-#define ZORP_SOURCE_REVISION "ssh+git://coroner@git.balabit/var/scm/git/zorp/zorp-core--mainline--5.0#f/B-09003-gpl-release-3.9.7-fixes#db388b718364ea910a63582c3bad3a2cedd65a3a"
+#define ZORP_SOURCE_REVISION "ssh+git://coroner@git.balabit/var/scm/git/zorp/zorp-core--mainline--5.0#master#7cd371f4542f06833d131dedc64a9b5f0cc09dbf"
 
 /* localstatedir */
 #define ZORP_STATEDIR "/home/coroner/zwa/install/zorp-gpl-5.0/var"

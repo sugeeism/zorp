@@ -91,7 +91,8 @@ am__installdirs = "$(DESTDIR)$(pkglibdir)" "$(DESTDIR)$(pkgdatadir)"
 LTLIBRARIES = $(pkglib_LTLIBRARIES)
 libhttp_la_LIBADD =
 am_libhttp_la_OBJECTS = http.lo httpproto.lo httpfltr.lo httpmisc.lo \
-	httphdr.lo httpftp.lo
+	httphdr.lo httpftp.lo http-audit-data-exchange.lo \
+	http-audit-stream.lo http-audit-repository.lo
 libhttp_la_OBJECTS = $(am_libhttp_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -144,6 +145,7 @@ AM_RECURSIVE_TARGETS = $(RECURSIVE_TARGETS:-recursive=) \
 	distdir
 ETAGS = etags
 CTAGS = ctags
+DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \
   dir0=`pwd`; \
@@ -226,6 +228,7 @@ LIBS = @MODULES_LIBS@
 LIBTOOL = @LIBTOOL@
 LIBZORP_LIBS = @LIBZORP_LIBS@
 LIBZORP_LT_COMPAT_BRANCH = @LIBZORP_LT_COMPAT_BRANCH@
+LIBZORP_LT_COMPAT_PL = @LIBZORP_LT_COMPAT_PL@
 LIBZORP_LT_RELEASE = @LIBZORP_LT_RELEASE@
 LIPO = @LIPO@
 LN_S = @LN_S@
@@ -273,6 +276,9 @@ SOCK_LIBS = @SOCK_LIBS@
 SOURCE_REVISION = @SOURCE_REVISION@
 STRIP = @STRIP@
 TESTCASES = @TESTCASES@
+TRE_CFLAGS = @TRE_CFLAGS@
+TRE_LIBS = @TRE_LIBS@
+TRE_MIN_VERSION = @TRE_MIN_VERSION@
 VERSION = @VERSION@
 ZLIB_LIBS = @ZLIB_LIBS@
 ZORPLIC_CFLAGS = @ZORPLIC_CFLAGS@
@@ -348,11 +354,14 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 zorp_srcdir = @zorp_srcdir@
 SUBDIRS = . messages tests
-DIST_SUBDIRS = . messages tests
 AM_CFLAGS = @CFLAGS@ -W
 pkgdata_DATA = Http.py
 pkglib_LTLIBRARIES = libhttp.la
-libhttp_la_SOURCES = http.c httpproto.c httpfltr.c httpfltr.h httpmisc.c httphdr.c httpftp.c http.h httpcommon.h
+libhttp_la_SOURCES = http.c httpproto.c httpfltr.c httpfltr.h httpmisc.c httphdr.c httpftp.c http.h \
+                     httpcommon.h http-audit-common.h http-audit-data-exchange.h \
+                     http-audit-data-exchange.c http-audit-stream.h http-audit-stream.c http-audit-repository.h \
+                     http-audit-repository.c
+
 EXTRA_DIST = $(pkgdata_DATA)
 all: all-recursive
 
@@ -429,6 +438,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http-audit-data-exchange.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http-audit-repository.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http-audit-stream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/httpfltr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/httpftp.Plo@am__quote@
@@ -803,10 +815,6 @@ uninstall-am: uninstall-pkgdataDATA uninstall-pkglibLTLIBRARIES
 	uninstall uninstall-am uninstall-pkgdataDATA \
 	uninstall-pkglibLTLIBRARIES
 
-
-@PRO_TRUE@	SUBDIRS += audit
-@PRO_TRUE@	DIST_SUBDIRS += audit
-@PRO_TRUE@	libhttp_la_LIBADD = audit/libaudit_lib.la
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

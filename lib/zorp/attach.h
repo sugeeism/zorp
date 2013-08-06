@@ -24,6 +24,7 @@ typedef struct _ZAttachParams
     ZAttachTCPParams tcp;
     ZAttachUDPParams udp;
   };
+  guint32 server_socket_mark;
 } ZAttachParams;
 
 typedef struct _ZAttach ZAttach;

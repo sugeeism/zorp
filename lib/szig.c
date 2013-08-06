@@ -1342,6 +1342,47 @@ z_hash_table_free(gpointer data)
   g_free(data);                         /* free the table itself */
 }
 
+static void
+z_szig_update_zone_count(ZSzigNode *service, const char *node_name, const char *zone_name)
+{
+  ZSzigNode *zones_node;
+  GHashTable *hash;
+  gulong *counter;
+  ZSzigAgrCountPrintState print_state = { .first = TRUE, .printout = g_string_sized_new(32) };
+
+  /* find or create stat nodes */
+  zones_node = z_szig_node_add_named_child(service, node_name);
+  zones_node->value.type = Z_SZIG_TYPE_STRING;
+
+  /* get or create hash tables (state) */
+  hash = (GHashTable *)z_szig_node_get_data(zones_node);
+  if (!hash)
+    {
+      hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+      z_szig_node_set_data(zones_node, hash, z_hash_table_free);
+    }
+
+  /* lookup or create entry in hash tables */
+  counter = g_hash_table_lookup(hash, zone_name);
+  if (!counter)
+    {
+      counter = g_new0(gulong, 1);
+      g_hash_table_insert(hash, g_strdup(zone_name), counter);
+    }
+
+  /* increment counters */
+  (*counter)++;
+
+  /* update stats strings (node values) */
+  g_hash_table_foreach(hash, z_szig_agr_per_zone_count_print_entry, &print_state);
+  G_LOCK(result_node_gstring_lock);
+  if (zones_node->value.u.string_value)
+    g_string_free(zones_node->value.u.string_value, TRUE);
+  zones_node->value.u.string_value = print_state.printout;
+  G_UNLOCK(result_node_gstring_lock);
+
+}
+
 /**
  * Update per-zonepair connection count for the service.
  *
@@ -1357,16 +1398,6 @@ z_szig_agr_per_zone_count(ZSzigNode *service, ZSzigNode *related)
   ZSzigNode *client_zone_node;
   char *inbound_zone_name = NULL;
   char *outbound_zone_name = NULL;
-  ZSzigNode *inbound_zones_node;
-  ZSzigNode *outbound_zones_node;
-  GHashTable *inbound_hash;
-  GHashTable *outbound_hash;
-  gulong *inbound_counter;
-  gulong *outbound_counter;
-  GString *inbound_stats_string;
-  GString *outbound_stats_string;
-  ZSzigAgrCountPrintState inbound_print_state;
-  ZSzigAgrCountPrintState outbound_print_state;
 
   /* check if we know both the client zone and the server zone */
   client_zone_node = z_szig_node_lookup_child(related, "client_zone", NULL);
@@ -1385,70 +1416,27 @@ z_szig_agr_per_zone_count(ZSzigNode *service, ZSzigNode *related)
   inbound_zone_name = server_zone_node->value.u.string_value->str;
   outbound_zone_name = client_zone_node->value.u.string_value->str;
 
-  /* find or create stat nodes */
-  G_LOCK(result_tree_structure_lock);
-  inbound_zones_node = z_szig_node_add_named_child(service, "inbound_zones");
-  inbound_zones_node->value.type = Z_SZIG_TYPE_STRING;
-  outbound_zones_node = z_szig_node_add_named_child(service, "outbound_zones");
-  outbound_zones_node->value.type = Z_SZIG_TYPE_STRING;
-  G_UNLOCK(result_tree_structure_lock);
+  z_szig_update_zone_count(service, "inbound_zones", inbound_zone_name);
+  z_szig_update_zone_count(service, "outbound_zones", outbound_zone_name);
 
-  /* get or create hash tables (state) */
-  inbound_hash = (GHashTable *)z_szig_node_get_data(inbound_zones_node);
-  if (!inbound_hash)
-    {
-      inbound_hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-      z_szig_node_set_data(inbound_zones_node, inbound_hash, z_hash_table_free);
-    }
-
-  outbound_hash = (GHashTable *)z_szig_node_get_data(outbound_zones_node);
-  if (!outbound_hash)
-    {
-      outbound_hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-      z_szig_node_set_data(outbound_zones_node, outbound_hash, z_hash_table_free);
-    }
-
-  /* lookup or create entry in hash tables */
-  inbound_counter = g_hash_table_lookup(inbound_hash, inbound_zone_name);
-  if (!inbound_counter)
-    {
-      inbound_counter = g_new0(gulong, 1);
-      g_hash_table_insert(inbound_hash, g_strdup(inbound_zone_name), inbound_counter);
-    }
-
-  outbound_counter = g_hash_table_lookup(outbound_hash, outbound_zone_name);
-  if (!outbound_counter)
-    {
-      outbound_counter = g_new0(gulong, 1);
-      g_hash_table_insert(outbound_hash, g_strdup(outbound_zone_name), outbound_counter);
-    }
-
-  /* increment counters */
-  (*inbound_counter)++;
-  (*outbound_counter)++;
-
-  /* update stats strings (node values) */
-  inbound_stats_string = g_string_sized_new(32); /* perhaps worth finetuning */
-  inbound_print_state.printout = inbound_stats_string;
-  inbound_print_state.first = TRUE;
-  g_hash_table_foreach(inbound_hash, z_szig_agr_per_zone_count_print_entry, &inbound_print_state);
-  G_LOCK(result_node_gstring_lock);
-  if (inbound_zones_node->value.u.string_value)
-    g_string_free(inbound_zones_node->value.u.string_value, TRUE);
-  inbound_zones_node->value.u.string_value = inbound_print_state.printout;
-  G_UNLOCK(result_node_gstring_lock);
-
-  outbound_stats_string = g_string_sized_new(32); /* perhaps worth finetuning */
-  outbound_print_state.printout = outbound_stats_string;
-  outbound_print_state.first = TRUE;
-  g_hash_table_foreach(outbound_hash, z_szig_agr_per_zone_count_print_entry, &outbound_print_state);
-  G_LOCK(result_node_gstring_lock);
-  if (outbound_zones_node->value.u.string_value)
-    g_string_free(outbound_zones_node->value.u.string_value, TRUE);
-  outbound_zones_node->value.u.string_value = outbound_print_state.printout;
-  G_UNLOCK(result_node_gstring_lock);
 }
 
+static void
+z_szig_add_zone_cnt(ZSzigServiceProps *props, ZSzigNode *related)
+{
+  gchar *escaped_name = z_szig_escape_name(props->name, &escaped_name);
+  gchar buf[128];
+  g_snprintf(buf, sizeof(buf), "service.%s", escaped_name);
+  g_free(escaped_name);
+
+  ZSzigNode *parent;
+  gint parent_ndx;
+  ZSzigNode *service = z_szig_tree_lookup(buf, TRUE, &parent, &parent_ndx);
+
+  /* called here so that up-to-date data is already available in the tree */
+  if (service != NULL)
+    z_szig_agr_per_zone_count(service, related);
+}
 /**
  * z_szig_agr_flat_connection_props:
  * @target_node: result node
@@ -1489,20 +1477,12 @@ z_szig_agr_flat_connection_props(ZSzigNode *target_node, ZSzigEvent ev G_GNUC_UN
 
       node->value.type = Z_SZIG_TYPE_STRING;
       node->value.u.string_value = g_string_new(props->string_list[i * 2 + 1]);
+      if (strcmp(node->name, "server_zone") == 0)
+        {
+          z_szig_add_zone_cnt(props, related);
+        }
     }
-
-  gchar *escaped_name = z_szig_escape_name(props->name, &escaped_name);
-  g_snprintf(buf, sizeof(buf), "service.%s", escaped_name);
-  g_free(escaped_name);
-
-  ZSzigNode *parent;
-  gint parent_ndx;
-  service = z_szig_tree_lookup(buf, TRUE, &parent, &parent_ndx);
   G_UNLOCK(result_tree_structure_lock);
-
-  /* called here so that up-to-date data is already available in the tree */
-  if (service != NULL)
-    z_szig_agr_per_zone_count(service, related);
 
   z_return();
 }

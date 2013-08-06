@@ -378,9 +378,6 @@ struct _HttpProxy
   /* whether to permit HTTP/0.9 responses at all */
   gboolean permit_http09_responses;
 
-  /* whether to permit both Proxy-Connection and Connection headers in requests */
-  gboolean permit_both_connection_headers;
-
   /* whether to permit FTP requests over non-transparent HTTP */
   gboolean permit_ftp_over_http;
 

@@ -847,7 +847,11 @@ class AuthPolicy(object):
         return None
 
 def getAuthPolicyObsolete(name):
-    """<function internal="yes"/>"""
+    """<function internal="yes"/>
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </function>"""
     if name:
         if Globals.auth_policies.has_key(name):
             return Globals.auth_policies[name]

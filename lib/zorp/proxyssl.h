@@ -80,17 +80,6 @@ typedef struct _ZProxySsl {
   gboolean server_check_subject;
   GString  *local_privkey_passphrase[EP_MAX];
 
-  /* List of handshake objects. Unfortunately OpenSSL callbacks cannot be
-   * handed a destroy_notify callback so we generally cannot use
-   * refcounting to manage the lifetime of handshake objects.
-   *
-   * Instead, we do store all handshake objects in this linked list in the
-   * associated proxy and make sure we delete these when we can guarantee that
-   * the handshake is no longer needed (referenced).
-   *
-   * Right now this means we delete handshake objects only from the proxy
-   * destroy method.
-   */
   GList *handshakes;
 } ZProxySsl;
 

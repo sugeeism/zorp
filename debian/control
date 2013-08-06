@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: BalaBit Development Team <devel@balabit.hu>
 Standards-Version: 3.9.0
-Build-Depends: python2.6-dev (>=2.6), libssl-dev (>=0.9.8), libglib2.0-dev (>= 2.2.1), libzorpll-dev (>=3.9.3.1), gperf, debhelper (>= 6.0.7~), python-dns, python-support (>= 0.4), python-radix
+Build-Depends: python2.6-dev (>=2.6), libssl-dev (>=0.9.8), libglib2.0-dev (>= 2.2.1), libzorpll-dev (>=3.9.4.1), gperf, debhelper (>= 6.0.7~), python-dns, python-support (>= 0.4), python-radix
 
 Package: zorp
 Section: net
@@ -34,7 +34,7 @@ Description: An advanced protocol analyzing firewall
  .
  Debug symbols.
 
-Package: libzorp3.9-7
+Package: libzorp3.9-8
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -51,7 +51,7 @@ Description: The runtime library of Zorp
 Package: libzorp3.9-dev
 Section: libdevel
 Architecture: any
-Depends: python-dev (>=2.6), libzorpll-dev, libssl-dev (>=0.9.8), libzorp3.9-7 (= ${binary:Version}), ${misc:Depends}
+Depends: python-dev (>=2.6), libzorpll-dev, libssl-dev (>=0.9.8), libzorp3.9-8 (= ${binary:Version}), ${misc:Depends}
 Conflicts: zorp-dev, libzorp0-dev
 Description: Development files needed to compile Zorp modules
  Zorp is a new generation firewall. It is essentially a transparent proxy

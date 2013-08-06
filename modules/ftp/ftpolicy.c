@@ -450,16 +450,38 @@ ftp_policy_answer_hash_do(FtpProxy *self)
   z_proxy_return(self, ret);
 }
 
+/* only 8 char FTP command is allowed now
+ * 4 is used now, but +1 byte is needed for trailing 0,
+ * so it is padded to 8 byte */
+typedef char t_ftp_command[8];
+
+static void
+strip_parameters_from_ftp_command(const char *name, t_ftp_command ftp_command)
+{
+  unsigned i = 0;
+
+  memset(ftp_command, 0, sizeof(t_ftp_command));
+
+  while (name && i < sizeof(t_ftp_command))
+    {
+      if (!g_ascii_isupper(*name))
+        break;
+      ftp_command[i++] = *name++;
+    }
+}
+
 guint
 ftp_policy_feature_hash_search(struct _FtpProxy *self, const gchar *feature)
 {
   ZPolicyObj *res;
   guint verdict;
   gboolean valid;
+  t_ftp_command ftp_command;
 
   z_proxy_enter(self);
 
-  res = g_hash_table_lookup(self->policy_features, feature);
+  strip_parameters_from_ftp_command(feature, ftp_command);
+  res = g_hash_table_lookup(self->policy_features, ftp_command);
   if (!res)
     res = g_hash_table_lookup(self->policy_features, "*");
 

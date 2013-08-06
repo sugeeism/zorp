@@ -49,7 +49,7 @@
         to FALSE.
       </para>
     <para>
-      Plug supports the use of secondary sessions as described in <xref linkend="secondary_sessions"/>.
+      Plug supports the use of secondary sessions. For details, see <xref linkend="secondary_sessions"/>.
       </para>
       <note>
           <para>

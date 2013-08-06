@@ -108,6 +108,7 @@ struct _ZInstance
 
   int num_of_processes;
   enum ZVirtInstanceRole role;
+  int configured;
 };
 
 typedef struct _ZCommand ZCommand;
@@ -697,37 +698,6 @@ z_parse_instances(void)
   return 1;
 }
 
-static ZInstance *
-z_search_instance(char *name)
-{
-  ZInstance *p, *ret = NULL;
-  char *instance_name = strdup(name);
-  char *hash = strrchr(instance_name, '#');
-
-  if (hash)
-    *hash = 0;
-
-  for (p = instances; p; p = p->next)
-    {
-      if (strcmp(instance_name, p->instance_name) == 0)
-        {
-          ret = p;
-          break;
-        }
-    }
-
-  if (hash && ret)
-    {
-      ret->process_name = name;
-      ret->process_num = atoi(hash+1);
-      /* if the number after the # is 0, it's a master instance, otherwise it's a slave */
-      ret->role = ret->process_num ? SLAVE : MASTER;
-    }
-
-  g_free(instance_name);
-  return ret;
-}
-
 static int
 z_parse_config_line_int(char *var, char *name, char *value, int *result)
 {
@@ -1230,7 +1200,10 @@ static int
 z_process_restart_instance(ZInstance *inst, void *user_data)
 {
   z_process_stop_instance(inst, user_data);
-  return z_process_start_instance(inst, user_data);
+  if (inst->configured)
+    return z_process_start_instance(inst, user_data);
+  else
+    return 0;
 }
 
 static int
@@ -1694,6 +1667,15 @@ z_process_name_from_pidfile(const char* pidfile_name, char **process_name)
 #undef PIDFILE_PREFIX
 }
 
+typedef struct _ZProcess {
+    char *instance_name;
+    char *process_name;
+    int process_num;
+    enum ZVirtInstanceRole role;
+    ZInstance *conf_instance;
+    struct _ZProcess *next;
+} ZProcess;
+
 static gboolean
 z_instance_matches(const char *process_name, const char *name)
 {
@@ -1702,46 +1684,46 @@ z_instance_matches(const char *process_name, const char *name)
       && (process_name[namelen] == 0 || process_name[namelen] == '#');
 }
 
-static int
-z_aggregate_by_configured_processes(ZCmdFunc func, void *user_data, const char *name)
+static void
+z_set_process_num(ZProcess *process, int num)
 {
-  ZInstance *inst;
-  int success_all = 1;
-  int process_nr;
-  for (inst = instances; inst; inst = inst->next)
-    {
-      if (name && !z_instance_matches(name, inst->instance_name))
-        continue;
-
-      for (process_nr = 0; process_nr < inst->num_of_processes; process_nr++)
-        {
-          int success;
-          char process_name[MAX_ZORPCTL_LINE_LENGTH];
-          z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
-
-          inst->role = process_nr ? SLAVE : MASTER;
-          snprintf(process_name, MAX_ZORPCTL_LINE_LENGTH, "%s#%d", inst->instance_name, process_nr);
-          inst->process_name = process_name;
-          inst->process_num = process_nr;
-
-          if (name && strchr(name, '#') && strcmp(process_name, name))
-            continue;
-
-          success = func(inst, user_data);
-          if (!success && z_ctl_cmd_proc_status > Z_CTL_CMD_PROC_STATUS_SUCCESS_WARN)
-            success_all = 0;
-        }
-    }
-  return success_all;
+          process->role = num ? SLAVE : MASTER;
+          process->process_num = num ;
 }
 
-static ZInstance *
-z_get_instances_from_pidfiles(const char *name)
+/* returns a list of processes specified in instances.conf */
+static ZProcess *
+z_get_configured_processes()
+{
+  ZProcess *head = NULL, *tail = NULL;
+  ZInstance *inst;
+  for (inst = instances; inst; inst = inst->next)
+    {
+      int process_nr;
+      for (process_nr = 0; process_nr < inst->num_of_processes; process_nr++)
+        {
+          char process_name[MAX_ZORPCTL_LINE_LENGTH];
+          ZProcess *process = g_new0(ZProcess, 1);
+          ZProcess **pp = (tail ? &tail->next : &head);
+          *pp = tail = process;
+          snprintf(process_name, MAX_ZORPCTL_LINE_LENGTH, "%s#%d", inst->instance_name, process_nr);
+          process->process_name = strdup(process_name);
+          process->instance_name = strdup(inst->instance_name);
+          process->conf_instance = inst;
+          z_set_process_num(process, process_nr);
+        }
+    }
+  return head;
+}
+
+/* returns a list of processes with corresponding pidfiles */
+static ZProcess *
+z_get_pidfile_processes()
 {
   GDir *dir;
   GError *error;
   const char *pidfile_name;
-  ZInstance *processes = NULL, *prev_inst = NULL;
+  ZProcess *head = NULL, *prev = NULL;
 
   if ((dir = g_dir_open(pidfile_dir, 0, &error)))
     {
@@ -1752,26 +1734,23 @@ z_get_instances_from_pidfiles(const char *name)
           if (!z_process_name_from_pidfile(pidfile_name, &process_name))
             continue;
 
-          if (name && !z_instance_matches(process_name, name))
-            continue;
-
-          processes = g_new0(ZInstance, 1);
-          processes->process_name = process_name;
-          processes->instance_name = strdup(process_name);
-          hash_pos = strchr(processes->instance_name, '#');
+          head = g_new0(ZProcess, 1);
+          head->process_name = process_name;
+          head->instance_name = strdup(process_name);
+          hash_pos = strchr(head->instance_name, '#');
           if (hash_pos)
             {
-              processes->process_num = atoi(hash_pos+1);
+              z_set_process_num(head, atoi(hash_pos+1));
               *hash_pos = 0;
             }
 
-          processes->next = prev_inst;
-          prev_inst = processes;
+          head->next = prev;
+          prev = head;
         }
       g_dir_close(dir);
     }
 
-  return processes;
+  return head;
 }
 
 static gboolean
@@ -1788,34 +1767,93 @@ z_is_aggregated_by_pidfile(ZCmdAggregation aggregation)
       || aggregation == Z_CMD_AGGREGATION_RUNNING_OR_CONFIGURED;
 }
 
+/* returns a ZInstance based on proc */
+static ZInstance *
+z_get_inst_from_proc(ZProcess *proc)
+{
+  ZInstance *inst;
+  if (proc->conf_instance)
+    {
+      inst = proc->conf_instance;
+      inst->configured = 1;
+    }
+  else
+    {
+      inst = g_new0(ZInstance, 1);
+      inst->configured = 0;
+    }
+
+  inst->instance_name = proc->instance_name;
+  inst->process_name = proc->process_name;
+  inst->process_num = proc->process_num;
+  inst->role = proc->role;
+  return inst;
+}
+
 static int
-z_aggregate_by_instance_list(ZCmdFunc func, void *user_data, ZInstance *inst, ZCmdAggregation aggregation)
+z_aggregate_by_process_list(const char *name, ZCmdFunc func, void *user_data, ZProcess *proc)
 {
   int success_all = 1;
-  while (inst)
+  while (proc)
     {
-      ZInstance *next = inst->next;
+      ZProcess *next = proc->next;
+      ZInstance *inst;
 
-      /* Command will be applied only if process is not in instances.conf
-       * or instances.conf is disregarded. Otherwise the process was
-       * already taken into account in the by_configured_processes branch
-       */
-      if (!z_is_aggregated_by_config(aggregation)
-          || !z_search_instance(inst->instance_name))
-        {
-          int success;
+      if (!name || z_instance_matches(proc->process_name, name)) {
+        int success;
 
-          z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
+        z_ctl_cmd_proc_status = Z_CTL_CMD_PROC_STATUS_INVALID;
 
-          success = func(inst, user_data);
-          if (!success && z_ctl_cmd_proc_status > Z_CTL_CMD_PROC_STATUS_SUCCESS_WARN)
-            success_all = 0;
-        }
+        inst = z_get_inst_from_proc(proc); /* inst is leaked if proc is representing a pidfile */
+        success = func(inst, user_data);
+        if (!success && z_ctl_cmd_proc_status > Z_CTL_CMD_PROC_STATUS_SUCCESS_WARN)
+          success_all = 0;
+      }
 
-      z_instance_free(inst);
-      inst = next;
+      proc = next;
     }
   return success_all;
+}
+
+/* returns a list of unique ZProcess instances combined from a and b.
+ * note: modifies a and b, also leaks the duplicated items.
+ */
+static ZProcess*
+z_merge_processes(ZProcess *a, ZProcess *b)
+{
+  ZProcess *res = a;
+
+  if (!a)
+    return b;
+
+  if (!b)
+    return a;
+
+  while (b)
+    {
+      ZProcess *lastp = res;
+      ZProcess *cur = res;
+      while (cur)
+        {
+          if (!strcmp(cur->process_name, b->process_name))
+            break;
+          lastp = cur;
+          cur = cur->next;
+        }
+
+      if (!cur)
+        {
+          lastp->next = b;
+          b = b->next;
+          lastp->next->next = NULL;
+        }
+      else
+        {
+          b = b->next;
+        }
+
+    }
+  return res;
 }
 
 static int
@@ -1824,18 +1862,16 @@ z_process_args_run_cmd(ZCmdFunc func, void *user_data,
                 const char *ident UNUSED,
                 ZCmdAggregation aggregation)
 {
-  int success_all = 1;
+  ZProcess *processes, *pidfile_processes=NULL, *configured_processes=NULL;
+
   if (z_is_aggregated_by_config(aggregation))
-    {
-      success_all = z_aggregate_by_configured_processes(func, user_data, name);
-    }
+    configured_processes = z_get_configured_processes();
   if (z_is_aggregated_by_pidfile(aggregation))
-    {
-      ZInstance *processes;
-      processes = z_get_instances_from_pidfiles(name);
-      success_all &= z_aggregate_by_instance_list(func, user_data, processes, aggregation);
-    }
-  return success_all;
+    pidfile_processes = z_get_pidfile_processes();
+
+  processes = z_merge_processes(configured_processes, pidfile_processes);
+
+  return z_aggregate_by_process_list(name, func, user_data, processes);
 }
 
 typedef struct {

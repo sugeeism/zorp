@@ -24,4 +24,4 @@ if ALERTING_ENABLED
 TESTS += test_alerting
 endif
 
-EXTRA_DIST = pystruct.py helpers/zproxy.h
+EXTRA_DIST = pystruct.py
