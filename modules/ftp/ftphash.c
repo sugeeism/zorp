@@ -86,7 +86,7 @@ static struct _FtpInternalCommand ftp_commands[] = {
   {"SYST", ftp_command_parse_noarg,  NULL,                    0},
   {"TYPE", ftp_command_parse_TYPE,   NULL,                    0},
   {"USER", ftp_command_parse_USER,   ftp_command_answer_USER, 0},
-  
+
 /* rfc775 */
   {"XCUP", ftp_command_parse_noarg,  NULL,                    0},
   {"XCWD", ftp_command_parse_path,   NULL,                    0},
@@ -117,26 +117,26 @@ static struct _FtpInternalCommand ftp_commands[] = {
   {"MIC",  ftp_command_parse_sftp,   NULL,                    0},
   {"PBSZ", ftp_command_parse_sftp,   NULL,                    0},
   {"PROT", ftp_command_parse_sftp,   NULL,                    0},
-  
+
   /* rfc2389 */
   {"OPTS", ftp_command_parse_noarg,  NULL,                    0},
-  
+
   /* rfc1579 */
   {"APSV", ftp_command_parse_PASV,   NULL,                    0},
-  
+
   /* rfc1545 */
   {"LPRT", ftp_command_parse_string, NULL,                    0},
   {"LPSV", ftp_command_parse_string, NULL,                    0},
-  
+
   /* ???? */
   {"MDTM", ftp_command_parse_string, NULL,                    0},
 #endif
   {NULL,   NULL,                     NULL,                    0}
 };
-  
+
 // Function:    ftp_command_hash_create
 // In:          FtpProxy*               proxy pointer
-// Out:         -                       
+// Out:         -
 // Desc:        create and fill the hashtable
 void
 ftp_command_hash_create(void)
@@ -156,7 +156,7 @@ ftp_command_hash_create(void)
 
 // Function:    ftp_command_hash_get
 // In:          gchar                   command
-// Out:         gpointer                value                       
+// Out:         gpointer                value
 // Desc:        look up the command in the ftp_command_hash
 //              return: a pointer to the structure
 FtpInternalCommand *

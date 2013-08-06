@@ -13,12 +13,12 @@ import traceback
 LOGGING = 1
 
 def search_file(filename, search_path):
-   file_found = 0
-   paths = search_path.split(os.path.pathsep)
-   for path in paths:
-      if path and os.path.exists(os.path.join(path, filename)):
-          return os.path.abspath(os.path.join(path, filename))
-   return None
+    file_found = 0
+    paths = search_path.split(os.path.pathsep)
+    for path in paths:
+        if path and os.path.exists(os.path.join(path, filename)):
+            return os.path.abspath(os.path.join(path, filename))
+    return None
 
 class TestAgentImpl(TestAgent):
     def __init__(self, input, output):
@@ -29,18 +29,18 @@ class TestAgentImpl(TestAgent):
         self.child_processes = []
         self.log_enabled = LOGGING
         if self.log_enabled:
-                self.logfile = open('log','a')
+            self.logfile = open('log','a')
 
     def __del__(self):
         self.input.close()
         self.output.close()
         self.__kill_children()
         if self.log_enabled:
-                self.logfile.close()
+            self.logfile.close()
 
     def log(self,msg):
         if self.log_enabled:
-                self.logfile.write(msg+'\n')
+            self.logfile.write(msg+'\n')
 
     def supervise_start(self, command, env=None):
         args = shlex.split(command)
@@ -49,7 +49,7 @@ class TestAgentImpl(TestAgent):
             # not an absolute filename
 
             if args[0].find('/') >= 0:
-                # relative path that has directory component, search it in the ZWA, /usr and / prefixes
+            # relative path that has directory component, search it in the ZWA, /usr and / prefixes
                 search_path = '/usr:/'
                 if os.environ.has_key("ZWA_INSTALL_DIR"):
                     search_path = os.environ["ZWA_INSTALL_DIR"] + ':' + search_path
@@ -167,19 +167,19 @@ class TestAgentImpl(TestAgent):
         f = self.handles[fd]
         a,qqq ,qqqq = self.select([f],[],[],timeout)
         if a != []:
-                res = f.accept()
-                newfd = res[0].fileno()
-                self.handles[newfd] = res[0]
-                return (newfd, res[1])
+            res = f.accept()
+            newfd = res[0].fileno()
+            self.handles[newfd] = res[0]
+            return (newfd, res[1])
         else:
-                raise Exception, 'no connection to accept'
+            raise Exception, 'no connection to accept'
 
     def connect(self, fd, remote):
         f = self.handles[fd]
         try:
-                f.connect(remote)
+            f.connect(remote)
         except:
-                raise Exception, "can't connect"
+            raise Exception, "can't connect"
 
     def select(self, r, w, x, timeout):
         return select.select(r, w, x, timeout)
@@ -189,29 +189,29 @@ class TestAgentImpl(TestAgent):
         self.log("in read: socket = "+`f`)
         a,qqq ,qqqq = self.select([f],[],[], timeout)
         if a != []:
-                try:
-                        ret = f.recv(bufsize)
-                except Exception, e:
-                        self.log("except. caught: " + `sys.exc_info()`)
-                        if e[0] == 32:
-                                ret = f.recv(bufsize)
-                        else:
-                                raise socket.error, e
-                self.log('received:'+`ret`)
-                return ret
+            try:
+                ret = f.recv(bufsize)
+            except Exception, e:
+                self.log("except. caught: " + `sys.exc_info()`)
+                if e[0] == 32:
+                    ret = f.recv(bufsize)
+                else:
+                    raise socket.error, e
+            self.log('received:'+`ret`)
+            return ret
         else:
-                raise Exception, 'nothing to read'
+            raise Exception, 'nothing to read'
 
     def readfrom(self, fd, bufsize, timeout=5):
         f = self.handles[fd]
         self.log("in read: socket = "+`f`)
         a,qqq ,qqqq = self.select([f],[],[], timeout)
         if a != []:
-                ret = f.recvfrom(bufsize)
-                self.log('received:'+`ret`)
-                return ret
+            ret = f.recvfrom(bufsize)
+            self.log('received:'+`ret`)
+            return ret
         else:
-                raise Exception, 'nothing to read'
+            raise Exception, 'nothing to read'
 
     def write(self, fd, chunk):
         f = self.handles[fd]

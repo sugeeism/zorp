@@ -78,7 +78,7 @@ ftp_connect_server_event(FtpProxy *self, gchar *hostname, guint port)
 {
   ZSockAddr *client_local, *server_local;
   gchar tmpip[16];
-  
+
   z_proxy_enter(self);
   if (!z_proxy_connect_server(&self->super, hostname, port))
     {
@@ -96,7 +96,7 @@ ftp_connect_server_event(FtpProxy *self, gchar *hostname, guint port)
    */
   if (!z_proxy_get_addresses(&self->super, NULL, NULL, &client_local, NULL, &server_local, NULL))
     z_proxy_return(self, FALSE);
-  
+
   /* This cannot hapen, because we connected in each side */
   g_assert(client_local != NULL && server_local != NULL);
   z_inet_ntoa(tmpip, sizeof(tmpip), ((struct sockaddr_in *) &client_local->sa)->sin_addr);
@@ -141,16 +141,16 @@ static gboolean
 ftp_data_client_accepted(ZConnection *conn, gpointer user_data)
 {
   FtpProxy *self = (FtpProxy *) user_data;
-  
+
   z_proxy_enter(self);
   if (self->data_stream[EP_CLIENT] || self->data_state == FTP_DATA_CANCEL)
     z_proxy_return(self, FALSE);
-  
+
   g_mutex_lock(self->lock);
   if (conn && conn->stream)
     {
       gchar tmp_sockaddr[120];
-      
+
       /*LOG
         This message reports that the data connection is accepted from the client.
        */
@@ -180,16 +180,16 @@ static gboolean
 ftp_data_server_accepted(ZConnection *conn, gpointer user_data)
 {
   FtpProxy *self = (FtpProxy *) user_data;
-  
+
   z_proxy_enter(self);
   if (self->data_stream[EP_SERVER] || self->data_state == FTP_DATA_CANCEL)
     z_proxy_return(self, FALSE);
-  
+
   g_mutex_lock(self->lock);
   if (conn && conn->stream)
     {
       gchar tmp_sockaddr[120];
-      
+
       /*LOG
         This message reports that the data connection is accepted from the server.
        */
@@ -219,7 +219,7 @@ void
 ftp_data_client_connected(ZConnection *conn, gpointer user_data)
 {
   FtpProxy *self = (FtpProxy *) user_data;
-  
+
   z_proxy_enter(self);
   g_mutex_lock(self->lock);
   if (!(self->data_state & FTP_DATA_CLIENT_READY) &&
@@ -229,7 +229,7 @@ ftp_data_client_connected(ZConnection *conn, gpointer user_data)
       if (conn && conn->stream)
         {
           gchar tmp_sockaddr[120];
-      
+
           /*LOG
             This message reports that the data connection is established to the client.
            */
@@ -238,7 +238,7 @@ ftp_data_client_connected(ZConnection *conn, gpointer user_data)
 
           z_sockaddr_unref(self->data_remote[EP_CLIENT]);
           self->data_remote[EP_CLIENT] = z_sockaddr_ref(conn->remote);
-  
+
           self->data_state |= FTP_DATA_CLIENT_READY;
         }
       else
@@ -248,7 +248,7 @@ ftp_data_client_connected(ZConnection *conn, gpointer user_data)
           self->state = FTP_QUIT;
           self->ftp_data_hangup = TRUE;
         }
-      
+
       if (conn)
         {
           z_connection_destroy(conn, FALSE);
@@ -274,7 +274,7 @@ void
 ftp_data_server_connected(ZConnection *conn, gpointer user_data)
 {
   FtpProxy *self = (FtpProxy *) user_data;
-  
+
   z_proxy_enter(self);
   g_mutex_lock(self->lock);
   if (!(self->data_state & FTP_DATA_SERVER_READY) &&
@@ -284,7 +284,7 @@ ftp_data_server_connected(ZConnection *conn, gpointer user_data)
       if (conn && conn->stream)
         {
           gchar tmp_sockaddr[120];
-      
+
           /*LOG
             This message reports that the data connection is established to the server.
            */
@@ -293,7 +293,7 @@ ftp_data_server_connected(ZConnection *conn, gpointer user_data)
 
           z_sockaddr_unref(self->data_remote[EP_SERVER]);
           self->data_remote[EP_SERVER] = z_sockaddr_ref(conn->remote);
-  
+
           self->data_state |= FTP_DATA_SERVER_READY;
         }
       else
@@ -302,7 +302,7 @@ ftp_data_server_connected(ZConnection *conn, gpointer user_data)
           self->data_state = FTP_DATA_DESTROY;
           self->state = FTP_SERVER_TO_CLIENT;   /* not considered fatal */
         }
-  
+
       z_poll_wakeup(self->poll);
       if (conn)
         {
@@ -321,27 +321,85 @@ ftp_data_server_connected(ZConnection *conn, gpointer user_data)
       z_proxy_log(self, FTP_ERROR, 4, "Connected to server, but connection is not expected; state='%ld'", self->data_state);
       z_connection_destroy(conn, TRUE);
     }
-  
+
   z_proxy_return(self);
 }
 
 ZAttachCallbackFunc data_attach_callbacks[] =
 {
-  ftp_data_client_connected, 
+  ftp_data_client_connected,
   ftp_data_server_connected
 };
 
 ZDispatchCallbackFunc data_accept_callbacks[] =
 {
-  ftp_data_client_accepted, 
+  ftp_data_client_accepted,
   ftp_data_server_accepted
 };
 
 gboolean
-ftp_data_prepare(FtpProxy *self, gint side, gchar mode)
+ftp_data_prepare_listen(FtpProxy *self, gint side)
 {
   ZDispatchParams dpparam;
   ZDispatchBind *db;
+  ZSockAddr *tmpaddr;
+
+  z_proxy_enter(self);
+  /* FIXMEE Correct handling of not freed streams! */
+  self->data_stream[side] = NULL;
+  memset(&dpparam, 0, sizeof(dpparam));
+  dpparam.tcp.accept_one = FALSE;
+  dpparam.tcp.backlog = 1;
+  dpparam.common.mark_tproxy = TRUE;
+  z_proxy_ref(&self->super);
+  if (self->data_listen[side] != NULL)
+    {
+      /*LOG
+        This message indicates that the previous data connection was not
+        completely teared down and a new one is about to accept.
+        This message indicates an internal error, please contact the BalaBit QA team.
+       */
+      z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous dispatcher not unregistered; side='%s', mode='L'", SIDE_TO_STRING(side));
+      z_dispatch_unregister(self->data_listen[side]);
+    }
+
+  db = z_dispatch_bind_new_sa(ZD_PROTO_TCP, self->data_local_buf[side]);
+  self->data_listen[side] = z_dispatch_register(self->super.session_id,
+                                                db,
+                                                &tmpaddr,
+                                                ZD_PRI_RELATED,
+                                                &dpparam,
+                                                data_accept_callbacks[side],
+                                                self,
+                                                (GDestroyNotify)z_proxy_unref);
+  z_dispatch_bind_unref(db);
+  if (!self->data_listen[side])
+    {
+      /* We assume that lower level log if problem occured */
+      z_proxy_unref(&self->super);
+      z_proxy_return(self, FALSE);
+    }
+  self->data_local[side] = tmpaddr;
+
+  if (self->data_connect[side])
+    {
+      /*LOG
+        This message indicates that the previous data connection was not
+        completely teared down while a new connection is being
+        established. This message indicates an internal error, please
+        contact the BalaBit QA team.
+       */
+      z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous attach not unregistered; side='%s', mode='L'", SIDE_TO_STRING(side));
+      z_attach_cancel(self->data_connect[side]);
+      z_attach_free(self->data_connect[side]);
+      self->data_connect[side] = NULL;
+    }
+  z_proxy_return(self, TRUE);
+}
+
+gboolean
+ftp_data_prepare_connect(FtpProxy *self, gint side)
+{
   ZAttachParams aparam;
   ZSockAddr *tmpaddr;
   gchar tmpip[16];
@@ -349,128 +407,75 @@ ftp_data_prepare(FtpProxy *self, gint side, gchar mode)
   z_proxy_enter(self);
   /* FIXMEE Correct handling of not freed streams! */
   self->data_stream[side] = NULL;
-  if (mode == 'L')
+  if (side == EP_CLIENT)
     {
-      memset(&dpparam, 0, sizeof(dpparam));
-      dpparam.tcp.accept_one = FALSE;
-      dpparam.tcp.backlog = 1;
-      dpparam.common.mark_tproxy = TRUE;
-      z_proxy_ref(&self->super);
-      if (self->data_listen[side] != NULL)
+      guint port;
+      tmpaddr = self->data_local_buf[side];
+      z_inet_ntoa(tmpip, sizeof(tmpip), ((struct sockaddr_in *) &tmpaddr->sa)->sin_addr);
+      switch (self->active_connection_mode)
         {
-          /*LOG
-            This message indicates that the previous data connection was not
-            completely teared down and a new one is about to accept.
-            This message indicates an internal error, please contact the BalaBit QA team.
-           */
-          z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous dispatcher not unregistered; side='%s', mode='%c'", SIDE_TO_STRING(side), mode);
-          z_dispatch_unregister(self->data_listen[side]);
-        }
+        case FTP_ACTIVE_TWENTY:
+          port = 20;
+          break;
 
-      db = z_dispatch_bind_new_sa(ZD_PROTO_TCP, self->data_local_buf[side]);
-      self->data_listen[side] = z_dispatch_register(self->super.session_id,
-                                                    db,
-                                                    &tmpaddr,
-                                                    ZD_PRI_RELATED,
-                                                    &dpparam,
-                                                    data_accept_callbacks[side],
-                                                    self,
-                                                    (GDestroyNotify)z_proxy_unref);
-      z_dispatch_bind_unref(db);
-      if (!self->data_listen[side])
-        {
-          /* We assume that lower level log if problem occured */
-          z_proxy_unref(&self->super);
-          z_proxy_return(self, FALSE);
+        case FTP_ACTIVE_RANDOM:
+          port = 0;
+          break;
+
+        case FTP_ACTIVE_MINUSONE:
+        default:
+          port = self->server_port - 1;
         }
-      self->data_local[side] = tmpaddr;
-      
-      if (self->data_connect[side])
-        {
-          /*LOG
-            This message indicates that the previous data connection was not
-            completely teared down while a new connection is being
-            established. This message indicates an internal error, please
-            contact the BalaBit QA team.
-           */
-          z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous attach not unregistered; side='%s', mode='%c'", SIDE_TO_STRING(side), mode);
-          z_attach_cancel(self->data_connect[side]);
-          z_attach_free(self->data_connect[side]);
-          self->data_connect[side] = NULL;
-        }
+      self->data_local[side] = z_sockaddr_inet_new(tmpip, port);
     }
-  else if (mode == 'C')
+  else
     {
-      if (side == EP_CLIENT)
-        {
-          guint port;
-          tmpaddr = self->data_local_buf[side];
-          z_inet_ntoa(tmpip, sizeof(tmpip), ((struct sockaddr_in *) &tmpaddr->sa)->sin_addr);
-          switch (self->active_connection_mode)
-            {
-            case FTP_ACTIVE_TWENTY:
-              port = 20;
-              break;
-              
-            case FTP_ACTIVE_RANDOM:
-              port = 0;
-              break;
-              
-            case FTP_ACTIVE_MINUSONE:
-            default:
-              port = self->server_port - 1;
-            }
-          self->data_local[side] = z_sockaddr_inet_new(tmpip, port);
-        }
-      else
-        {
-          self->data_local[side] = z_sockaddr_ref(self->data_local_buf[side]);
-        }
-        
-      memset(&aparam, 0, sizeof(aparam));
-      aparam.timeout = -1;
-      if (self->data_connect[side] != NULL)
-        {
-          /*LOG
-            This message indicates that the previous data connection was not
-            completely teared down and a new one is being established.
-            This message indicates an internal error, please contact the BalaBit QA team.
-           */
-          z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous attach not unregistered; side='%s', mode='%c'", SIDE_TO_STRING(side), mode);
-          z_attach_cancel(self->data_connect[side]);
-          z_attach_free(self->data_connect[side]);
-        }
-      z_proxy_ref(&self->super);
-      self->data_connect[side] = z_attach_new(&self->super,
-                                              ZD_PROTO_TCP,
-                                              self->data_local[side],
-                                              self->data_remote[side],
-                                              &aparam,
-                                              data_attach_callbacks[side],
-                                              self,
-                                              (GDestroyNotify) z_proxy_unref);
+      self->data_local[side] = z_sockaddr_ref(self->data_local_buf[side]);
+    }
 
-      z_sockaddr_unref(self->data_local[side]);
-      self->data_local[side] = NULL;
-      if (!self->data_connect[side])
-        {
-          /* We assume that lower level log if problem accured */
-          z_proxy_unref(&self->super);
-          z_proxy_leave(self);
-          return FALSE;
-        }
+  memset(&aparam, 0, sizeof(aparam));
+  aparam.timeout = -1;
+  if (self->data_connect[side] != NULL)
+    {
+      /*LOG
+        This message indicates that the previous data connection was not
+        completely teared down and a new one is being established.
+        This message indicates an internal error, please contact the BalaBit QA team.
+       */
+      z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous attach not unregistered; side='%s', mode='C'", SIDE_TO_STRING(side));
+      z_attach_cancel(self->data_connect[side]);
+      z_attach_free(self->data_connect[side]);
+    }
+  z_proxy_ref(&self->super);
+  self->data_connect[side] = z_attach_new(&self->super,
+                                          ZD_PROTO_TCP,
+                                          self->data_local[side],
+                                          self->data_remote[side],
+                                          &aparam,
+                                          data_attach_callbacks[side],
+                                          self,
+                                          (GDestroyNotify) z_proxy_unref);
 
-      if (self->data_listen[side])
-        {
-          /*LOG
-            This message indicates that the previous data connection was not
-            completely teared down and a new one is about to accept.
-            This message indicates an internal error, please contact the BalaBit QA team.
-           */
-          z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous dispatcher not unregistered; side='%s', mode='%c'", SIDE_TO_STRING(side), mode);
-          z_dispatch_unregister(self->data_listen[side]);
-          self->data_listen[side] = NULL;
-        }
+  z_sockaddr_unref(self->data_local[side]);
+  self->data_local[side] = NULL;
+  if (!self->data_connect[side])
+    {
+      /* We assume that lower level log if problem accured */
+      z_proxy_unref(&self->super);
+      z_proxy_leave(self);
+      return FALSE;
+    }
+
+  if (self->data_listen[side])
+    {
+      /*LOG
+        This message indicates that the previous data connection was not
+        completely teared down and a new one is about to accept.
+        This message indicates an internal error, please contact the BalaBit QA team.
+       */
+      z_proxy_log(self, FTP_ERROR, 3, "Internal error, previous dispatcher not unregistered; side='%s', mode='C'", SIDE_TO_STRING(side));
+      z_dispatch_unregister(self->data_listen[side]);
+      self->data_listen[side] = NULL;
     }
   z_proxy_return(self, TRUE);
 }
@@ -490,20 +495,20 @@ ftp_data_reset(FtpProxy *self)
       z_attach_free(self->data_connect[EP_CLIENT]);
       self->data_connect[EP_CLIENT] = NULL;
     }
-  
+
   if (self->data_connect[EP_SERVER])
     {
       z_attach_cancel(self->data_connect[EP_SERVER]);
       z_attach_free(self->data_connect[EP_SERVER]);
       self->data_connect[EP_SERVER] = NULL;
     }
-  
+
   if (self->data_listen[EP_CLIENT])
     {
       z_dispatch_unregister(self->data_listen[EP_CLIENT]);
       self->data_listen[EP_CLIENT] = NULL;
     }
-  
+
   if (self->data_listen[EP_SERVER])
     {
       z_dispatch_unregister(self->data_listen[EP_SERVER]);
@@ -517,7 +522,7 @@ ftp_data_reset(FtpProxy *self)
       z_stream_unref(self->data_stream[EP_CLIENT]);
       self->data_stream[EP_CLIENT] = NULL;
     }
-  
+
   if (self->data_stream[EP_SERVER])
     {
       z_stream_shutdown(self->data_stream[EP_SERVER], SHUT_RDWR, NULL);
@@ -525,27 +530,27 @@ ftp_data_reset(FtpProxy *self)
       z_stream_unref(self->data_stream[EP_SERVER]);
       self->data_stream[EP_SERVER] = NULL;
     }
-  
+
   g_mutex_lock(self->lock);
-  
+
   if (self->data_remote[EP_CLIENT])
     {
       z_sockaddr_unref(self->data_remote[EP_CLIENT]);
       self->data_remote[EP_CLIENT] = NULL;
     }
-  
+
   if (self->data_remote[EP_SERVER])
     {
       z_sockaddr_unref(self->data_remote[EP_SERVER]);
       self->data_remote[EP_SERVER] = NULL;
     }
-  
+
   if (self->data_local[EP_CLIENT])
     {
       z_sockaddr_unref(self->data_local[EP_CLIENT]);
       self->data_local[EP_CLIENT] = NULL;
     }
-  
+
   if (self->data_local[EP_SERVER])
     {
       z_sockaddr_unref(self->data_local[EP_SERVER]);
@@ -585,12 +590,12 @@ ftp_data_reset(FtpProxy *self)
             ftp_state_set(self, EP_SERVER);
             self->state = self->oldstate;
             break;
-            
+
           case FTP_CLIENT_TO_SERVER:
             ftp_state_set(self, EP_CLIENT);
             self->state = self->oldstate;
             break;
-            
+
           default:
             break;
         }
@@ -642,6 +647,16 @@ ftp_data_do_ssl_handshake(FtpProxy *self, gint side)
       ZProxySSLHandshake *handshake;
       ZStream *old;
 
+      if (side == EP_CLIENT && self->preamble != NULL)
+        {
+          if (!ftp_answer_write(self, self->preamble))
+            rc = FALSE;
+          g_free(self->preamble);
+          self->preamble = NULL;
+          if (rc == FALSE)
+            goto out;
+        }
+
       /* push an SSL stream on */
       old = self->data_stream[side];
       self->data_stream[side] = z_stream_ssl_new(old, NULL);
@@ -654,6 +669,8 @@ ftp_data_do_ssl_handshake(FtpProxy *self, gint side)
       if (!handshake->session)
         rc = FALSE;
     }
+
+out:
 
   z_proxy_return(self, rc);
 }
@@ -720,7 +737,7 @@ ftp_data_create_transfer(FtpProxy *self)
     }
   self->data_stream[EP_SERVER] = NULL;
   self->data_stream[EP_CLIENT] = NULL;
-  
+
   /*LOG
     This message reports that data connection is established between the client and the server, and proxy
     is being stacked for the data transfer.
@@ -782,7 +799,7 @@ ftp_data_next_step(FtpProxy *self)
         }
       self->data_state |= FTP_DATA_SERVER_START;
     }
-  
+
   if ((self->data_state & FTP_SERVER_FIRST_READY) == FTP_SERVER_FIRST_READY &&
        !(self->data_state & FTP_DATA_CLIENT_START))
     {
@@ -809,7 +826,7 @@ ftp_data_next_step(FtpProxy *self)
       z_stream_set_cond(self->super.endpoints[EP_SERVER],
                        G_IO_IN,
                        FALSE);
-                       
+
       self->data_state |= FTP_DATA_CLIENT_START;
       if (self->data_connect[EP_CLIENT])
         {
@@ -840,7 +857,7 @@ ftp_data_next_step(FtpProxy *self)
             }
         }
     }
-  
+
   if (self->data_state == FTP_SERVER_CONNECT_READY)
     {
       if (!self->data_connect[EP_CLIENT])
@@ -860,7 +877,7 @@ ftp_data_next_step(FtpProxy *self)
               z_proxy_return(self);
             }
         }
-      
+
       g_mutex_unlock(self->lock);
       if (!ftp_data_create_transfer(self))
         ftp_data_reset(self);
@@ -911,16 +928,15 @@ ftp_data_abort(FtpProxy *self)
   z_proxy_return(self, rc == G_IO_STATUS_NORMAL);
 }
 
-
 static gboolean ftp_client_data(ZStream *stream, GIOCondition cond, gpointer user_data);
 
 static gboolean ftp_server_data(ZStream *stream, GIOCondition cond, gpointer user_data);
-        
+
 gboolean
 ftp_stream_client_init(FtpProxy *self)
 {
   ZStream *tmpstream;
-  
+
   z_proxy_enter(self);
   if (!self->super.endpoints[EP_CLIENT])
     {
@@ -931,7 +947,7 @@ ftp_stream_client_init(FtpProxy *self)
       z_proxy_return(self, FALSE);
     }
   self->super.endpoints[EP_CLIENT]->timeout = self->timeout;
-  
+
   tmpstream = self->super.endpoints[EP_CLIENT];
   self->super.endpoints[EP_CLIENT] = z_stream_line_new(tmpstream, self->max_line_length, ZRL_EOL_CRLF);
 
@@ -946,16 +962,16 @@ ftp_stream_client_init(FtpProxy *self)
   z_stream_set_cond(self->super.endpoints[EP_CLIENT],
                    G_IO_PRI,
                    FALSE);
-                       
+
   z_stream_set_callback(self->super.endpoints[EP_CLIENT],
                         G_IO_IN,
                         ftp_client_data,
-                        self, 
+                        self,
                         NULL);
   z_stream_set_callback(self->super.endpoints[EP_CLIENT],
                         G_IO_PRI,
                         ftp_client_data,
-                        self, 
+                        self,
                         NULL);
 
   z_poll_add_stream(self->poll, self->super.endpoints[EP_CLIENT]);
@@ -966,7 +982,7 @@ gboolean
 ftp_stream_server_init(FtpProxy *self)
 {
   ZStream *tmpstream;
-  
+
   z_proxy_enter(self);
   if (!self->super.endpoints[EP_SERVER])
     {
@@ -977,7 +993,7 @@ ftp_stream_server_init(FtpProxy *self)
       z_proxy_return(self, FALSE);
     }
   self->super.endpoints[EP_SERVER]->timeout = self->timeout;
-  
+
   tmpstream = self->super.endpoints[EP_SERVER];
   self->super.endpoints[EP_SERVER] = z_stream_line_new(tmpstream, self->max_line_length, ZRL_EOL_CRLF);
   z_stream_unref(tmpstream);
@@ -991,7 +1007,7 @@ ftp_stream_server_init(FtpProxy *self)
   z_stream_set_cond(self->super.endpoints[EP_SERVER],
                    G_IO_PRI,
                    FALSE);
-                       
+
   z_stream_set_callback(self->super.endpoints[EP_SERVER],
                         G_IO_IN,
                         ftp_server_data,
@@ -1017,11 +1033,11 @@ ftp_proxy_regvars(FtpProxy *self)
   z_proxy_var_new(&self->super, "transparent_mode",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->transparent_mode);
-                  
+
   z_proxy_var_new(&self->super, "permit_unknown_command",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->permit_unknown_command);
-                  
+
   z_proxy_var_new(&self->super, "permit_empty_command",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->permit_empty_command);
@@ -1029,23 +1045,23 @@ ftp_proxy_regvars(FtpProxy *self)
   z_proxy_var_new(&self->super, "max_line_length",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->max_line_length);
-                  
+
   z_proxy_var_new(&self->super, "max_username_length",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->max_username_length);
-                  
+
   z_proxy_var_new(&self->super, "max_password_length",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->max_password_length);
-                  
+
   z_proxy_var_new(&self->super, "max_hostname_length",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->max_hostname_length);
-  
+
   z_proxy_var_new(&self->super, "masq_address_client",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   self->masq_address[EP_CLIENT]);
-                  
+
   z_proxy_var_new(&self->super, "masq_address_server",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   self->masq_address[EP_SERVER]);
@@ -1056,7 +1072,7 @@ ftp_proxy_regvars(FtpProxy *self)
   z_proxy_var_new(&self->super, "commands",
                   Z_VAR_TYPE_OBSOLETE | Z_VAR_GET | Z_VAR_GET_CONFIG,
                   "request");
-                  
+
   z_proxy_var_new(&self->super, "response",
                   Z_VAR_TYPE_DIMHASH | Z_VAR_GET | Z_VAR_GET_CONFIG,
                   self->policy_answer_hash);
@@ -1067,7 +1083,7 @@ ftp_proxy_regvars(FtpProxy *self)
   z_proxy_var_new(&self->super, "request_command",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->request_cmd);
-                  
+
   z_proxy_var_new(&self->super, "request_parameter",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->request_param);
@@ -1078,14 +1094,14 @@ ftp_proxy_regvars(FtpProxy *self)
   z_proxy_var_new(&self->super, "answer_code",
                   Z_VAR_TYPE_OBSOLETE | Z_VAR_GET | Z_VAR_SET,
                   "response_status");
-                  
+
   z_proxy_var_new(&self->super, "response_parameter",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->answer_param);
   z_proxy_var_new(&self->super, "answer_parameter",
                   Z_VAR_TYPE_OBSOLETE | Z_VAR_GET | Z_VAR_SET,
                   "response_param");
-  
+
   z_proxy_var_new(&self->super, "data_mode",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->data_mode);
@@ -1093,7 +1109,7 @@ ftp_proxy_regvars(FtpProxy *self)
   z_proxy_var_new(&self->super, "username",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->username);
-                  
+
   z_proxy_var_new(&self->super, "password",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->password);
@@ -1175,7 +1191,7 @@ ftp_config_set_defaults(FtpProxy * self)
   self->permit_empty_command = TRUE;
   self->permit_unknown_command = FALSE;
   self->response_strip_msg = FALSE;
-  
+
   self->max_line_length = 255;
   self->max_username_length = 32;
   self->max_password_length = 64;
@@ -1189,7 +1205,7 @@ ftp_config_set_defaults(FtpProxy * self)
   self->proxy_password = g_string_new("");
   self->proxy_auth_needed = 0;
   self->auth_done = FALSE;
-  
+
   self->data_mode = FTP_DATA_KEEP;
 
   self->masq_address[EP_SERVER] = g_string_new("");
@@ -1219,7 +1235,7 @@ ftp_config_set_defaults(FtpProxy * self)
   z_proxy_return(self);
 }
 
-gboolean 
+gboolean
 ftp_config_init(FtpProxy *self)
 {
   z_proxy_enter(self);
@@ -1232,7 +1248,7 @@ ftp_config_init(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 2, "Max_line_length above upper limit; max_line_length='%d', upper_limit='%d'", self->max_line_length, FTP_LINE_MAX_LEN);
       self->max_line_length = FTP_LINE_MAX_LEN;
     }
-    
+
   if (self->max_username_length > self->max_line_length)
     {
       /*LOG
@@ -1242,7 +1258,7 @@ ftp_config_init(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 2, "Max_username_length above max_line_length; max_username_length='%d', max_line_length='%d'", self->max_username_length, self->max_line_length);
       self->max_username_length = self->max_line_length;
     }
-    
+
   if (self->max_password_length > self->max_line_length)
     {
       /*LOG
@@ -1252,7 +1268,7 @@ ftp_config_init(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 2, "Max_password_length above max_line_length; max_password_length='%d', max_line_length='%d'", self->max_password_length, self->max_line_length);
       self->max_password_length = self->max_line_length;
     }
-    
+
   if (self->max_hostname_length > self->max_line_length)
     {
       /*LOG
@@ -1324,7 +1340,7 @@ ftp_read_line_get (FtpProxy * self, guint side, gint *error_value)
                   }
               }
             break;
-            
+
           case FTP_TELNET_IAC:
             if (strchr ((const char *) funcs, self->line[i]))
               {
@@ -1349,11 +1365,11 @@ ftp_read_line_get (FtpProxy * self, guint side, gint *error_value)
                 // Bad seq
               }
             break;
-            
+
           case FTP_TELNET_IAC_DW:
             state = FTP_TELNET;
             break;
-            
+
           case FTP_TELNET_IAC_FUNC:
             if ((unsigned char) self->line[i] == 240)
               state = FTP_TELNET;
@@ -1430,7 +1446,7 @@ ftp_answer_parse(FtpProxy *self)
   char answer[4];
   int i;
 
-  z_proxy_enter(self);  
+  z_proxy_enter(self);
   for (i = 0; i < 3; i++)
     if (!isdigit(self->line[i]))
       {
@@ -1450,14 +1466,14 @@ ftp_answer_parse(FtpProxy *self)
   g_string_assign(self->answer_cmd, answer);
 
   self->line[self->line_length] = 0;
-  
+
   g_string_assign(self->answer_param, self->line + 4);
-  
+
   /*LOG
     This message reports that a valid answer is read from the server.
    */
   z_proxy_log(self, FTP_RESPONSE, 6, "Response arrived; rsp='%s', rsp_prm='%s'", self->answer_cmd->str, self->answer_param->str);
-  
+
   z_proxy_leave(self);
   return TRUE;
 }
@@ -1474,7 +1490,7 @@ ftp_answer_fetch(FtpProxy *self, gboolean *continued)
   res = ftp_read_line_get(self, EP_SERVER, &error_value);
   if (res == G_IO_STATUS_EOF)
     z_proxy_return(self, FALSE); /* read EOF */
-    
+
   if (res != G_IO_STATUS_NORMAL)
     {
       /*LOG
@@ -1484,7 +1500,7 @@ ftp_answer_fetch(FtpProxy *self, gboolean *continued)
       z_proxy_log(self, FTP_ERROR, 1, "Error reading from server; error='%s'", strerror(error_value));
       z_proxy_return(self, FALSE);
     }
-    
+
   if (*continued)
     {
       z_cp();
@@ -1552,7 +1568,7 @@ ftp_answer_fetch(FtpProxy *self, gboolean *continued)
 }
 
 void
-ftp_answer_process(FtpProxy *self) 
+ftp_answer_process(FtpProxy *self)
 {
   FtpInternalCommand *command = self->command_desc;
   int res;
@@ -1572,10 +1588,10 @@ ftp_answer_process(FtpProxy *self)
     case FTP_RSP_ACCEPT:
       ftp_answer_write_with_setup(self, self->answer_cmd->str, self->answer_param->str);
       break;
-      
+
     case FTP_RSP_ABORT:
       self->state = FTP_QUIT;  /* no break; we must write answer... */
-      
+
     case FTP_RSP_REJECT:
       /*LOG
         This message indicates that the given response is rejected and changed by the policy.
@@ -1583,7 +1599,7 @@ ftp_answer_process(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 3, "Rejected answer; from='%s', to='%s %s'", self->line, self->answer_cmd->str, self->answer_param->str);
       ftp_answer_write_with_setup(self, self->answer_cmd->str, self->answer_param->str);
       break;
-      
+
     case FTP_NOOP:
       break;
 
@@ -1625,7 +1641,7 @@ ftp_answer_setup(FtpProxy *self, gchar *answer_c, gchar *answer_p)
           tmp = strchr(answer_p, '\n');
           first_line = FALSE;
         }
-        
+
       if (*answer_p)
         g_string_append_printf(newline, "%s %s", answer_c, answer_p);
       else
@@ -1646,7 +1662,7 @@ ftp_answer_write_with_setup(FtpProxy *self, gchar *answer_c, gchar *answer_p)
   g_free(newline);
   z_proxy_return(self, res);
 }
-  
+
 gboolean
 ftp_answer_write(FtpProxy *self, gchar *msg)
 {
@@ -1661,7 +1677,7 @@ ftp_answer_write(FtpProxy *self, gchar *msg)
         bytes_to_write = 4;
       else
         bytes_to_write = strlen(msg);
-        
+
       back = ftp_stream_write(self, 'C', (const guchar *) msg, bytes_to_write);
     }
   self->drop_answer = FALSE;
@@ -1674,7 +1690,7 @@ ftp_command_fetch(FtpProxy *self)
   guint res;
   gint error_value;
 
-  z_proxy_enter(self);  
+  z_proxy_enter(self);
   res = ftp_read_line_get(self, EP_CLIENT, &error_value);
   if (res == G_IO_STATUS_EOF)
     z_proxy_return(self, FALSE); /* read EOF */
@@ -1750,14 +1766,14 @@ ftp_command_parse(FtpProxy *self)
  *
  * This function processes the parsed command, and decides what to do. It
  * then either forwards or drops the command.
- */ 
+ */
 void
-ftp_command_process(FtpProxy *self) 
+ftp_command_process(FtpProxy *self)
 {
   FtpInternalCommand *command = self->command_desc;
   int res;
 
-  z_proxy_enter(self);  
+  z_proxy_enter(self);
   SET_ANSWER(MSG_ERROR_PARSING_COMMAND);
   res = ftp_policy_command_hash_do(self);
   if (res == FTP_REQ_ACCEPT)
@@ -1787,7 +1803,7 @@ ftp_command_process(FtpProxy *self)
       res = FTP_REQ_REJECT;
       SET_ANSWER(MSG_COMMAND_NOT_ALLOWED_HERE);
     }
-    
+
   switch (res)
     {
     case FTP_REQ_ACCEPT:
@@ -1795,7 +1811,7 @@ ftp_command_process(FtpProxy *self)
         ftp_data_start(self);
       ftp_command_write_setup(self, self->request_cmd->str, self->request_param->str);
       break;
-      
+
     case FTP_REQ_REJECT:
       ftp_command_reject(self);
       if (self->state == FTP_SERVER_TO_CLIENT)
@@ -1813,7 +1829,7 @@ ftp_command_process(FtpProxy *self)
        */
       z_proxy_log(self, FTP_POLICY, 3, "Request rejected; req='%s'", self->request_cmd->str);
       break;
-      
+
     case FTP_PROXY_ANS:
       ftp_answer_write_with_setup(self, self->answer_cmd->str, self->answer_param->str);
       if (self->state == FTP_SERVER_TO_CLIENT)
@@ -1832,7 +1848,7 @@ ftp_command_process(FtpProxy *self)
        */
       z_proxy_log(self, FTP_POLICY, 4, "Proxy answer; rsp='%s' rsp_prm='%s'", self->answer_cmd->str, self->answer_param->str);
       break;
-      
+
     case FTP_REQ_ABORT:
       SET_ANSWER(MSG_CONNECTION_ABORTED);
       ftp_command_reject(self);
@@ -1843,18 +1859,18 @@ ftp_command_process(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 2, "Rejected command (aborting); line='%s'", self->line);
       self->state = FTP_QUIT;
       break;
-      
+
     case FTP_NOOP:
       break;
-      
+
     default:
       /*LOG
         This message indicates an internal error, please contact the BalaBit QA team.
        */
       z_proxy_log(self, FTP_POLICY, 1, "Bad policy type, aborting; line='%s', policy='%d'", self->line, res);
       self->state = FTP_QUIT;
-    }  
-  z_proxy_return(self);  
+    }
+  z_proxy_return(self);
 }
 
 void
@@ -1862,7 +1878,7 @@ ftp_command_reject(FtpProxy *self)
 {
   z_proxy_enter(self);
   ftp_answer_write_with_setup(self, self->answer_cmd->str, self->answer_param->str);
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 gboolean
@@ -1870,7 +1886,7 @@ ftp_command_write(FtpProxy *self, char *msg)
 {
   gint bytes_to_write = strlen(msg);
   gboolean back;
-  
+
   z_proxy_enter(self);
   back = ftp_stream_write(self, 'S', (const guchar *) msg, bytes_to_write);
   z_proxy_return(self, back);
@@ -1882,7 +1898,7 @@ ftp_command_write_setup(FtpProxy *self, gchar *answer_c, gchar *answer_p)
   gchar newline[self->max_line_length];
   gboolean vissza = TRUE;
 
-  z_proxy_enter(self);  
+  z_proxy_enter(self);
   if (strlen(answer_p) > 0)
     g_snprintf(newline, sizeof(newline), "%s %s", answer_c, answer_p);
   else
@@ -1891,7 +1907,6 @@ ftp_command_write_setup(FtpProxy *self, gchar *answer_c, gchar *answer_p)
   vissza = ftp_command_write(self,newline);
   z_proxy_return(self, vissza);
 }
-
 
 void
 ftp_proto_nt_init(FtpProxy *self)
@@ -1906,7 +1921,7 @@ ftp_proto_nt_init(FtpProxy *self)
     SET_ANSWER(MSG_NON_TRANSPARENT_GREETING);
   ftp_answer_write_with_setup(self, self->answer_cmd->str, self->answer_param->str);
   self->state = FTP_NT_CLIENT_TO_PROXY;
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 void
@@ -1958,7 +1973,7 @@ ftp_proto_nt_client_to_proxy(FtpProxy *self)
       /* nothing to do */
       break;
     }
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 static void
@@ -2051,7 +2066,7 @@ ftp_proto_nt_server_to_proxy(FtpProxy *self)
             ftp_proto_nt_send_USER(self);
         }
       break;
-      
+
     case FTP_STATE_PRECONNECT_AUTH:
       if (strcmp(self->answer_cmd->str, "234") == 0)
         {
@@ -2177,7 +2192,7 @@ ftp_proto_nt_server_to_proxy(FtpProxy *self)
       self->state = FTP_QUIT;
       break;
     }
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 void
@@ -2197,7 +2212,7 @@ ftp_proto_client_to_server(FtpProxy *self)
   self->state = FTP_SERVER_TO_CLIENT;
   ftp_state_set(self, EP_SERVER);
   ftp_command_process(self);
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 void
@@ -2219,17 +2234,17 @@ ftp_proto_server_to_client(FtpProxy *self)
       line_numbers++;
     }
   while (self->answer_cont && line_numbers <= self->max_continuous_line);
-  
+
   if (line_numbers > self->max_continuous_line)
     {
       self->state = FTP_QUIT;
       z_proxy_return(self);
     }
-    
+
   self->state = FTP_CLIENT_TO_SERVER;
   ftp_state_set(self, EP_CLIENT);
   ftp_answer_process(self);
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 static gboolean
@@ -2270,7 +2285,7 @@ void
 ftp_listen_both_side(FtpProxy *self)
 {
   guint rc;
-  
+
   z_proxy_enter(self);
   if (!(self->data_state & FTP_DATA_CONVERSATION))
     {
@@ -2298,14 +2313,14 @@ ftp_listen_both_side(FtpProxy *self)
       if (self->data_state && self->state != FTP_QUIT)
         self->state = FTP_BOTH_SIDE;
     }
-  z_proxy_return(self);  
+  z_proxy_return(self);
 }
 
 gboolean
 ftp_config(ZProxy *s)
 {
   FtpProxy *self = Z_CAST(s, FtpProxy);
-   
+
   ftp_config_set_defaults(self);
   ftp_proxy_regvars(self);
   if (Z_SUPER(s, ZProxy)->config(s))
@@ -2324,7 +2339,7 @@ ftp_main(ZProxy *s)
   z_proxy_enter(self);
   if (!ftp_stream_client_init(self))
     z_proxy_return(self);
-  
+
   if (self->transparent_mode)
     self->state = FTP_INIT_TRANSPARENT;
   else
@@ -2337,7 +2352,7 @@ ftp_main(ZProxy *s)
           self->state = FTP_QUIT;
           break;
         }
-      
+
       switch (self->state)
         {
           case FTP_INIT_TRANSPARENT:
@@ -2419,7 +2434,7 @@ ftp_proxy_free(ZObject *s)
 
 ZProxyFuncs ftp_proxy_funcs =
 {
-  { 
+  {
     Z_FUNCS_COUNT(ZProxy),
     ftp_proxy_free,
   },
@@ -2430,11 +2445,16 @@ ZProxyFuncs ftp_proxy_funcs =
 
 Z_CLASS_DEF(FtpProxy, ZProxy, ftp_proxy_funcs);
 
+static ZProxyModuleFuncs ftp_module_funcs =
+  {
+    .create_proxy = ftp_proxy_new,
+  };
+
 /*+ Zorp initialization function +*/
 gint
-zorp_module_init (void)
+zorp_module_init(void)
 {
   ftp_command_hash_create();
-  z_registry_add ("ftp", ZR_PROXY, ftp_proxy_new);
+  z_registry_add("ftp", ZR_PROXY, &ftp_module_funcs);
   return TRUE;
 }

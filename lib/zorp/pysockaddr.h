@@ -42,4 +42,3 @@ z_policy_sockaddr_check(ZPolicyObj *s)
 void z_policy_sockaddr_module_init(void);
 
 #endif
-

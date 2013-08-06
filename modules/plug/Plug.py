@@ -40,7 +40,7 @@
       <para>
         This class implements a general plug proxy, and is capable of optionally
         disabling data transfer in either direction. Plug proxy reads
-        connection on the client side, then creates another connection at the 
+        connection on the client side, then creates another connection at the
         server side. Arriving responses are sent back to the client. However, it is not a protocol proxy, therefore PlugProxy does not implement any protocol analysis. It offers protection to clients and servers from lower level (e.g.: IP) attacks. It is mainly used to allow traffic pass the firewall for which there is no protocol proxy available.
       </para>
       <para>
@@ -49,7 +49,7 @@
         to FALSE.
       </para>
     <para>
-      Plug supports the use of secondary sessions as described in <xref linkend="secondary_sessions">secondary sessions</xref>.
+      Plug supports the use of secondary sessions as described in <xref linkend="secondary_sessions"/>.
       </para>
       <note>
           <para>
@@ -69,7 +69,7 @@
     <constants>
       <constantgroup maturity="stable" id="const.plug.log">
         <description>
-          Log level defined in Plug module 
+          Log level defined in Plug module
         </description>
         <item>
           <name>PLUG_DEBUG</name>
@@ -87,327 +87,321 @@ from Proxy import Proxy
 PLUG_DEBUG = "plug.debug"
 
 class AbstractPlugProxy(Proxy):
-	"""<class maturity="stable" abstract="yes">
+    """<class maturity="stable" abstract="yes">
+      <summary>
+        Class encapsulating the abstract Plug proxy.
+      </summary>
+      <description>
+      <para>An abstract proxy class for transferring data.</para>
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute maturity="stable">
+            <name>copy_to_server</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Allow data transfer in the client->server direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>copy_to_client</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Allow data transfer in the server->client direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>bandwidth_to_client</name>
+            <type>
+              <integer/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Read-only variable containing the bandwidth currently used in server->client direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>bandwidth_to_server</name>
+            <type>
+              <integer/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Read-only variable containing the bandwidth currently used in client->server direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>packet_stats_interval_time</name>
+            <type>
+              <integer/>
+            </type>
+            <default>0</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The time in milliseconds between two successive packetStats() events.
+              It can be useful when the Quality of Service for the connection is influenced dynamically.
+              Set to 0 to turn packetStats() off.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>packet_stats_interval_packet</name>
+            <type>
+              <integer/>
+            </type>
+            <default>0</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The number of passing packages between two successive packetStats() events.
+              It can be useful when the Quality of Service for the connection is influenced dynamically.
+              Set to 0 to turn packetStats() off.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>stack_proxy</name>
+            <type>
+              <link id="action.zorp.stack"/>
+            </type>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+               Proxy class to stack into the connection. All data is passed to the specified proxy.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>timeout</name>
+            <type>
+              <integer/>
+            </type>
+            <default>60000</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              I/O timeout in milliseconds.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>shutdown_soft</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              If enabled, the two sides of a connection are closed separately. (E.g.: if the server closes the connection the client side connection is held until it is verified that no further data arrives, for example from a stacked proxy.) It is automatically enabled when proxies are stacked into the connection.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>buffer_size</name>
+            <type>
+              <integer/>
+            </type>
+            <default>1500</default>
+            <conftime>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Size of the buffer used for copying data.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>secondary_sessions</name>
+            <type>
+              <integer/>
+            </type>
+            <default>10</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum number of allowed secondary sessions within a single proxy instance. See <xref linkend="secondary_sessions"/> for details.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>secondary_mask</name>
+            <type>
+              <secondary_mask/>
+            </type>
+            <default>0xf</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies which connections can be handled by the same proxy instance. See <xref linkend="secondary_sessions"/> for details.
+            </description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
+    name = "plug"
+    def __init__(self, session):
+        """<method internal="yes">
           <summary>
-            Class encapsulating the abstract Plug proxy.
-          </summary>
-          <description>
-	  <para>An abstract proxy class for transferring data.</para>
-          </description>
-          <metainfo>
-            <attributes>
-              <attribute maturity="stable">
-                <name>copy_to_server</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>TRUE</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Allow data transfer in the client->server direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>copy_to_client</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>TRUE</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Allow data transfer in the server->client direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>bandwidth_to_client</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Read-only variable containing the bandwidth currently used in server->client direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>bandwidth_to_server</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Read-only variable containing the bandwidth currently used in client->server direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>packet_stats_interval_time</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>0</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  The time in milliseconds between two successive packetStats() events.
-		  It can be useful when the Quality of Service for the connection is influenced dynamically.
-                  Set to 0 to turn packetStats() off.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>packet_stats_interval_packet</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>0</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  The number of passing packages between two successive packetStats() events.  
-		  It can be useful when the Quality of Service for the connection is influenced dynamically.
-                  Set to 0 to turn packetStats() off.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>stack_proxy</name>
-		<type>
-		  <link id="action.zorp.stack"/>
-		</type>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                   Proxy class to stack into the connection. All data is passed to the specified proxy.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>timeout</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>60000</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  I/O timeout in milliseconds.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>shutdown_soft</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>FALSE</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  If enabled, the two sides of a connection are closed separately. (E.g.: if the server closes the connection the client side connection is held until it is verified that no further data arrives, for example from a stacked proxy.) It is automatically enabled when proxies are stacked into the connection.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>buffer_size</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>1500</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Size of the buffer used for copying data.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>secondary_sessions</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>10</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum number of allowed secondary sessions within a single proxy instance. See <xref linkend="secondary_sessions"/> for details.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>secondary_mask</name>
-                <type>
-                  <secondary_mask/>
-                </type>
-                <default>0xf</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Specifies which connections can be handled by the same proxy instance. See <xref linkend="secondary_sessions"/> for details.
-                </description>
-              </attribute>
-            </attributes>
-          </metainfo>
-        </class>
-        """
-	name = "plug"
-	def __init__(self, session):
-		"""<method internal="yes">
-                  <summary>
-                    Constructor initializing a PlugProxy instance.
-                  </summary>
-                  <description>
-                    <para>
-                      This constructor creates and sets up a PlugProxy instance.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments>
-                      <argument maturity="stable">
-                        <name>session</name>
-                        <type>SESSION</type>
-                        <description>
-                          session this instance belongs to
-                        </description>
-                      </argument>
-                    </arguments>
-                  </metainfo>
-                </method>
-                """
-		self.stack_proxy = None
-		Proxy.__init__(self, session)
-
-	def requestStack(self):
-		"""<method internal="yes">
-                  <summary>
-                    Function returning the stacked proxy class.
-                  </summary>
-                  <description>
-                    <para>
-		      This callback is called by the underlying C proxy to query
-		      if something is to be stacked into it. It should return
-		      the proxy class to be used.
-		      Returns the class of the proxy to stack.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
-		return self.stack_proxy
-
-	def packetStats(self, client_bytes, client_pkts, server_bytes, server_pkts):
-		"""<method maturity="stable">
-                  <summary>
-                    Function called when the packet_stats_interval is elapsed.
-                  </summary>
-                  <description>
-                    <para>
-                     This function is called whenever the time interval set in packet_stats_interval elapses, or a given number of
-                     packets were transmitted. This event receives packet
-                     statistics as parameters.
-                    </para>
-                    <para>
-                     This function can be used in managing the Quality of Service of the connections; e.g.: to terminate connections with excessive
-                     bandwidth requirements (for instance to limit the impact of
-                     a covert channel opened when using plug instead of a                    protocol specific proxy).
-                     </para>
-                  </description>
-                  <metainfo>
-                    <arguments>
-                      <argument maturity="stable">
-                        <name>client_bytes</name>
-                        <type></type>
-                        <description>
-                          Number of bytes transmitted to the client.
-                        </description>
-                      </argument>
-                      <argument maturity="stable">
-                        <name>client_pkts</name>
-                        <type></type>
-                        <description>
-                          Number of packets transmitted to the client.
-                        </description>
-                      </argument>
-                      <argument maturity="stable">
-                        <name>server_bytes</name>
-                        <type></type>
-                        <description>
-                          Number of bytes transmitted to the server.
-                        </description>
-                      </argument>
-                      <argument maturity="stable">
-                        <name>server_pkts</name>
-                        <type></type>
-                        <description>
-                          Number of packets transmitted to the server.
-                       </description>
-                      </argument>
-                    </arguments>
-                  </metainfo>
-                </method>
-                """
-		raise NotImplementedError
-
-
-class PlugProxy(AbstractPlugProxy):
-	"""<class maturity="stable">
-          <summary>
-            Class encapsulating the default Plug proxy.
+            Constructor initializing a PlugProxy instance.
           </summary>
           <description>
             <para>
-              A default PlugProxy based on AbstractPlugProxy.
+              This constructor creates and sets up a PlugProxy instance.
             </para>
           </description>
           <metainfo>
-            <attributes/>
+            <arguments>
+              <argument maturity="stable">
+                <name>session</name>
+                <type>SESSION</type>
+                <description>
+                  session this instance belongs to
+                </description>
+              </argument>
+            </arguments>
           </metainfo>
-        </class>
+        </method>
         """
-	pass
+        self.stack_proxy = None
+        Proxy.__init__(self, session)
 
+    def requestStack(self):
+        """<method internal="yes">
+          <summary>
+            Function returning the stacked proxy class.
+          </summary>
+          <description>
+            <para>
+              This callback is called by the underlying C proxy to query
+              if something is to be stacked into it. It should return
+              the proxy class to be used.
+              Returns the class of the proxy to stack.
+            </para>
+          </description>
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        return self.stack_proxy
+
+    def packetStats(self, client_bytes, client_pkts, server_bytes, server_pkts):
+        """<method maturity="stable">
+          <summary>
+            Function called when the packet_stats_interval is elapsed.
+          </summary>
+          <description>
+             This function is called whenever the time interval set in packet_stats_interval elapses, or a given number of
+             packets were transmitted. This event receives packet
+             statistics as parameters. It can be used in managing the Quality of Service of the connections; e.g.: to terminate connections with excessive
+             bandwidth requirements (for instance to limit the impact of
+             a covert channel opened when using plug instead of a protocol specific proxy).
+          </description>
+          <metainfo>
+            <arguments>
+              <argument maturity="stable">
+                <name>client_bytes</name>
+                <type></type>
+                <description>
+                  Number of bytes transmitted to the client.
+                </description>
+              </argument>
+              <argument maturity="stable">
+                <name>client_pkts</name>
+                <type></type>
+                <description>
+                  Number of packets transmitted to the client.
+                </description>
+              </argument>
+              <argument maturity="stable">
+                <name>server_bytes</name>
+                <type></type>
+                <description>
+                  Number of bytes transmitted to the server.
+                </description>
+              </argument>
+              <argument maturity="stable">
+                <name>server_pkts</name>
+                <type></type>
+                <description>
+                  Number of packets transmitted to the server.
+               </description>
+              </argument>
+            </arguments>
+          </metainfo>
+        </method>
+        """
+        raise NotImplementedError
+
+
+class PlugProxy(AbstractPlugProxy):
+    """<class maturity="stable">
+      <summary>
+        Class encapsulating the default Plug proxy.
+      </summary>
+      <description>
+        <para>
+          A default PlugProxy based on AbstractPlugProxy.
+        </para>
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    pass

@@ -33,20 +33,20 @@
 
 #include <zorp/log.h>
 
-void 
+void
 pop3_get_timestamp(Pop3Proxy *self)
 {
   gchar *left;
   gchar *right;
-  
+
   z_proxy_enter(self);
   g_string_assign(self->timestamp, "");
   if ((left = strchr(self->response_param->str, '<')) == NULL)
     z_proxy_return(self);
-    
+
   if ((right = strchr(self->response_param->str, '>')) == NULL)
     z_proxy_return(self);
-  
+
   if (left >= right)
     z_proxy_return(self);
 

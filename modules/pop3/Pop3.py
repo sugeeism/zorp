@@ -19,7 +19,7 @@
 ##
 ##
 ## Author  : SaSa
-## Auditor : 
+## Auditor :
 ## Last audited version:
 ## Notes:
 ##
@@ -45,7 +45,7 @@
         The POP3 protocol uses a single TCP connection to give access to a
         single mailbox. It uses a simple command/response based approach, the
         client issues a command and a server can respond either positively
-        or negatively. 
+        or negatively.
       </para>
       <section>
         <title>Protocol elements</title>
@@ -129,7 +129,7 @@ QUIT
     </section>
     <section>
       <title>Proxy behavior</title>
-      <para>  
+      <para>
         Pop3Proxy is a module built for parsing messages of the POP3 protocol. It reads and parses COMMANDs on the client side, and sends them to the server if the local security policy permits. Arriving RESPONSEs are parsed as well, and sent to the client if the local security policy permits. It is possible to manipulate both the requests and the responses.
       </para>
       <section>
@@ -146,45 +146,45 @@ QUIT
           hash named <parameter>request</parameter>. The hash is indexed by the command name
           (e.g.: USER or AUTH). See <xref linkend="proxy_policies"/> for details.
         </para>
-	<inline type="actiontuple" target="action.pop3.req"/>
+        <inline type="actiontuple" target="action.pop3.req"/>
         <example>
           <title>Example for allowing only APOP authentication in POP3</title>
-	  <para>
-	  This sample proxy class rejects the USER authentication requests, but allows APOP requests. 
-	  </para>
+          <para>
+          This sample proxy class rejects the USER authentication requests, but allows APOP requests.
+          </para>
             <synopsis>class APop3(Pop3Proxy):
-	def config(self):
-		Pop3Proxy.config(self)
-		self.request["USER"] = (POP3_REQ_REJECT)
-		self.request["APOP"] = (POP3_REQ_ACCEPT)</synopsis>
+        def config(self):
+                Pop3Proxy.config(self)
+                self.request["USER"] = (POP3_REQ_REJECT)
+                self.request["APOP"] = (POP3_REQ_ACCEPT)</synopsis>
         </example>
         <example>
           <title>Example for converting simple USER/PASS authentication to APOP in POP3</title>
           <para>
-	  The above example simply rejected USER/PASS authentication, this one converts USER/PASS authentication to APOP authentication messages. 
-	  </para>
-	  <synopsis>class UToAPop3(Pop3Proxy):
-	def config(self):
-		Pop3Proxy.config(self)
-		self.request["USER"] = (POP3_REQ_POLICY,self.DropUSER)
-		self.request["PASS"] = (POP3_REQ_POLICY,self.UToA)
+          The above example simply rejected USER/PASS authentication, this one converts USER/PASS authentication to APOP authentication messages.
+          </para>
+          <synopsis>class UToAPop3(Pop3Proxy):
+        def config(self):
+                Pop3Proxy.config(self)
+                self.request["USER"] = (POP3_REQ_POLICY,self.DropUSER)
+                self.request["PASS"] = (POP3_REQ_POLICY,self.UToA)
 
-	def DropUSER(self,command):
-		self.response_value = "+OK"
-		self.response_param = "User ok Send Password"
-		return POP3_REQ_REJECT
+        def DropUSER(self,command):
+                self.response_value = "+OK"
+                self.response_param = "User ok Send Password"
+                return POP3_REQ_REJECT
 
-	def UToA(self,command):
-		# Username is stored in self->username,
-		# password in self->request_param,
-		# and the server timestamp in self->timestamp,
-		# consequently the digest can be calculated.
-		# NOTE: This is only an example, calcdigest must be
-		# implemented separately
-		digest = calcdigest(self->timestamp+self->request_param)
-		self->request_command = "APOP"
-		self->request_param = name + " " + digest
-		return POP3_REQ_ACCEPT</synopsis>
+        def UToA(self,command):
+                # Username is stored in self->username,
+                # password in self->request_param,
+                # and the server timestamp in self->timestamp,
+                # consequently the digest can be calculated.
+                # NOTE: This is only an example, calcdigest must be
+                # implemented separately
+                digest = calcdigest(self->timestamp+self->request_param)
+                self->request_command = "APOP"
+                self->request_param = name + " " + digest
+                return POP3_REQ_ACCEPT</synopsis>
         </example>
       </section>
       <section>
@@ -197,7 +197,7 @@ QUIT
         </para>
         <para>
           This information is useful only if the clients connecting to the POP3
-          server can be trusted, as it might make bug hunting somewhat easier. 
+          server can be trusted, as it might make bug hunting somewhat easier.
           On the other hand, this information is also useful for attackers when
           targeting this service.
         </para>
@@ -208,22 +208,22 @@ QUIT
        <example>
           <title>Rewriting the banner in POP3</title>
           <synopsis>class NeutralPop3(Pop3Proxy):
-	def config(self):
-	Pop3Proxy.config(self)
-	self.request["GREETING"] = (POP3_REQ_POLICY, None, self.rewriteBanner)
+        def config(self):
+        Pop3Proxy.config(self)
+        self.request["GREETING"] = (POP3_REQ_POLICY, None, self.rewriteBanner)
 
-	def rewriteBanner(self, response)
-		self.response_param = "Pop3 server ready"
-		return POP3_RSP_ACCEPT</synopsis>
+        def rewriteBanner(self, response)
+                self.response_param = "Pop3 server ready"
+                return POP3_RSP_ACCEPT</synopsis>
         </example>
-	<note>
-	<para>
+        <note>
+        <para>
           Some protocol extensions (most notably APOP) use
           random characters in the greeting message as salt in the authentication
-          process, so changing the banner when APOP is used effectively prevents 
+          process, so changing the banner when APOP is used effectively prevents
           APOP from working properly.
         </para>
-	</note>
+        </note>
       </section>
       <section id="pop3_stacking">
       <title>Stacking</title>
@@ -234,18 +234,18 @@ QUIT
       </section>
       <section id="pop3_rejectbymail">
       <title>Rejecting viruses and spam</title>
-      	<para>
-      	 When filtering messages for viruses or spam, the content vectoring modules reject infected and spam e-mails. 
-      	 In such cases the POP3 proxy notifies the client about the rejected message in a special e-mail.</para>
-      	 <para>To reject e-mail messages using the <parameter>ERR</parameter> protocol element, set the <parameter>reject_by_mail</parameter> 
-      	 attribute to <parameter>FALSE</parameter>. However, this is not recommended, because several client applications handle 
-      	 <parameter>ERR</parameter> responses incorrectly.
-      	</para>
-      	<note>
-      	<para>
-      	Infected e-mails are put into the quarantine and deleted from the server.
-      	</para>
-      	</note>
+        <para>
+         When filtering messages for viruses or spam, the content vectoring modules reject infected and spam e-mails.
+         In such cases the POP3 proxy notifies the client about the rejected message in a special e-mail.</para>
+         <para>To reject e-mail messages using the <parameter>ERR</parameter> protocol element, set the <parameter>reject_by_mail</parameter>
+         attribute to <parameter>FALSE</parameter>. However, this is not recommended, because several client applications handle
+         <parameter>ERR</parameter> responses incorrectly.
+        </para>
+        <note>
+        <para>
+        Infected e-mails are put into the quarantine and deleted from the server.
+        </para>
+        </note>
       </section>
     </section>
     <section>
@@ -320,121 +320,121 @@ QUIT
     </enums>
     <actiontuples>
       <actiontuple maturity="stable" id="action.pop3.req" action_enum="enum.pop3.req">
-	<description>
-	  Action codes for POP3 requests
-	</description>
-	<tuple action="POP3_REQ_ACCEPT">
-	  <args/>
-	  <description>
-	    <para>
-	      Accept the request without any modification.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="POP3_REQ_ACCEPT_MLINE">
-	  <args/>
-	  <description>
-	    <para>
-	      Accept multiline requests without modification. Use it only if unknown commands has to be enabled (i.e. commands not specified in RFC 1939 or RFC 1734).
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="POP3_REQ_REJECT">
-	  <args>
-	    <string/>
-	  </args>
-	  <description>
-	    <para>
-	      Reject the request. The second parameter contains a string that is sent back to the client.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="POP3_REQ_POLICY">
-	  <args>METHOD,METHOD</args>
-	  <description>
-	    <para>
-	      Call the function specified to make a decision about the event. See <xref linkend="proxy_policies"/> for details.
-	      This action uses two additional 
-	      tuple items, which must be callable Python functions. The first function receives
-	      two parameters: self and command.
-	    </para>
-	    <para>
-	      The second one is called with an answer, (if the answer is multiline, it is called with every line) and receives two parameters: self and response_param.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="POP3_REQ_ABORT">
-	  <args/>
-	  <description>
-	    <para>
-	      Reject the request and terminate the connection.
-	    </para>
-	  </description>
-	</tuple>
+        <description>
+          Action codes for POP3 requests
+        </description>
+        <tuple action="POP3_REQ_ACCEPT">
+          <args/>
+          <description>
+            <para>
+              Accept the request without any modification.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="POP3_REQ_ACCEPT_MLINE">
+          <args/>
+          <description>
+            <para>
+              Accept multiline requests without modification. Use it only if unknown commands has to be enabled (i.e. commands not specified in RFC 1939 or RFC 1734).
+            </para>
+          </description>
+        </tuple>
+        <tuple action="POP3_REQ_REJECT">
+          <args>
+            <string/>
+          </args>
+          <description>
+            <para>
+              Reject the request. The second parameter contains a string that is sent back to the client.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="POP3_REQ_POLICY">
+          <args>METHOD,METHOD</args>
+          <description>
+            <para>
+              Call the function specified to make a decision about the event. See <xref linkend="proxy_policies"/> for details.
+              This action uses two additional
+              tuple items, which must be callable Python functions. The first function receives
+              two parameters: self and command.
+            </para>
+            <para>
+              The second one is called with an answer, (if the answer is multiline, it is called with every line) and receives two parameters: self and response_param.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="POP3_REQ_ABORT">
+          <args/>
+          <description>
+            <para>
+              Reject the request and terminate the connection.
+            </para>
+          </description>
+        </tuple>
       </actiontuple>
       <actiontuple maturity="stable" id="action.pop3.rsp" action_enum="enum.pop3.rsp">
-	<description>
-	  Action codes for POP3 responses
-	</description>
-	<tuple action="POP3_RSP_ACCEPT">
-	  <args></args>
-	  <description>
-	    <para>Accept the response without any modification.
-	    </para>
-	  </description>
-	 </tuple>
-	<tuple action="POP3_RSP_REJECT">
-	  <args></args>
-	  <description>
-	    <para>Reject the response.
-	    </para>
-	  </description>
-	 </tuple>
-	<tuple action="POP3_RSP_ABORT">
-	  <args></args>
-	  <description>
-	    <para>Reject the response and terminate the connection.</para>
-	  </description>
-	 </tuple>
+        <description>
+          Action codes for POP3 responses
+        </description>
+        <tuple action="POP3_RSP_ACCEPT">
+          <args></args>
+          <description>
+            <para>Accept the response without any modification.
+            </para>
+          </description>
+         </tuple>
+        <tuple action="POP3_RSP_REJECT">
+          <args></args>
+          <description>
+            <para>Reject the response.
+            </para>
+          </description>
+         </tuple>
+        <tuple action="POP3_RSP_ABORT">
+          <args></args>
+          <description>
+            <para>Reject the response and terminate the connection.</para>
+          </description>
+         </tuple>
       </actiontuple>
       <actiontuple maturity="stable" id="action.pop3.stk" action_enum="enum.pop3.stk">
-	<description>
-	  Action codes for proxy stacking
-	</description>
-	<tuple action="POP3_STK_POLICY">
-	  <args></args>
-	  <description>
-	    <para>
-	    Call the function specified to decide which part (if any) of the traffic should be passed to the stacked proxy.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="POP3_STK_NONE">
-	  <args></args>
-	  <description>
-	    <para>
-	    No additional proxy is stacked into the POP3 proxy.
-	    </para>
-	  </description>
-	 </tuple>
-	<tuple action="POP3_STK_MIME">
-	  <args>
-	    <link id="action.zorp.stack"/>
-	  </args>
-	  <description>
-	    <para>The data part of the traffic including the MIME headers is passed to the specified stacked proxy.
-	    </para>
-	  </description>
-	 </tuple>
-	<tuple action="POP3_STK_DATA">
-	  <args>
-	    <link id="action.zorp.stack"/>
-	  </args>
-	  <description>
-	    <para>Only the data part of the traffic is passed to the specified stacked proxy.
-	    </para>
-	  </description>
-	</tuple>
+        <description>
+          Action codes for proxy stacking
+        </description>
+        <tuple action="POP3_STK_POLICY">
+          <args></args>
+          <description>
+            <para>
+            Call the function specified to decide which part (if any) of the traffic should be passed to the stacked proxy.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="POP3_STK_NONE">
+          <args></args>
+          <description>
+            <para>
+            No additional proxy is stacked into the POP3 proxy.
+            </para>
+          </description>
+         </tuple>
+        <tuple action="POP3_STK_MIME">
+          <args>
+            <link id="action.zorp.stack"/>
+          </args>
+          <description>
+            <para>The data part of the traffic including the MIME headers is passed to the specified stacked proxy.
+            </para>
+          </description>
+         </tuple>
+        <tuple action="POP3_STK_DATA">
+          <args>
+            <link id="action.zorp.stack"/>
+          </args>
+          <description>
+            <para>Only the data part of the traffic is passed to the specified stacked proxy.
+            </para>
+          </description>
+        </tuple>
       </actiontuple>
     </actiontuples>
   </metainfo>
@@ -443,439 +443,439 @@ QUIT
 from Zorp import *
 from Proxy import Proxy
 
-POP3_REQ_ACCEPT		=   1
-POP3_REQ_ACCEPT_MLINE	= 100
-POP3_REQ_REJECT		=   3
-POP3_REQ_ABORT		=   4
-POP3_REQ_POLICY		=   6
+POP3_REQ_ACCEPT         =   1
+POP3_REQ_ACCEPT_MLINE   = 100
+POP3_REQ_REJECT         =   3
+POP3_REQ_ABORT          =   4
+POP3_REQ_POLICY         =   6
 
-POP3_RSP_ACCEPT		= 1
-POP3_RSP_REJECT		= 3
-POP3_RSP_ABORT		= 4
+POP3_RSP_ACCEPT         = 1
+POP3_RSP_REJECT         = 3
+POP3_RSP_ABORT          = 4
 
-POP3_STK_NONE		= 1
-POP3_STK_DATA		= 2
-POP3_STK_MIME		= 3
-POP3_STK_POLICY		= 6
+POP3_STK_NONE           = 1
+POP3_STK_DATA           = 2
+POP3_STK_MIME           = 3
+POP3_STK_POLICY         = 6
 
 class AbstractPop3Proxy(Proxy):
-	"""<class maturity="stable" abstract="yes">
+    """<class maturity="stable" abstract="yes">
+      <summary>
+        Class encapsulating the abstract POP3 proxy.
+      </summary>
+      <description>
+      <para>
+      This class implements an abstract POP3 proxy - it serves as a starting point for customized proxy classes, but is itself not directly usable. Service definitions should refer to a customized class derived from AbstractPop3Proxy, or a predefined Pop3Proxy proxy class. AbstractPop3Proxy denies all requests by default.
+      </para>
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute maturity="stable">
+            <name>timeout</name>
+            <type>
+              <integer/>
+            </type>
+            <default>600000</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Timeout in milliseconds. If no packet arrives within this interval,
+              connection is dropped.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>username</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Username as specified by the client.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>password</name>
+            <type>
+              <string/>
+            </type>
+            <default></default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Password sent to the server (if any).
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_request_line_length</name>
+            <type>
+              <integer/>
+            </type>
+            <default>90</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum allowed line length for client requests.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_response_line_length</name>
+            <type>
+              <integer/>
+            </type>
+            <default>512</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum allowed line length for server responses.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_username_length</name>
+            <type>
+              <integer/>
+            </type>
+            <default>8</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum allowed length of usernames.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_password_length</name>
+            <type>
+              <integer/>
+            </type>
+            <default>16</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum allowed length of passwords.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>response_value</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              When a command or response is passed to the policy level, its value can be changed to this value. (It has effect only if the return value is not POP3_*_ACCEPT).
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>response_param</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              When a command or response is passed to the policy level, the value its parameters can be changed to this value. (It has effect only if the return value is not POP3_*_ACCEPT).
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>response_multiline</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Enable multiline responses.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>request_command</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+            When a command is passed to the policy level, its value can be changed to this value.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>request_param</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              When a command is passed to the policy level, the value of its parameters can be changed to this value.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>request</name>
+            <type>
+              <hash>
+                <key>
+                  <string/>
+                </key>
+                <value>
+                  <link id="enum.pop3.req"/>
+                </value>
+              </hash>
+            </type>
+            <default/>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Normative policy hash for POP3 requests
+            indexed by the command name (e.g.: "USER", "UIDL", etc.). See also <xref linkend="pop3_policies"/>.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>response_stack</name>
+            <type>
+              <hash>
+                <key>
+                  <string/>
+                </key>
+                <value>
+                  <link id="action.pop3.stk"/>
+                </value>
+              </hash>
+            </type>
+            <default/>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+            Hash containing the stacking policy for multiline POP3 responses. The hash
+            is indexed by the POP3 response. See also <xref
+            linkend="pop3_stacking"/>.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>session_timestamp</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              If the POP3 server implements the APOP command, with the greeting message it sends a timestamp, which is stored in this parameter.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>permit_unknown_command</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Enable unknown commands.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>permit_longline</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              In multiline answer (especially in downloaded messages) sometimes very long lines can appear. Enabling this option allows the unlimited long lines in multiline answers.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>max_authline_count</name>
+            <type>
+              <integer/>
+            </type>
+            <default>4</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Maximum number of lines that can be sent during the authentication
+              conversation. The default value is enough for password authentication, but might have to be increased for other types of authentication.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>reject_by_mail</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              If the stacked proxy or content vectoring module rejects an e-mail message, reply with a special e-mail message instead
+              of an <parameter>ERR</parameter> response. See <xref linkend="pop3_rejectbymail"/> for details.
+            </description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
+    name = "pop3"
+
+    def __init__(self, session):
+        """<method maturity="stable" internal="yes">
           <summary>
-            Class encapsulating the abstract POP3 proxy.
+            Initialize a Pop3Proxy instance.
           </summary>
           <description>
-	  <para>
-	  This class implements an abstract POP3 proxy - it serves as a starting point for customized proxy classes, but is itself not directly usable. Service definitions should refer to a customized class derived from AbstractPop3Proxy, or a predefined Pop3Proxy proxy class. AbstractPop3Proxy denies all requests by default.
-	  </para>
+          <para>
+            Create and set up a Pop3Proxy instance.
+          </para>
           </description>
           <metainfo>
-            <attributes>
-              <attribute maturity="stable">
-                <name>timeout</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>600000</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Timeout in milliseconds. If no packet arrives within this interval, 
-                  connection is dropped.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>username</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Username as specified by the client.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>password</name>
-                <type>
-                  <string/>
-                </type>
-                <default></default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Password sent to the server (if any).
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_request_line_length</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>90</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum allowed line length for client requests.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_response_line_length</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>512</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum allowed line length for server responses.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_username_length</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>8</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum allowed length of usernames.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_password_length</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>16</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum allowed length of passwords.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>response_value</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  When a command or response is passed to the policy level, its value can be changed to this value. (It has effect only if the return value is not POP3_*_ACCEPT).
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>response_param</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  When a command or response is passed to the policy level, the value its parameters can be changed to this value. (It has effect only if the return value is not POP3_*_ACCEPT).
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>response_multiline</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Enable multiline responses.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>request_command</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-		When a command is passed to the policy level, its value can be changed to this value.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>request_param</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  When a command is passed to the policy level, the value of its parameters can be changed to this value.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>request</name>
-                <type>
-                  <hash>
-                    <key>
-                      <string/>
-                    </key>
-                    <value>
-                      <link id="enum.pop3.req"/>
-                    </value>
-                  </hash>
-                </type>
-                <default/>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Normative policy hash for POP3 requests 
-                indexed by the command name (e.g.: "USER", "UIDL", etc.). See also <xref linkend="pop3_policies"/>.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>response_stack</name>
-                <type>
-                  <hash>
-                    <key>
-                      <string/>
-                    </key>
-                    <value>
-                      <link id="action.pop3.stk"/>
-                    </value>
-                  </hash>
-                </type>
-                <default/>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-		Hash containing the stacking policy for multiline POP3 responses. The hash
-                is indexed by the POP3 response. See also <xref 
-		linkend="pop3_stacking"/>.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>session_timestamp</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  If the POP3 server implements the APOP command, with the greeting message it sends a timestamp, which is stored in this parameter.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>permit_unknown_command</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>FALSE</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Enable unknown commands.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>permit_longline</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>FALSE</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  In multiline answer (especially in downloaded messages) sometimes very long lines can appear. Enabling this option allows the unlimited long lines in multiline answers.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>max_authline_count</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>4</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Maximum number of lines that can be sent during the authentication
-                  conversation. The default value is enough for password authentication, but might have to be increased for other types of authentication.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>reject_by_mail</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>TRUE</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  If the stacked proxy or content vectoring module rejects an e-mail message, reply with a special e-mail message instead
-                  of an <parameter>ERR</parameter> response. See <xref linkend="pop3_rejectbymail"/> for details.
-                </description>
-              </attribute>
-            </attributes>
+          <arguments>
+            <argument>
+              <name>session</name>
+              <type>SESSION</type>
+              <description>
+                session this instance belongs to
+              </description>
+            </argument>
+          </arguments>
           </metainfo>
-        </class>
+        </method>
         """
-	name = "pop3"
-
-	def __init__(self, session):
-		"""<method maturity="stable" internal="yes">
-                  <summary>
-                    Initialize a Pop3Proxy instance.
-                  </summary>
-                  <description>
-                  <para>
-                    Create and set up a Pop3Proxy instance.
-                  </para>
-                  </description>
-                  <metainfo>
-                  <arguments>
-                    <argument>
-                      <name>session</name>
-                      <type>SESSION</type>
-                      <description>
-                        session this instance belongs to
-                      </description>
-                    </argument>
-                  </arguments>
-                  </metainfo>
-                </method>
-                """
-		Proxy.__init__(self, session)
+        Proxy.__init__(self, session)
 
 class Pop3Proxy(AbstractPop3Proxy):
-	"""<class maturity="stable">
+    """<class maturity="stable">
+      <summary>
+        Default POP3 proxy based on AbstractPop3Proxy.
+      </summary>
+      <description>
+        <para>
+          Pop3Proxy is the default POP3 proxy based on AbstractPop3Proxy, allowing the most commonly used requests.
+        </para>
+        <para>The following requests are permitted: APOP; DELE; LIST; LAST; NOOP; PASS; QUIT; RETR; RSET; STAT; TOP; UIDL; USER; GREETING.
+        All other requests (including CAPA) are rejected.
+        </para>
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    def config(self):
+        """<method internal="yes">
           <summary>
-            Default POP3 proxy based on AbstractPop3Proxy.
+            Default config event handler.
           </summary>
           <description>
             <para>
-              Pop3Proxy is the default POP3 proxy based on AbstractPop3Proxy, allowing the most commonly used requests.
+              Enables the most common POP3 methods so we have a
+              useful default configuration.
             </para>
-	    <para>The following requests are permitted: APOP; DELE; LIST; LAST; NOOP; PASS; QUIT; RETR; RSET; STAT; TOP; UIDL; USER; GREETING.	    
-	    All other requests (including CAPA) are rejected.
-	    </para>
           </description>
           <metainfo>
-            <attributes/>
+            <arguments/>
           </metainfo>
-        </class>
+        </method>
         """
-	def config(self):
-		"""<method internal="yes">
-                  <summary>
-                    Default config event handler.
-                  </summary>
-                  <description>
-                    <para>
-                      Enables the most common POP3 methods so we have a
-                      useful default configuration. 
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
 
-		self.request["APOP"] = POP3_REQ_ACCEPT
-		self.request["DELE"] = POP3_REQ_ACCEPT
-		self.request["LIST"] = POP3_REQ_ACCEPT
-		self.request["LAST"] = POP3_REQ_ACCEPT
-		self.request["NOOP"] = POP3_REQ_ACCEPT
-		self.request["PASS"] = POP3_REQ_ACCEPT
-		self.request["QUIT"] = POP3_REQ_ACCEPT
-		self.request["RETR"] = POP3_REQ_ACCEPT
-		self.request["RSET"] = POP3_REQ_ACCEPT
-		self.request["STAT"] = POP3_REQ_ACCEPT
-		self.request["TOP"]  = POP3_REQ_ACCEPT
-		self.request["UIDL"] = POP3_REQ_ACCEPT
-		self.request["USER"] = POP3_REQ_ACCEPT
-		self.request["CAPA"] = POP3_REQ_REJECT
-		self.request["*"]    = POP3_REQ_REJECT
+        self.request["APOP"] = POP3_REQ_ACCEPT
+        self.request["DELE"] = POP3_REQ_ACCEPT
+        self.request["LIST"] = POP3_REQ_ACCEPT
+        self.request["LAST"] = POP3_REQ_ACCEPT
+        self.request["NOOP"] = POP3_REQ_ACCEPT
+        self.request["PASS"] = POP3_REQ_ACCEPT
+        self.request["QUIT"] = POP3_REQ_ACCEPT
+        self.request["RETR"] = POP3_REQ_ACCEPT
+        self.request["RSET"] = POP3_REQ_ACCEPT
+        self.request["STAT"] = POP3_REQ_ACCEPT
+        self.request["TOP"]  = POP3_REQ_ACCEPT
+        self.request["UIDL"] = POP3_REQ_ACCEPT
+        self.request["USER"] = POP3_REQ_ACCEPT
+        self.request["CAPA"] = POP3_REQ_REJECT
+        self.request["*"]    = POP3_REQ_REJECT
 
-		self.request["GREETING"] = POP3_REQ_ACCEPT
+        self.request["GREETING"] = POP3_REQ_ACCEPT

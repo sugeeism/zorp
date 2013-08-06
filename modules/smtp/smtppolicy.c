@@ -75,7 +75,7 @@ smtp_policy_check_request(SmtpProxy *self)
   ZPolicyObj *process_cmd = NULL;
   SmtpRequestTypes action;
   gchar *response = NULL, *response_param = NULL;
-  
+
   z_proxy_enter(self);
   entry = g_hash_table_lookup(self->request_policy, self->request->str);
   if (!entry)
@@ -119,10 +119,10 @@ smtp_policy_check_request(SmtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case SMTP_REQ_ACCEPT:
       break;
-      
+
     case SMTP_REQ_POLICY:
       z_policy_lock(self->super.thread);
       if (!z_policy_var_parse(entry, "(iO)", &action, &process_cmd))
@@ -142,7 +142,7 @@ smtp_policy_check_request(SmtpProxy *self)
               if (!z_policy_var_parse(res, "i", &action))
                 {
 		  /*LOG
-		    This message indicates that the returned value of the callback for the given request policy 
+		    This message indicates that the returned value of the callback for the given request policy
 		    is invalid and Zorp aborts the connection. Check the callback function.
 		   */
                   z_proxy_log(self, SMTP_POLICY, 1, "The verdict returned by the policy is not an int; request='%s'", self->request->str);
@@ -156,7 +156,7 @@ smtp_policy_check_request(SmtpProxy *self)
                     case SMTP_REQ_REJECT:
                     case SMTP_REQ_ABORT:
                       break;
-                      
+
                     default:
                       action = SMTP_REQ_ABORT;
                       break;
@@ -170,7 +170,7 @@ smtp_policy_check_request(SmtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case SMTP_REQ_ABORT:
     default:
       action = SMTP_REQ_ABORT;
@@ -186,7 +186,7 @@ smtp_policy_check_response(SmtpProxy *self)
   gchar *key[2];
   gchar *response, *response_param;
   SmtpResponseTypes action;
- 
+
   z_proxy_enter(self);
   if (self->request->len)
     key[0] = self->request->str;
@@ -230,7 +230,7 @@ smtp_policy_check_response(SmtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case SMTP_RSP_ACCEPT:
     case SMTP_RSP_ABORT:
       break;
@@ -254,7 +254,7 @@ smtp_policy_check_response(SmtpProxy *self)
               if (!z_policy_var_parse(res, "i", &action))
                 {
 		  /*LOG
-		    This message indicates that the returned value of the callback for the given response policy 
+		    This message indicates that the returned value of the callback for the given response policy
 		    is invalid and Zorp aborts the connection. Check the callback function.
 		   */
                   z_proxy_log(self, SMTP_POLICY, 1, "The verdict returned by the policy is not an int; request='%s', response='%s'", self->request->str, self->response->str);
@@ -268,7 +268,7 @@ smtp_policy_check_response(SmtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     default:
       action = SMTP_RSP_ABORT;
       break;
@@ -283,7 +283,7 @@ smtp_policy_is_extension_permitted(SmtpProxy *self, gchar *extension)
   SmtpExtensionDesc *ed;
   SmtpActionTypes verdict = SMTP_EXT_DROP;
   gboolean found;
-  
+
   z_proxy_enter(self);
 
   /* compatibility, check permit_extensions first */

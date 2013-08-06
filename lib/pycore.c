@@ -29,8 +29,8 @@
  *
  ***************************************************************************/
 
-/* 
- * this module implements the interface with python 
+/*
+ * this module implements the interface with python
  */
 #include <zorp/pycore.h>
 #include <zorp/log.h>
@@ -85,18 +85,18 @@ z_py_log(PyObject *self G_GNUC_UNUSED, PyObject *args)
       session_id = NULL;
     }
   else
-    {  
+    {
       log_args = NULL;
       if (!PyArg_ParseTuple(args, "OsiO|O", &py_session_id, &class, &verbosity, &log_fmt, &log_args))
         return NULL;
-        
+
       if (!z_log_enabled(class, verbosity))
         {
           return z_policy_none_ref();
         }
 
       /* convert session ID */
-      if (py_session_id == Py_None)
+      if (py_session_id == z_policy_none)
         {
           session_id = NULL;
         }
@@ -106,7 +106,7 @@ z_py_log(PyObject *self G_GNUC_UNUSED, PyObject *args)
         }
       else
         {
-          PyErr_SetString(PyExc_TypeError, "Session ID must be string or None");          
+          PyErr_SetString(PyExc_TypeError, "Session ID must be string or None");
           return NULL;
         }
 
@@ -116,7 +116,7 @@ z_py_log(PyObject *self G_GNUC_UNUSED, PyObject *args)
           return NULL;
         }
 
-      if (log_args != NULL && log_args != Py_None)
+      if (log_args != NULL && log_args != z_policy_none)
         {
           log_msg = PyString_Format(log_fmt, log_args);
           if (!log_msg)
@@ -130,21 +130,21 @@ z_py_log(PyObject *self G_GNUC_UNUSED, PyObject *args)
           msg = PyString_AsString(log_fmt);
         }
     }
-    
+
   /*NOLOG*/
   z_log(session_id, class, verbosity, "%s", msg);
   Py_XDECREF(log_msg);
 
   return z_policy_none_ref();
 }
- 
+
 /*+
   +*/
 static PyObject *
 z_py_quit(PyObject *self G_GNUC_UNUSED, PyObject *args)
 {
   int exit_code;
-  
+
   z_enter();
 
   if (!PyArg_ParseTuple(args, "i", &exit_code))
@@ -162,7 +162,7 @@ z_py_stream_pair(PyObject *self G_GNUC_UNUSED, PyObject *args)
   int result[2];
   ZStream *streams[2];
   PyObject *pystreams[2], *res;
-  
+
   z_enter();
   if (!PyArg_ParseTuple(args, "ii|i", &domain, &type, &proto))
     z_return(NULL);
@@ -180,7 +180,7 @@ z_py_stream_pair(PyObject *self G_GNUC_UNUSED, PyObject *args)
 
   z_stream_unref(streams[0]);
   z_stream_unref(streams[1]);
-  
+
   res = z_policy_var_build("(OO)", pystreams[0], pystreams[1]);
   z_policy_var_unref(pystreams[0]);
   z_policy_var_unref(pystreams[1]);
@@ -193,14 +193,14 @@ z_py_get_instance_id(PyObject *self G_GNUC_UNUSED, PyObject *args)
   static GHashTable *instance_ids = NULL;
   gint *value;
   gchar *service_name;
-  
+
   if (!PyArg_Parse(args, "(s)", &service_name))
     return NULL;
   if (instance_ids == NULL)
     instance_ids = g_hash_table_new(g_str_hash, g_str_equal);
-  
+
   value = g_hash_table_lookup(instance_ids, service_name);
-  
+
   if (!value)
     {
       value = g_new(gint, 1);
@@ -223,13 +223,13 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
   PyObject *value, *value_repr;
   ZSzigValue *sv;
   GTimeVal tv;
-  
+
   z_enter();
 
   if (!PyArg_Parse(args, "(iO)", &event, &value) ||
       !PyArg_Parse(value, "(iO)", &type, &value_repr))
     z_return(NULL);
-    
+
   switch (type)
     {
     case Z_SZIG_TYPE_LONG:
@@ -240,13 +240,13 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
         }
       sv = z_szig_value_new_long(PyInt_AsLong(value_repr));
       break;
-      
+
     case Z_SZIG_TYPE_TIME:
       if (!PyArg_Parse(value_repr, "(ii)", &tv.tv_sec, &tv.tv_usec))
         z_return(NULL);
       sv = z_szig_value_new_time(&tv);
       break;
-      
+
     case Z_SZIG_TYPE_STRING:
       if (!PyString_Check(value_repr))
         {
@@ -255,14 +255,14 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
         }
       sv = z_szig_value_new_string(PyString_AsString(value_repr));
       break;
-      
+
     case Z_SZIG_TYPE_PROPS:
       {
         gchar *name;
         PyObject *dict;
         PyObject *key, *value;
         Z_PYTHON_SIZE_TYPE i;
-        
+
         if (!PyArg_Parse(value_repr, "(sO)", &name, &dict))
           z_return(NULL);
         if (!PyDict_Check(dict))
@@ -270,10 +270,10 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
             PyErr_SetString(PyExc_ValueError, "Z_SZIG_TYPE_PROPS requires a mapping as 2nd argument");
             z_return(NULL);
           }
-        
+
         sv = z_szig_value_new_props(name, NULL);
         i = 0;
-        while (PyDict_Next(dict, &i, &key, &value)) 
+        while (PyDict_Next(dict, &i, &key, &value))
           {
             if (PyString_Check(key))
               {
@@ -301,7 +301,7 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
           }
       }
     break;
-    
+
     case Z_SZIG_TYPE_CONNECTION_PROPS:
       {
         gchar *service;
@@ -309,7 +309,7 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
         PyObject *dict;
         PyObject *key, *value;
         Z_PYTHON_SIZE_TYPE i;
-        
+
         if (!PyArg_Parse(value_repr, "(siiiO)", &service, &instance_id, &sec_conn_id, &related_id, &dict))
           z_return(NULL);
         if (!PyDict_Check(dict))
@@ -317,10 +317,10 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
             PyErr_SetString(PyExc_ValueError, "Z_SZIG_TYPE_CONNECTION_PROPS requires a mapping as 5th argument");
             z_return(NULL);
           }
-        
+
         sv = z_szig_value_new_connection_props(service, instance_id, sec_conn_id, related_id, NULL);
         i = 0;
-        while (PyDict_Next(dict, &i, &key, &value)) 
+        while (PyDict_Next(dict, &i, &key, &value))
           {
             if (!PyString_Check(key) || !PyString_Check(value))
               {
@@ -346,20 +346,35 @@ z_py_szig_event(PyObject *self G_GNUC_UNUSED, PyObject *args)
 /**
  *  **/
 static PyObject *
-z_policy_notify_event(PyObject *self G_GNUC_UNUSED,
-                      PyObject *args G_GNUC_UNUSED
-                     )
+z_policy_notify_event(PyObject *self G_GNUC_UNUSED, PyObject *args G_GNUC_UNUSED)
 {
   return z_policy_none_ref();
 }
 
-static PyMethodDef zorp_funcs[] = 
+/**
+ * z_py_is_initial_policy_load:
+ * @self: Python self argument
+ * @args: Python args tuple
+ *
+ * Called by Python during policy load to determine whether
+ * this is the initial policy load or a reload.
+ *
+ * Returns: PyInt TRUE during the initial policy load, FALSE otherwise
+ */
+static PyObject *
+z_py_is_initial_policy_load(PyObject *self G_GNUC_UNUSED, PyObject *args G_GNUC_UNUSED)
+{
+  return PyInt_FromLong(z_main_loop_is_initial_policy_load() ? TRUE : FALSE);
+}
+
+static PyMethodDef zorp_funcs[] =
 {
   { "log", z_py_log, METH_VARARGS, NULL },
   { "quit", z_py_quit, METH_VARARGS, NULL },
   { "streamPair", z_py_stream_pair, METH_VARARGS, NULL },
   { "getInstanceId", z_py_get_instance_id, METH_VARARGS, NULL },
   { "szigEvent", z_py_szig_event, METH_VARARGS, NULL },
+  { "isInitialPolicyLoad", z_py_is_initial_policy_load, METH_NOARGS, NULL },
   { "notifyEvent", z_policy_notify_event, METH_VARARGS, NULL },
   { NULL, NULL, 0, NULL }
 };
@@ -369,4 +384,3 @@ z_py_zorp_core_init(void)
 {
   Py_InitModule("Zorp.Zorp", zorp_funcs);
 }
-

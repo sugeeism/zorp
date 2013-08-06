@@ -47,17 +47,17 @@
  *
  * An SMTP specific transfer class.
  **/
-struct _SmtpTransfer 
+struct _SmtpTransfer
 {
   ZTransfer2 super;
   /* destination write state */
   gint dst_write_state;
 
   gint src_read_state;
-  
+
   GString *received_line;
   guint received_line_pos;
-  
+
   /* The previous line was too long, it must be concatenated with the current line */
   gboolean previous_line_split;
 };
@@ -75,7 +75,7 @@ extern ZClass SmtpTransfer__class;
  *
  * Reads the incoming data stream, checks for EOF (a single '.' on its own),
  * removes '.' escaping and handles lines longer than the buffer size of ZStreamLine.
- * 
+ *
  **/
 static GIOStatus
 smtp_transfer_src_read(ZTransfer2 *s G_GNUC_UNUSED, ZStream *stream, gchar *buf, gsize buf_len, gsize *bytes_read, GError **err)
@@ -94,13 +94,13 @@ smtp_transfer_src_read(ZTransfer2 *s G_GNUC_UNUSED, ZStream *stream, gchar *buf,
               if (!smtp_generate_received(owner, &self->received_line))
                 self->src_read_state = SMTP_SR_DATA;
             }
-          
+
           if (self->received_line)
             {
               *bytes_read = MIN(buf_len, self->received_line->len - self->received_line_pos);
               memmove(buf, self->received_line->str + self->received_line_pos, *bytes_read);
               self->received_line_pos += *bytes_read;
-              
+
               if (self->received_line_pos >= self->received_line->len)
                 {
                   self->src_read_state = SMTP_SR_DATA;
@@ -118,7 +118,7 @@ smtp_transfer_src_read(ZTransfer2 *s G_GNUC_UNUSED, ZStream *stream, gchar *buf,
     {
       return G_IO_STATUS_AGAIN;
     }
-  
+
   res = z_stream_line_get_copy(stream, buf, &line_len, err);
   if (res == G_IO_STATUS_NORMAL)
     {
@@ -154,11 +154,11 @@ smtp_transfer_src_read(ZTransfer2 *s G_GNUC_UNUSED, ZStream *stream, gchar *buf,
  * smtp_transfer_dst_write:
  * @s: ZTransfer instance
  * @stream: stream to write to
- * @buf: buffer to read into 
+ * @buf: buffer to read into
  * @count: buffer size
  * @bytes_read: number of bytes returned
  * @err: GLib error
- * 
+ *
  * This function handles the data stream as it comes out of the stacked
  * proxy. It takes care about prefixing the mail body with a "DATA" command,
  * and through complicated means also takes care about fetching the response
@@ -173,7 +173,7 @@ smtp_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize 
   GError *local_error = NULL;
   gsize bw;
   gsize i;
-    
+
   *bytes_written = 0;
   if (self->dst_write_state == SMTP_DW_INITIAL)
     {
@@ -181,9 +181,9 @@ smtp_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize 
       self->dst_write_state = SMTP_DW_TRANSFER;
       return G_IO_STATUS_AGAIN;
     }
-    
+
  transfer_state:
- 
+
   if (self->dst_write_state == SMTP_DW_TRANSFER || self->dst_write_state == SMTP_DW_TRANSFER_LF)
     {
       for (i = *bytes_written; i < count; i++)
@@ -200,7 +200,7 @@ smtp_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize 
               if (buf[i] == '.')
                 {
                   /* we need to escape this '.' */
-                  
+
                   /* first, write buf up to this '.' */
                   res = z_stream_write(stream, buf + *bytes_written, i - *bytes_written, &bw, &local_error);
                   if (res == G_IO_STATUS_NORMAL && (i - *bytes_written) == bw)
@@ -242,7 +242,7 @@ smtp_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize 
         g_propagate_error(err, local_error);
       return res;
     }
-  
+
   /* server responded non-354 to the DATA command */
   return G_IO_STATUS_ERROR;
 }
@@ -255,7 +255,7 @@ smtp_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize 
  * @err: GLib error
  *
  * This function is called when the server side stream is to be shut down. It takes care
- * about ending the mail body with a '.', or 
+ * about ending the mail body with a '.', or
  **/
 static GIOStatus
 smtp_transfer_dst_shutdown(ZTransfer2 *s G_GNUC_UNUSED, ZStream *stream, GError **err)
@@ -264,7 +264,7 @@ smtp_transfer_dst_shutdown(ZTransfer2 *s G_GNUC_UNUSED, ZStream *stream, GError 
   GError *local_error = NULL;
   GIOStatus res = G_IO_STATUS_NORMAL;
   SmtpTransfer *self = Z_CAST(s, SmtpTransfer);
-  
+
   if (self->dst_write_state != SMTP_DW_INITIAL)
     {
       res = z_stream_write(stream, "\r\n.\r\n", 5, &bytes_written, &local_error);
@@ -281,7 +281,7 @@ smtp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
   ZPolicyObj *stacked_proxy;
   gboolean called;
   gboolean success = TRUE;
-  
+
   z_policy_lock(owner->super.thread);
   stacked_proxy = z_policy_call(owner->super.handler,
                                 "requestStack",
@@ -294,11 +294,11 @@ smtp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
     {
       success = z_proxy_stack_object(&owner->super, stacked_proxy, stacked, NULL);
     }
-    
+
   z_policy_var_unref(stacked_proxy);
   z_policy_unlock(owner->super.thread);
   return success;
-  
+
 }
 
 static gboolean
@@ -313,7 +313,7 @@ static gboolean
 smtp_transfer_progress(ZTransfer2 *s)
 {
   SmtpTransfer *self = Z_CAST(s, SmtpTransfer);
-  
+
   if (self->dst_write_state == SMTP_DW_INITIAL)
     z_transfer2_suspend(s, SMTP_TRANSFER_SUSPEND_NOOP);
   return TRUE;
@@ -350,20 +350,20 @@ Z_CLASS_DEF(SmtpTransfer, ZTransfer2, smtp_transfer_funcs);
 /**
  * smtp_transfer_new:
  * @self: SmtpProxy instance
- * 
+ *
  * This function is an Smtp specific constructor for the ZTransfer2 class.
- * 
+ *
  * Returns: ZTransfer2 instance
  **/
 ZTransfer2 *
 smtp_transfer_new(SmtpProxy *owner)
 {
   SmtpTransfer *self;
-  
-  self = Z_CAST(z_transfer2_new(Z_CLASS(SmtpTransfer), &owner->super, owner->poll, 
-                                owner->super.endpoints[EP_CLIENT], owner->super.endpoints[EP_SERVER], 
-                                owner->buffer_size, owner->timeout, 
-                                ZT2F_COMPLETE_COPY), 
+
+  self = Z_CAST(z_transfer2_new(Z_CLASS(SmtpTransfer), &owner->super, owner->poll,
+                                owner->super.endpoints[EP_CLIENT], owner->super.endpoints[EP_SERVER],
+                                owner->buffer_size, owner->timeout,
+                                ZT2F_COMPLETE_COPY),
                 SmtpTransfer);
   z_transfer2_set_content_format(&self->super, "email");
   z_transfer2_enable_progress(&self->super, owner->interval_transfer_noop);

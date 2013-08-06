@@ -41,7 +41,7 @@
       </para>
       <para>
         The protocol follows a simple scenario. The client
-        opens a TCP connection to the server at the port 23. The server 
+        opens a TCP connection to the server at the port 23. The server
         authenticates the client and opens a terminal. At the end of the session
         the server closes the connection. All data is sent in plain text format whithout any encryption.
       </para>
@@ -49,8 +49,8 @@
         <title>The network virtual terminal</title>
         <para>
           The communication is based on the network virtual terminal (NVT).
-          Its goal is to map a character terminal so neither the "server" nor 
-          "user" hosts need to keep information about the characteristics 
+          Its goal is to map a character terminal so neither the "server" nor
+          "user" hosts need to keep information about the characteristics
           of each other's terminals and terminal handling conventions.
           NVT uses 7 bit code ASCII characters as the display device. An end of line
           is transmitted as a CRLF (carriage return followed by a line feed).
@@ -58,40 +58,40 @@
         </para>
         <para>
           NVT defines three mandatory control codes which must be understood by
-          the participants: NULL, CR (Carriage Return), which moves the printer to the left 
-          margin of the current line and LF (Line Feed), which moves the printer to the next 
+          the participants: NULL, CR (Carriage Return), which moves the printer to the left
+          margin of the current line and LF (Line Feed), which moves the printer to the next
           line keeping the current horizontal position.
         </para>
         <para>
           NVT also contains some optional commands which are useful. These are the following:
-	</para>
-	  <itemizedlist>
-	   <listitem>
-	    <para>
-            <emphasis>BELL</emphasis> is an audible or visual sign. 
+        </para>
+          <itemizedlist>
+           <listitem>
+            <para>
+            <emphasis>BELL</emphasis> is an audible or visual sign.
             </para>
-	  </listitem>
-	  <listitem>
-	    <para>
-	    <emphasis>BS</emphasis> (Back Space) moves the printer back one position and deletes a character.
-	    </para>
-	  </listitem>
-	  <listitem>
-	    <para>
+          </listitem>
+          <listitem>
+            <para>
+            <emphasis>BS</emphasis> (Back Space) moves the printer back one position and deletes a character.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
             <emphasis>HT</emphasis> (Horizontal Tab) moves the printer to the next horizontal tabular stop.
-	    </para>
-	  </listitem>
-	  <listitem>
-	  <para>
+            </para>
+          </listitem>
+          <listitem>
+          <para>
           <emphasis>VT</emphasis> Vertical Tab moves the printer to the next vertical tabular stop.
-	  </para>
-	  </listitem>
-	  <listitem>
-	  <para> 
+          </para>
+          </listitem>
+          <listitem>
+          <para>
           <emphasis>FF</emphasis> (Form Feed) moves the printer to the top of the next page.
         </para>
-	</listitem>
-	</itemizedlist>
+        </listitem>
+        </itemizedlist>
       </section>
       <section>
         <title>Protocol elements</title>
@@ -99,7 +99,7 @@
           The protocol uses several commands that control the method and various details of the
           interaction between the client and the server. These commands can be either mandatory commands or extensions.
           During the session initialization the client and the server negotiates the connection parameters with these
-          commands. Sub-negotiation is a process during the protocol which is for exchanging extra parameters of 
+          commands. Sub-negotiation is a process during the protocol which is for exchanging extra parameters of
           a command (e.g.: sending the window size). The commands of the protocol are:
           <table>
             <title>Telnet protocol commands</title>
@@ -187,7 +187,7 @@
       <para>
         TelnetProxy is a module built for parsing TELNET protocol commands and the negotiation process.
         It reads and parses COMMANDs on the client side, and sends them to the server if the local security policy permits. Arriving RESPONSEs are parsed as well and sent to the client if the local security policy permits.
-        It is possible to manipulate options by using TELNET_OPT_POLICY. It is also 
+        It is possible to manipulate options by using TELNET_OPT_POLICY. It is also
         possible to accept or deny certain options and suboptions.
       </para>
       <para>
@@ -197,30 +197,30 @@
         <title>Default policy</title>
         <para>
           The low level abstract Telnet proxy denies every option and suboption negotiation
-          sequences by default. The different options can be enabled either manually in a derived proxy class, or the predefined TelnetProxy class can be used. 
+          sequences by default. The different options can be enabled either manually in a derived proxy class, or the predefined TelnetProxy class can be used.
         </para>
       </section>
       <section id="telnet_policies">
         <title>Configuring policies for the TELNET protocol</title>
         <para>
           The Telnet proxy can enable/disable the use of the options and their suboptions within the session. Changing the default policy
-          can be done using the <parameter>option</parameter> multi-dimensional hash, 
+          can be done using the <parameter>option</parameter> multi-dimensional hash,
           indexed by the option and the suboption (optional). If the suboption is specified, the lookup precedence described in <xref linkend="proxy_response_codes"/> is used.
-	  The possible action codes are listed in the table below.</para>
-	  <inline type="actiontuple" target="action.telnet.opt"/>
+          The possible action codes are listed in the table below.</para>
+          <inline type="actiontuple" target="action.telnet.opt"/>
 
         <example>
           <title>Example for disabling the Telnet X Display Location option</title>
           <synopsis>class MyTelnetProxy(TelnetProxy):
-	def config(self):
-		TelnetProxy.config(self)
-		self.option[TELNET_X_DISPLAY_LOCATION] = (TELNET_OPT_REJECT)</synopsis>
+        def config(self):
+            TelnetProxy.config(self)
+            self.option[TELNET_X_DISPLAY_LOCATION] = (TELNET_OPT_REJECT)</synopsis>
         </example>
-	
-	<para>
-	Constants have been defined for the easier use of TELNET options and suboptions. These are listed in <xref linkend="telnet_options"/>.
-	</para>
-      
+
+        <para>
+        Constants have been defined for the easier use of TELNET options and suboptions. These are listed in <xref linkend="telnet_options"/>.
+        </para>
+
       <section>
         <title>Policy callback functions</title>
         <para>
@@ -235,17 +235,17 @@
         <example>
           <title>Rewriting the DISPLAY environment variable</title>
           <synopsis>class MyRewritingTelnetProxy(TelnetProxy):
-	def config(self):
-		TelnetProxy.config()
-		self.option[TELNET_ENVIRONMENT, TELNET_SB_IS] = (TELNET_OPTION_POLICY, self.rewriteVar)
+        def config(self):
+            TelnetProxy.config()
+            self.option[TELNET_ENVIRONMENT, TELNET_SB_IS] = (TELNET_OPTION_POLICY, self.rewriteVar)
 
-	def rewriteVar(self, option, name, value):
-		if name == "DISPLAY":
-			self.current_var_value = "rewritten_value:0"
-		return TELNET_OPTION_ACCEPT</synopsis>
+        def rewriteVar(self, option, name, value):
+            if name == "DISPLAY":
+                    self.current_var_value = "rewritten_value:0"
+            return TELNET_OPTION_ACCEPT</synopsis>
         </example>
       </section>
-      <section>
+      <section id="telnet_negotiation">
       <title>
       Option negotiation
       </title>
@@ -265,10 +265,10 @@
   </description>
   <appendix id="telnet_app_options">
   <title>TELNET appendix</title>
-  	<para>
-	The constants defined for the easier use of TELNET options and suboptions are listed in the table below. Suboptions are listed directly under the option they refer to. All suboptions have the TELNET_SB prefix. The RFC describing the given option is also shown in the table.
-	</para>
-	<table frame="all" id="telnet_options">
+        <para>
+        The constants defined for the easier use of TELNET options and suboptions are listed in the table below. Suboptions are listed directly under the option they refer to. All suboptions have the TELNET_SB prefix. The RFC describing the given option is also shown in the table.
+        </para>
+        <table frame="all" id="telnet_options">
 <title>TELNET options and suboptions</title>
 <tgroup cols="3">
 <thead><row><entry>Name</entry><entry>Constant value of option/suboption</entry><entry>Detailed in RFC #</entry></row></thead>
@@ -509,7 +509,7 @@
 </tbody>
 </tgroup>
 </table>
-	
+
 
   </appendix>
   <metainfo>
@@ -588,566 +588,732 @@
     </constants>
     <actiontuples>
       <actiontuple maturity="stable" id="action.telnet.opt" action_enum="enum.telnet.opt">
-	<description>
-	  Action codes for Telnet options
-	</description>
-	<tuple action="TELNET_OPT_ACCEPT">
-	  <args/>
-	  <description>
-	    <para>
-	      Allow the option.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="TELNET_OPT_DROP">
-	  <args/>
-	  <description>
-	    <para>
-	      Reject the option.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="TELNET_OPT_ABORT">
-	  <args/>
-	  <description>
-	    <para>
-	      Reject the option and terminate the Telnet session.
-	    </para>
-	  </description>
-	</tuple>
-	<tuple action="TELNET_OPT_POLICY">
-	  <args>METHOD</args>
-	  <description>
-	    <para>
-	      Call the function specified to make a decision about the event. The function receives two parameters: self, and option (an integer). See <xref linkend="proxy_policies"/> for details.
-	    </para>
-	  </description>
-	</tuple>
+        <description>
+          Action codes for Telnet options
+        </description>
+        <tuple action="TELNET_OPT_ACCEPT">
+          <args/>
+          <description>
+            <para>
+              Allow the option.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="TELNET_OPT_DROP">
+          <args/>
+          <description>
+            <para>
+              Reject the option.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="TELNET_OPT_ABORT">
+          <args/>
+          <description>
+            <para>
+              Reject the option and terminate the Telnet session.
+            </para>
+          </description>
+        </tuple>
+        <tuple action="TELNET_OPT_POLICY">
+          <args>METHOD</args>
+          <description>
+            <para>
+              Call the function specified to make a decision about the event. The function receives two parameters: self, and option (an integer). See <xref linkend="proxy_policies"/> for details.
+            </para>
+          </description>
+        </tuple>
       </actiontuple>
-    </actiontuples>    
+    </actiontuples>
   </metainfo>
 </module>"""
 
 from Zorp import *
-from Proxy import Proxy
+from Proxy import Proxy, proxyLog
+from Util import makeSequence
 
-TELNET_OPT_ACCEPT	= 1
-TELNET_OPT_REJECT	= 3
-TELNET_OPT_ABORT	= 4
-TELNET_OPT_DROP		= 5
-TELNET_OPT_POLICY	= 6
+TELNET_OPT_ACCEPT = ZV_ACCEPT
+TELNET_OPT_REJECT = ZV_REJECT
+TELNET_OPT_ABORT  = ZV_ABORT
+TELNET_OPT_DROP   = ZV_DROP
+TELNET_OPT_POLICY = ZV_POLICY
 
 # No negotiation is needed for that command
-TELNET_NEG_NONE		= 255
+TELNET_NEG_NONE = 255
 
-# option name				value	RFC, subopt
-# -------------------------             ------	-----------
-#TELNET_BINARY				= "0"	# 856
 
-TELNET_ECHO				= "1"	# 857
+# option name                           value   RFC, subopt
+# -------------------------             ------  -----------
+#TELNET_BINARY                          = "0"   # 856
 
-TELNET_SUPPRESS_GO_AHEAD		= "3"	# 858
+TELNET_ECHO                             = "1"   # 857
 
-#TELNET_STATUS				= "5"	# 859 
-#TELNET_SB_STATUS_SB_IS				= "0"
-#TELNET_SB_STATUS_SB_SEND			= "1"
+TELNET_SUPPRESS_GO_AHEAD                = "3"   # 858
 
-#TELNET_TIMING_MARK			= "6"	# 860
+#TELNET_STATUS                          = "5"   # 859
+#TELNET_SB_STATUS_SB_IS                         = "0"
+#TELNET_SB_STATUS_SB_SEN                        = "1"
 
-#TELNET_RCTE				= "7"	# 726
+#TELNET_TIMING_MARK                     = "6"  # 860
 
-#TELNET_NAOCRD				= "10"	# 652
-#TELNET_SB_NAOCRD_DR				= "0"
-#TELNET_SB_NAOCRD_DS				= "1"
+#TELNET_RCTE                            = "7"  # 726
 
-#TELNET_NAOHTS				= "11"	# 653
-#TELNET_SB_NAOHTS_DR				= "0"
-#TELNET_SB_NAOHTS_DS				= "1"
+#TELNET_NAOCRD                          = "10"  # 652
+#TELNET_SB_NAOCRD_DR                            = "0"
+#TELNET_SB_NAOCRD_DS                            = "1"
 
-#TELNET_NAOHTD				= "12"	# 654
-#TELNET_SB_NAOHTD_DR				= "0"
-#TELNET_SB_NAOHTD_DS				= "1"
+#TELNET_NAOHTS                          = "11"  # 653
+#TELNET_SB_NAOHTS_DR                            = "0"
+#TELNET_SB_NAOHTS_DS                            = "1"
 
-#TELNET_NAOFFD				= "13"	# 655
-#TELNET_SB_NAOFFD_DR				= "0"
-#TELNET_SB_NAOFFD_DS				= "1"
+#TELNET_NAOHTD                          = "12"  # 654
+#TELNET_SB_NAOHTD_DR                            = "0"
+#TELNET_SB_NAOHTD_DS                            = "1"
 
-#TELNET_NAOVTS				= "14"	# 656
-#TELNET_SB_NAOVTS_DR				= "0"
-#TELNET_SB_NAOVTS_DS				= "1"
+#TELNET_NAOFFD                          = "13"  # 655
+#TELNET_SB_NAOFFD_DR                            = "0"
+#TELNET_SB_NAOFFD_DS                            = "1"
 
-#TELNET_NAOVTD				= "15"	# 657
-#TELNET_SB_NAOVTD_DR				= "0"
-#TELNET_SB_NAOVTD_DS				= "1"
+#TELNET_NAOVTS                          = "14"  # 656
+#TELNET_SB_NAOVTS_DR                            = "0"
+#TELNET_SB_NAOVTS_DS                            = "1"
 
-#TELNET_NAOLFD				= "16"	# 658
-#TELNET_SB_NAOLFD_DR				= "0"
-#TELNET_SB_NAOLFD_DS				= "1"
+#TELNET_NAOVTD                          = "15"  # 657
+#TELNET_SB_NAOVTD_DR                            = "0"
+#TELNET_SB_NAOVTD_DS                            = "1"
 
-#TELNET_EXTEND_ASCII			= "17"	# 698
+#TELNET_NAOLFD                          = "16"  # 658
 
-#TELNET_LOGOUT				= "18"	# 727
+#TELNET_SB_NAOLFD_DR                            = "0"
+#TELNET_SB_NAOLFD_DS                            = "1"
 
-#TELNET_BM				= "19"	# 735
-#TELNET_SB_BM_DEFINE				= "1"
-#TELNET_SB_BM_ACCEPT				= "2"
-#TELNET_SB_BM_REFUSE				= "3"
-#TELNET_SB_BM_LITERAL				= "4"
-#TELNET_SB_BM_CANCEL				= "5"
+#TELNET_EXTEND_ASCII                    = "17"  # 698
 
-#TELNET_DET				= "20"	# 1043, 732
-#TELNET_SB_DET_DEFINE				= "1"
-#TELNET_SB_DET_ERASE				= "2"
-#TELNET_SB_DET_TRANSMIT				= "3"
-#TELNET_SB_DET_FORMAT				= "4"
-#TELNET_SB_DET_MOVE_CURSOR			= "5"
-#TELNET_SB_DET_SKIP_TO_LINE			= "6"
-#TELNET_SB_DET_SKIP_TO_CHAR			= "7"
-#TELNET_SB_DET_UP				= "8"
-#TELNET_SB_DET_DOWN				= "9"
-#TELNET_SB_DET_LEFT				= "10"
-#TELNET_SB_DET_RIGHT				= "11"
-#TELNET_SB_DET_HOME				= "12"
-#TELNET_SB_DET_LINE_INSERT			= "13"
-#TELNET_SB_DET_LINE_DELETE			= "14"
-#TELNET_SB_DET_CHAR_INSERT			= "15"
-#TELNET_SB_DET_CHAR_DELETE			= "16"
-#TELNET_SB_DET_READ_CURSOR			= "17"
-#TELNET_SB_DET_CURSOR_POSITION			= "18"
-#TELNET_SB_DET_REVERSE_TAB			= "19"
-#TELNET_SB_DET_TRANSMIT_SCREEN			= "20"
-#TELNET_SB_DET_TRANSMIT_UNPROTECTED		= "21"
-#TELNET_SB_DET_TRANSMIT_LINE			= "22"
-#TELNET_SB_DET_TRANSMIT_FIELD			= "23"
-#TELNET_SB_DET_TRANSMIT_REST_SCREEN		= "24"
-#TELNET_SB_DET_TRANSMIT_REST_LINE		= "25"
-#TELNET_SB_DET_TRANSMIT_REST_FIELD		= "26"
-#TELNET_SB_DET_TRANSMIT_MODIFIED		= "27"
-#TELNET_SB_DET_DATA_TRANSMIT			= "28"
-#TELNET_SB_DET_ERASE_SCREEN			= "29"
-#TELNET_SB_DET_ERASE_LINE			= "30"
-#TELNET_SB_DET_ERASE_FIELD			= "31"
-#TELNET_SB_DET_ERASE_REST_SCREEN		= "32"
-#TELNET_SB_DET_ERASE_REST_LINE			= "33"
-#TELNET_SB_DET_ERASE_REST_FIELD			= "34"
-#TELNET_SB_DET_ERASE_UNPROTECTED		= "35"
-#TELNET_SB_DET_FORMAT_DATA			= "36"
-#TELNET_SB_DET_REPEAT				= "37"
-#TELNET_SB_DET_SUPPRESS_PROTECTION		= "38"
-#TELNET_SB_DET_FIELD_SEPARATOR			= "39"
-#TELNET_SB_DET_FN				= "40"
-#TELNET_SB_DET_ERROR				= "41"
+#TELNET_LOGOUT                          = "18"  # 727
 
-#TELNET_SUPDUP				= "21"	# 736, 734
+#TELNET_BM                              = "19"  # 735
+#TELNET_SB_BM_DEFINE                            = "1"
+#TELNET_SB_BM_ACCEPT                            = "2"
+#TELNET_SB_BM_REFUSE                            = "3"
+#TELNET_SB_BM_LITERAL                           = "4"
+#TELNET_SB_BM_CANCEL                            = "5"
 
-#TELNET_SUPDUP_OUTPUT			= "22"	# 749
+#TELNET_DET                             = "20"  # 1043, 732
+#TELNET_SB_DET_DEFINE                           = "1"
+#TELNET_SB_DET_ERASE                            = "2"
+#TELNET_SB_DET_TRANSMIT                         = "3"
+#TELNET_SB_DET_FORMAT                           = "4"
+#TELNET_SB_DET_MOVE_CURSOR                      = "5"
+#TELNET_SB_DET_SKIP_TO_LINE                     = "6"
+#TELNET_SB_DET_SKIP_TO_CHAR                     = "7"
+#TELNET_SB_DET_UP                               = "8"
+#TELNET_SB_DET_DOWN                             = "9"
+#TELNET_SB_DET_LEFT                             = "10"
+#TELNET_SB_DET_RIGHT                            = "11"
+#TELNET_SB_DET_HOME                             = "12"
+#TELNET_SB_DET_LINE_INSERT                      = "13"
+#TELNET_SB_DET_LINE_DELETE                      = "14"
+#TELNET_SB_DET_CHAR_INSERT                      = "15"
+#TELNET_SB_DET_CHAR_DELETE                      = "16"
+#TELNET_SB_DET_READ_CURSOR                      = "17"
+#TELNET_SB_DET_CURSOR_POSITION                  = "18"
+#TELNET_SB_DET_REVERSE_TAB                      = "19"
+#TELNET_SB_DET_TRANSMIT_SCREEN                  = "20"
+#TELNET_SB_DET_TRANSMIT_UNPROTECTED             = "21"
+#TELNET_SB_DET_TRANSMIT_LINE                    = "22"
+#TELNET_SB_DET_TRANSMIT_FIELD                   = "23"
+#TELNET_SB_DET_TRANSMIT_REST_SCREEN             = "24"
+#TELNET_SB_DET_TRANSMIT_REST_LINE               = "25"
+#TELNET_SB_DET_TRANSMIT_REST_FIELD              = "26"
+#TELNET_SB_DET_TRANSMIT_MODIFIED                = "27"
+#TELNET_SB_DET_DATA_TRANSMIT                    = "28"
+#TELNET_SB_DET_ERASE_SCREEN                     = "29"
+#TELNET_SB_DET_ERASE_LINE                       = "30"
+#TELNET_SB_DET_ERASE_FIELD                      = "31"
+#TELNET_SB_DET_ERASE_REST_SCREEN                = "32"
+#TELNET_SB_DET_ERASE_REST_LINE                  = "33"
+#TELNET_SB_DET_ERASE_REST_FIELD                 = "34"
+#TELNET_SB_DET_ERASE_UNPROTECTED                = "35"
+#TELNET_SB_DET_FORMAT_DATA                      = "36"
+#TELNET_SB_DET_REPEAT                           = "37"
+#TELNET_SB_DET_SUPPRESS_PROTECTION              = "38"
+#TELNET_SB_DET_FIELD_SEPARATOR                  = "39"
+#TELNET_SB_DET_FN                               = "40"
+#TELNET_SB_DET_ERROR                            = "41"
 
-#TELNET_SEND_LOCATION			= "23"	# 779
+#TELNET_SUPDUP                          = "21"  # 736, 734
 
-TELNET_TERMINAL_TYPE			= "24"	# 1091
-TELNET_SB_TERMINAL_TYPE_IS			= "0"
-TELNET_SB_TERMINAL_TYPE_SEND			= "1"
+#TELNET_SUPDUP_OUTPUT                   = "22"  # 749
 
-TELNET_EOR				= "25"	# 885
+#TELNET_SEND_LOCATION                   = "23"  # 779
 
-#TELNET_TUID				= "26"	# 927
+TELNET_TERMINAL_TYPE                    = "24"  # 1091
+TELNET_SB_TERMINAL_TYPE_IS                      = "0"
+TELNET_SB_TERMINAL_TYPE_SEND                    = "1"
 
-#TELNET_OUTMRK				= "27"	# 933
+TELNET_EOR                              = "25"  # 885
 
-#TELNET_TTYLOC				= "28	# 946
+TELNET_STARTTLS                 = "46"
+TELNET_SB_STARTTLS_FOLLOWS      = "1"
 
-#TELNET_3270_REGIME			= "29"	# 1041
-#TELNET_SB_3270_REGIME_IS			= "0"
-#TELNET_SB_3270_REGIME_ARE			= "1"
+#TELNET_TUID                            = "26"  # 927
 
-#TELNET_X3_PAD				= "30"	# 1053
-#TELNET_SB_X3_PAD_SET				= "0"
-#TELNET_SB_X3_PAD_RESPONSE_SET			= "1"
-#TELNET_SB_X3_PAD_IS				= "2"
-#TELNET_SB_X3_PAD_RESPONSE_IS			= "3"
-#TELNET_SB_X3_PAD_SEND				= "4"
+#TELNET_OUTMRK                          = "27"  # 933
 
-TELNET_NAWS				= "31"	# 1073
+#TELNET_TTYLOC                          = "28   # 946
 
-TELNET_TERMINAL_SPEED			= "32"	# 1079
-TELNET_SB_TERMINAL_SPEED_IS			= "0"
-TELNET_SB_TERMINAL_SPEED_SEND			= "1"
+#TELNET_3270_REGIME                     = "29"  # 1041
+#TELNET_SB_3270_REGIME_IS                       = "0"
+#TELNET_SB_3270_REGIME_ARE                      = "1"
 
-#TELNET_TOGGLE_FLOW_CONTROL		= "33"	# 1372
-#TELNET_SB_TOGGLE_FLOW_CONTROL_OFF		= "0"
-#TELNET_SB_TOGGLE_FLOW_CONTROL_ON		= "1"
-#TELNET_SB_TOGGLE_FLOW_CONTROL_RESTART_ANY	= "2"
-#TELNET_SB_TOGGLE_FLOW_CONTROL_RESTART_XON	= "3"
+#TELNET_X3_PAD                          = "30"  # 1053
+#TELNET_SB_X3_PAD_SET                           = "0"
+#TELNET_SB_X3_PAD_RESPONSE_SET                  = "1"
+#TELNET_SB_X3_PAD_IS                            = "2"
+#TELNET_SB_X3_PAD_RESPONSE_IS                   = "3"
+#TELNET_SB_X3_PAD_SEND                          = "4"
 
-#TELNET_LINEMODE			= "34"	# 1184
-#TELNET_SB_LINEMODE_MODE			= "1"
-#TELNET_SB_LINEMODE_FORWARDMASK			= "2"
-#TELNET_SB_LINEMODE_SLC				= "3"
+TELNET_NAWS                             = "31"  # 1073
 
-TELNET_X_DISPLAY_LOCATION		= "35"	# 1096
-TELNET_SB_X_DISPLAY_LOCATION_IS			= "0"
-TELNET_SB_X_DISPLAY_LOCATION_SEND		= "1"
+TELNET_TERMINAL_SPEED                   = "32"  # 1079
+TELNET_SB_TERMINAL_SPEED_IS                     = "0"
+TELNET_SB_TERMINAL_SPEED_SEND                   = "1"
 
-#TELNET_OLD_ENVIRONMENT			= "36"	# 1408
-#TELNET_SB_OLD_ENVIRONMENT_IS			= "0"
-#TELNET_SB_OLD_ENVIRONMENT_SEND			= "1"
-#TELNET_SB_OLD_ENVIRONMENT_INFO			= "2"
+#TELNET_TOGGLE_FLOW_CONTROL             = "33"  # 1372
+#TELNET_SB_TOGGLE_FLOW_CONTROL_OFF              = "0"
+#TELNET_SB_TOGGLE_FLOW_CONTROL_ON               = "1"
+#TELNET_SB_TOGGLE_FLOW_CONTROL_RESTART_ANY      = "2"
+#TELNET_SB_TOGGLE_FLOW_CONTROL_RESTART_XON      = "3"
 
-#TELNET_AUTHENTICATION			= "37"	# 2941
-#TELNET_SB_AUTHENTICATION_IS			= "0"
-#TELNET_SB_AUTHENTICATION_SEND			= "1"
-#TELNET_SB_AUTHENTICATION_REPLY			= "2"
-#TELNET_SB_AUTHENTICATION_NAME			= "3"
+#TELNET_LINEMODE                        = "34"  # 1184
+#TELNET_SB_LINEMODE_MODE                        = "1"
+#TELNET_SB_LINEMODE_FORWARDMASK                 = "2"
+#TELNET_SB_LINEMODE_SLC                         = "3"
 
-#TELNET_ENCRYPT				= "38"	# 2946
-#TELNET_SB_ENCRYPT_IS				= "0"
-#TELNET_SB_ENCRYPT_SUPPORT			= "1"
-#TELNET_SB_ENCRYPT_REPLY			= "2"
-#TELNET_SB_ENCRYPT_START			= "3"
-#TELNET_SB_ENCRYPT_END				= "4"
-#TELNET_SB_ENCRYPT_REQUEST_START		= "5"
-#TELNET_SB_ENCRYPT_REQUEST_END			= "6"
-#TELNET_SB_ENCRYPT_ENC_KEYID			= "7"
-#TELNET_SB_ENCRYPT_DEC_KEYID			= "8"
+TELNET_X_DISPLAY_LOCATION               = "35"  # 1096
+TELNET_SB_X_DISPLAY_LOCATION_IS                 = "0"
+TELNET_SB_X_DISPLAY_LOCATION_SEND               = "1"
 
-TELNET_ENVIRONMENT			= "39"	# 1572
-TELNET_SB_ENVIRONMENT_IS			= "0"
-TELNET_SB_ENVIRONMENT_SEND			= "1"
-TELNET_SB_ENVIRONMENT_INFO			= "2"
+#TELNET_OLD_ENVIRONMENT                 = "36"  # 1408
+#TELNET_SB_OLD_ENVIRONMENT_IS                   = "0"
+#TELNET_SB_OLD_ENVIRONMENT_SEND                 = "1"
+#TELNET_SB_OLD_ENVIRONMENT_INFO                 = "2"
 
-#TELNET_TN3270E				= "40"	# 1647
-#TELNET_SB_TN3270E_ASSOCIATE			= "0"
-#TELNET_SB_TN3270E_CONNECT			= "1"
-#TELNET_SB_TN3270E_DEVICE_TYPE			= "2"
-#TELNET_SB_TN3270E_FUNCTIONS			= "3"
-#TELNET_SB_TN3270E_IS				= "4"
-#TELNET_SB_TN3270E_REASON			= "5"
-#TELNET_SB_TN3270E_REJECT			= "6"
-#TELNET_SB_TN3270E_REQUEST			= "7"
-#TELNET_SB_TN3270E_SEND				= "8"
+#TELNET_AUTHENTICATION                  = "37"  # 2941
+#TELNET_SB_AUTHENTICATION_IS                    = "0"
+#TELNET_SB_AUTHENTICATION_SEND                  = "1"
+#TELNET_SB_AUTHENTICATION_REPLY                 = "2"
+#TELNET_SB_AUTHENTICATION_NAME                  = "3"
 
-#TELNET_CHARSET				= "42"	# 2066
-#TELNET_SB_CHARSET_REQUEST			= "1"
-#TELNET_SB_CHARSET_ACCEPTED			= "2"
-#TELNET_SB_CHARSET_REJECTED			= "3"
-#TELNET_SB_CHARSET_TTABLE_IS			= "4"
-#TELNET_SB_CHARSET_TTABLE_REJECTED		= "5"
-#TELNET_SB_CHARSET_TTABLE_ACK			= "6"
-#TELNET_SB_CHARSET_TTABLE_NAK			= "7"
+#TELNET_ENCRYPT                         = "38"  # 2946
+#TELNET_SB_ENCRYPT_IS                           = "0"
+#TELNET_SB_ENCRYPT_SUPPORT                      = "1"
+#TELNET_SB_ENCRYPT_REPLY                        = "2"
+#TELNET_SB_ENCRYPT_START                        = "3"
+#TELNET_SB_ENCRYPT_END                          = "4"
+#TELNET_SB_ENCRYPT_REQUEST_START                = "5"
+#TELNET_SB_ENCRYPT_REQUEST_END                  = "6"
+#TELNET_SB_ENCRYPT_ENC_KEYID                    = "7"
+#TELNET_SB_ENCRYPT_DEC_KEYID                    = "8"
 
-#TELNET_COM_PORT			= "44"	# 2217
-#TELNET_SB_COM_PORT_CLI_SET_BAUDRATE		= "1"
-#TELNET_SB_COM_PORT_CLI_SET_DATASIZE		= "2"
-#TELNET_SB_COM_PORT_CLI_SET_PARITY		= "3"
-#TELNET_SB_COM_PORT_CLI_SET_STOPSIZE		= "4"
-#TELNET_SB_COM_PORT_CLI_SET_CONTROL		= "5"
-#TELNET_SB_COM_PORT_CLI_NOTIFY_LINESTATE	= "6"
-#TELNET_SB_COM_PORT_CLI_NOTIFY_MODEMSTATE	= "7"
-#TELNET_SB_COM_PORT_CLI_FLOWCONTROL_SUSPEND	= "8"
-#TELNET_SB_COM_PORT_CLI_FLOWCONTROL_RESUME	= "9"
-#TELNET_SB_COM_PORT_CLI_SET_LINESTATE_MASK	= "10"
-#TELNET_SB_COM_PORT_CLI_SET_MODEMSTATE_MASK	= "11"
-#TELNET_SB_COM_PORT_CLI_PURGE_DATA		= "12"
-#TELNET_SB_COM_PORT_SVR_SET_BAUDRATE		= "101"
-#TELNET_SB_COM_PORT_SVR_SET_DATASIZE		= "102"
-#TELNET_SB_COM_PORT_SVR_SET_PARITY		= "103"
-#TELNET_SB_COM_PORT_SVR_SET_STOPSIZE		= "104"
-#TELNET_SB_COM_PORT_SVR_SET_CONTROL		= "105"
-#TELNET_SB_COM_PORT_SVR_NOTIFY_LINESTATE	= "106"
-#TELNET_SB_COM_PORT_SVR_NOTIFY_MODEMSTATE	= "107"
-#TELNET_SB_COM_PORT_SVR_FLOWCONTROL_SUSPEND	= "108"
-#TELNET_SB_COM_PORT_SVR_FLOWCONTROL_RESUME	= "109"
-#TELNET_SB_COM_PORT_SVR_SET_LINESTATE_MASK	= "110"
-#TELNET_SB_COM_PORT_SVR_SET_MODEMSTATE_MASK	= "111"
-#TELNET_SB_COM_PORT_SVR_PURGE_DATA		= "112"
+TELNET_ENVIRONMENT                      = "39"  # 1572
+TELNET_SB_ENVIRONMENT_IS                        = "0"
+TELNET_SB_ENVIRONMENT_SEND                      = "1"
+TELNET_SB_ENVIRONMENT_INFO                      = "2"
 
-#TELNET_KERMIT				= "47"	# 2840
-#TELNET_SB_KERMIT_START_SERVER			= "0"
-#TELNET_SB_KERMIT_STOP_SERVER			= "1"
-#TELNET_SB_KERMIT_REQ_START_SERVER		= "2"
-#TELNET_SB_KERMIT_REQ_STOP_SERVER		= "3"
-#TELNET_SB_KERMIT_SOP				= "4"
-#TELNET_SB_KERMIT_RESP_START_SERVER		= "8"
-#TELNET_SB_KERMIT_RESP_STOP_SERVER		= "9"
+#TELNET_TN3270E                         = "40"  # 1647
+#TELNET_SB_TN3270E_ASSOCIATE                    = "0"
+#TELNET_SB_TN3270E_CONNECT                      = "1"
+#TELNET_SB_TN3270E_DEVICE_TYPE                  = "2"
+#TELNET_SB_TN3270E_FUNCTIONS                    = "3"
+#TELNET_SB_TN3270E_IS                           = "4"
+#TELNET_SB_TN3270E_REASON                       = "5"
+#TELNET_SB_TN3270E_REJECT                       = "6"
+#TELNET_SB_TN3270E_REQUEST                      = "7"
+#TELNET_SB_TN3270E_SEND                         = "8"
 
-TELNET_EXOPL				= "255"	# 861
+#TELNET_CHARSET                         = "42"  # 2066
+#TELNET_SB_CHARSET_REQUEST                      = "1"
+#TELNET_SB_CHARSET_ACCEPTED                     = "2"
+#TELNET_SB_CHARSET_REJECTED                     = "3"
+#TELNET_SB_CHARSET_TTABLE_IS                    = "4"
+#TELNET_SB_CHARSET_TTABLE_REJECTED              = "5"
+#TELNET_SB_CHARSET_TTABLE_ACK                   = "6"
+#TELNET_SB_CHARSET_TTABLE_NAK                   = "7"
 
-#TELNET_SUBLIMINAL_MSG			= "257"	# 1097
+#TELNET_COM_PORT                        = "44"  # 2217
+#TELNET_SB_COM_PORT_CLI_SET_BAUDRATE            = "1"
+#TELNET_SB_COM_PORT_CLI_SET_DATASIZE            = "2"
+#TELNET_SB_COM_PORT_CLI_SET_PARITY              = "3"
+#TELNET_SB_COM_PORT_CLI_SET_STOPSIZE            = "4"
+#TELNET_SB_COM_PORT_CLI_SET_CONTROL             = "5"
+#TELNET_SB_COM_PORT_CLI_NOTIFY_LINESTATE        = "6"
+#TELNET_SB_COM_PORT_CLI_NOTIFY_MODEMSTATE       = "7"
+#TELNET_SB_COM_PORT_CLI_FLOWCONTROL_SUSPEND     = "8"
+#TELNET_SB_COM_PORT_CLI_FLOWCONTROL_RESUME      = "9"
+#TELNET_SB_COM_PORT_CLI_SET_LINESTATE_MASK      = "10"
+#TELNET_SB_COM_PORT_CLI_SET_MODEMSTATE_MASK     = "11"
+#TELNET_SB_COM_PORT_CLI_PURGE_DATA              = "12"
+#TELNET_SB_COM_PORT_SVR_SET_BAUDRATE            = "101"
+#TELNET_SB_COM_PORT_SVR_SET_DATASIZE            = "102"
+#TELNET_SB_COM_PORT_SVR_SET_PARITY              = "103"
+#TELNET_SB_COM_PORT_SVR_SET_STOPSIZE            = "104"
+#TELNET_SB_COM_PORT_SVR_SET_CONTROL             = "105"
+#TELNET_SB_COM_PORT_SVR_NOTIFY_LINESTATE        = "106"
+#TELNET_SB_COM_PORT_SVR_NOTIFY_MODEMSTATE       = "107"
+#TELNET_SB_COM_PORT_SVR_FLOWCONTROL_SUSPEND     = "108"
+#TELNET_SB_COM_PORT_SVR_FLOWCONTROL_RESUME      = "109"
+#TELNET_SB_COM_PORT_SVR_SET_LINESTATE_MASK      = "110"
+#TELNET_SB_COM_PORT_SVR_SET_MODEMSTATE_MASK     = "111"
+#TELNET_SB_COM_PORT_SVR_PURGE_DATA              = "112"
+
+#TELNET_KERMIT                          = "47"  # 2840
+#TELNET_SB_KERMIT_START_SERVER                  = "0"
+#TELNET_SB_KERMIT_STOP_SERVER                   = "1"
+#TELNET_SB_KERMIT_REQ_START_SERVER              = "2"
+#TELNET_SB_KERMIT_REQ_STOP_SERVER               = "3"
+#TELNET_SB_KERMIT_SOP                           = "4"
+#TELNET_SB_KERMIT_RESP_START_SERVER             = "8"
+#TELNET_SB_KERMIT_RESP_STOP_SERVER              = "9"
+
+TELNET_EXOPL                            = "255" # 861
+
+#TELNET_SUBLIMINAL_MSG                  = "257" # 1097
 
 
 ################################################################################
 # Non-RFC telnet options
 #
-# 2 - reconnection			# [nic 50005]
-# 4 - approx msg size negotiation	# [ethernet]
-# 8 - output line width			# [nic 50005]
-# 9 - output page size			# [nic 50005]
-# 41 - xauth				# [Earhart]
-# 43 - remote serial port		# [Barnes]
-# 45 - suppress local echo		# [Atmar]
-# 46 - start tls			# [Boe]
-# 48 - send url				# [Croft]
-# 49 - forward X			# [Altman]
-# 50-137 - unassigned			# [IANA]
-# 138 - telopt pragma logon		# [McGregory]
-# 139 - telopt sspi logon		# [McGregory]
-# 140 - telopt pargma heartbeat		# [McGregory]
-# 141-254 - unassigned			# [IANA]
-# 256 - unassigned			# [IANA]
+# 2 - reconnection                      # [nic 50005]
+# 4 - approx msg size negotiation       # [ethernet]
+# 8 - output line width                 # [nic 50005]
+# 9 - output page size                  # [nic 50005]
+# 41 - xauth                            # [Earhart]
+# 43 - remote serial port               # [Barnes]
+# 45 - suppress local echo              # [Atmar]
+# 46 - start tls                        # [Boe]
+# 48 - send url                         # [Croft]
+# 49 - forward X                        # [Altman]
+# 50-137 - unassigned                   # [IANA]
+# 138 - telopt pragma logon             # [McGregory]
+# 139 - telopt sspi logon               # [McGregory]
+# 140 - telopt pargma heartbeat         # [McGregory]
+# 141-254 - unassigned                  # [IANA]
+# 256 - unassigned                      # [IANA]
 
-TELNET_SB_IS	= "0"
-TELNET_SB_SEND	= "1"
-TELNET_SB_INFO	= "2"
+TELNET_SB_IS    = "0"
+TELNET_SB_SEND  = "1"
+TELNET_SB_INFO  = "2"
 
-TELNET_POLICY	= "telnet.policy"
+TELNET_POLICY   = "telnet.policy"
+
+
+class ParseInbandAuthError(Exception):
+    """<class internal="yes"/>"""
+    pass
 
 class AbstractTelnetProxy(Proxy):
-	"""<class maturity="stable" abstract="yes">
+    """<class maturity="stable" abstract="yes">
+            <summary>
+              Class encapsulating the abstract Telnet proxy.
+            </summary>
+            <description>
+              <para>
+                This class implements the Telnet protocol (as described in RFC 854) and its most common
+                extensions. Although not all possible options are checked by the low
+                level proxy, it is possible to filter any option
+                and suboption negotiation sequences using policy callbacks.
+                AbstractTelnetProxy serves as a starting point for customized proxy classes, but is itself not directly usable. Service definitions should refer to a customized class derived from AbstractTelnetProxy, or one of the predefined TelnetProxy proxy classes. AbstractTelnetProxy denies all options by default.
+              </para>
+            </description>
+            <metainfo>
+              <attributes>
+                <attribute maturity="stable">
+                  <name>option</name>
+                  <type>
+                    <hash>
+                      <key>
+                        <choice>
+                          <string/>
+                          <tuple>
+                            <string/>
+                            <string/>
+                          </tuple>
+                        </choice>
+                      </key>
+                      <value>
+                        <link id="action.telnet.opt"/>
+                      </value>
+                    </hash>
+                  </type>
+                  <conftime>
+                    <read/>
+                    <write/>
+                  </conftime>
+                  <runtime>
+                    <read/>
+                    <write/>
+                  </runtime>
+                  <description>
+                    Normative policy hash for Telnet options
+                  indexed by the option and (optionally) the suboption. See also <xref linkend="telnet_policies"/>.
+                  </description>
+                </attribute>
+                <attribute maturity="stable">
+                  <name>negotiation</name>
+                  <type>
+                    <hash>
+                      <key>
+                        <string/>
+                      </key>
+                      <value>
+                        <integer/>
+                      </value>
+                    </hash>
+                  </type>
+                  <default/>
+                  <conftime>
+                    <read/>
+                    <write/>
+                  </conftime>
+                  <runtime>
+                    <read/>
+                    <write/>
+                  </runtime>
+                  <description>
+                    Normative hash listing which options must be negotiated for a given command. See <xref linkend="telnet_negotiation"/> for details.
+                  </description>
+                </attribute>
+                <attribute maturity="stable">
+                  <name>timeout</name>
+                  <type>
+                    <integer/>
+                  </type>
+                  <default>600000</default>
+                  <conftime>
+                    <read/>
+                    <write/>
+                  </conftime>
+                  <runtime>
+                    <read/>
+                  </runtime>
+                  <description>
+                    I/O timeout in milliseconds.
+                  </description>
+                </attribute>
+                <attribute maturity="stable">
+                  <name>current_var_name</name>
+                  <type>
+                    <string/>
+                  </type>
+                  <default>n/a</default>
+                  <conftime/>
+                  <runtime>
+                    <read/>
+                    <write/>
+                  </runtime>
+                  <description>
+                    Name of the variable being negotiated.
+                  </description>
+                </attribute>
+                <attribute maturity="stable">
+                  <name>current_var_value</name>
+                  <type>
+                    <string/>
+                  </type>
+                  <default>n/a</default>
+                  <conftime/>
+                  <runtime>
+                    <read/>
+                    <write/>
+                  </runtime>
+                  <description>
+                    Value of the variable being negotiated (e.g.: value of an environment variable,
+                    an X display location value, etc.).
+                  </description>
+                </attribute>
+                <attribute maturity="stable">
+                  <name>enable_audit</name>
+                  <type>
+                    <boolean/>
+                  </type>
+                  <default>FALSE</default>
+                  <conftime>
+                    <write/>
+                  </conftime>
+                  <runtime>
+                    <read/>
+                  </runtime>
+                  <description>
+                    Enable session auditing.
+                  </description>
+                </attribute>
+              </attributes>
+            </metainfo>
+          </class>
+          """
+    name = "telnet"
+
+
+    def __init__(self, session):
+        """<method maturity="stable" internal="yes">
+                      <summary>
+                        Constructor to initialize a TelnetProxy instance.
+                      </summary>
+                      <description>
+                        <para>
+                          This function initializes a TelnetProxy instance by calling
+                          the inherited __init__ constructor with appropriate
+                          parameters.
+                        </para>
+                      </description>
+                      <metainfo>
+                        <arguments/>
+                      </metainfo>
+                    </method>
+                    """
+        Proxy.__init__(self, session)
+        self.server_username = ""
+        self.gw_username = ""
+        self.server_hostname = ""
+        self.server_port = 23
+
+
+    def config(self):
+        """<method maturity="stable" internal="yes">
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        pass
+
+
+    def parseInbandAuth(self, env, content):
+        """<method internal="yes">
+            <summary>
+                This method should be called when inband authentication is used, to parse the data in SERVER and USER environment variables.
+            </summary>
+            <description>
+                This method fills in self.server_username, self.gw_username, self.server_hostname, self.server_port
+                from the SERVER and USER environment parameters passed to it. The self.server_port defaults to 23.
+                If both are specified the actual hostname comes from the more specific SERVER option.
+                SERVER option's notation form: server[:port]
+                USER option's notation form: gu=user@[serveruser]@server[:port]
+                [] means the value is optional.
+            </description>
+            <metainfo>
+                <arguments/>
+            </metainfo>
+            </method>
+        """
+
+        state = {
+          "server_hostname" : self.server_hostname,
+          "server_port" : self.server_port,
+          "gw_username" : self.gw_username,
+          "server_username" : self.server_username,
+        }
+
+        def parseServer(self, content, state):
+
+            colon_count = content.count(':')
+            if not content:
+                #Empty content is not acceptable, so make it fail
+                colon_count = 2
+
+            if colon_count == 0:
+                state["server_hostname"] = content
+            elif colon_count == 1 and content[-1] == ':':
+                state["server_hostname"], port_string = content.split(':')
+            elif colon_count == 1 and content[0] != ':':
+                state["server_hostname"], port_string = content.split(':')
+                try:
+                    state["server_port"] = int(port_string)
+                    if state["server_port"] < 1 or state["server_port"] > 65535:
+                        raise ValueError, "Port number out of range"
+                except ValueError as e:
+                    raise ParseInbandAuthError, "Invalid port value"
+            else:
+                raise ParseInbandAuthError, "SERVER environment variable must be in the form of server[:port]"
+
+        def parseUser(self, content, state):
+
+            at_count = content.count('@')
+            colon_count = content.count(':')
+            if not content:
+                #Empty content is not acceptable, so make it fail
+                colon_count = 2
+
+            if at_count > 2 or colon_count > 1 or (at_count == 2 and content[:3] != "gu="):
+                raise ParseInbandAuthError, "USER environment variable must be in the form of user[@server[:port]], or gu=gwuser@[serveruser]@server[:port]"
+
+            if at_count == 0:
+                state["server_username"] = content
+            elif at_count == 1:
+                state["server_username"], host = content.split('@')
+                if not state["server_hostname"]:
+                    parseServer(self, host, state)
+            elif at_count == 2:
+                gwuser, state["server_username"], host = content.split('@')
+                state["gw_username"] = gwuser[3:]
+                if not state["server_hostname"]:
+                    parseServer(self, host, state)
+
+        env = env.upper()
+        try:
+            if env == 'SERVER':
+                parseServer(self, content, state)
+            elif env == 'USER':
+                parseUser(self, content, state)
+            else:
+                proxyLog(self, TELNET_POLICY, 3, "Error parsing inband authorization token, " \
+                                                 "unknown environment variable; env='%s'", (env, ))
+                return FALSE
+        except ParseInbandAuthError as e:
+            proxyLog(self, TELNET_POLICY, 3, "Error parsing inband authorization token; " \
+                                             "env='%s', content='%s', error='%s'", (env, content, e.args[0]))
+            return FALSE
+        except ValueError as e:
+            proxyLog(self, TELNET_POLICY, 3, "Error parsing inband authorization token, " \
+                                             "input does not match the supported format; " \
+                                             "env='%s', content='%s'", (env, content))
+            return FALSE
+
+        self.server_hostname = state["server_hostname"]
+        self.server_port = state["server_port"]
+        self.gw_username = state["gw_username"]
+        self.server_username = state["server_username"]
+
+        return TRUE
+
+class TelnetProxy(AbstractTelnetProxy):
+    """<class maturity="stable">
+      <summary>
+        Default Telnet proxy based on AbstractTelnetProxy.
+      </summary>
+      <description>
+      <para>TelnetProxy is a proxy class based on AbstractTelnetProxy, allowing the use of all Telnet options.</para>
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    def config(self):
+        """<method maturity="stable" internal="yes">
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        self.option["*"]        = TELNET_OPT_ACCEPT
+        self.option["*", "*"]   = TELNET_OPT_ACCEPT
+        self.negotiation["239"] = int(TELNET_EOR)
+
+class TelnetProxyStrict(AbstractTelnetProxy):
+    """<class maturity="stable">
+      <summary>
+        Telnet proxy based on AbstractTelnetProxy, allowing only the minimal command set.
+      </summary>
+      <description>
+      <para>TelnetProxyStrict is a proxy class based on AbstractTelnetProxy, allowing the use of the options minimally required for a useful Telnet session.</para>
+      <para>The following options are permitted: ECHO; SUPPRESS_GO_AHEAD; TERMINAL_TYPE; NAWS; EOR; TERMINAL_SPEED; X_DISPLAY_LOCATION; ENVIRONMENT.
+                All other options are rejected.
+                </para>
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    def config(self):
+        """<method maturity="stable" internal="yes">
           <summary>
-            Class encapsulating the abstract Telnet proxy.
+            Configuration for TelnetProxy
           </summary>
           <description>
             <para>
-              This class implements the Telnet protocol (as described in RFC 854) and its most common
-              extensions. Although not all possible options are checked by the low
-              level proxy, it is possible to filter any option
-              and suboption negotiation sequences using policy callbacks.
-	      AbstractTelnetProxy serves as a starting point for customized proxy classes, but is itself not directly usable. Service definitions should refer to a customized class derived from AbstractTelnetProxy, or one of the predefined TelnetProxy proxy classes. AbstractTelnetProxy denies all options by default.
+              It enables all options needed for a useful Telnet session.
             </para>
+
           </description>
           <metainfo>
-            <attributes>
-              <attribute maturity="stable">
-                <name>option</name>
-                <type>
-                  <hash>
-                    <key>
-		      <choice>
-			<string/>
-			<tuple>
-			  <string/>
-			  <string/>
-			</tuple>
-		      </choice>
-                    </key>
-                    <value>
-                      <link id="action.telnet.opt"/>
-                    </value>
-                  </hash>
-		</type>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Normative policy hash for Telnet options 
-                indexed by the option and (optionally) the suboption. See also <xref linkend="telnet_policies"/>. 
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>negotiation</name>
-                <type>
-                  <hash>
-                    <key>
-                      <string/>
-                    </key>
-                    <value>
-                      <integer/>
-                    </value>
-                  </hash>
-                </type>
-                <default/>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Normative hash listing which options must be negotiated for a given command. See <xref linkend="telnet_negotiation"/> for details.	  
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>timeout</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>600000</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  I/O timeout in milliseconds.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>current_var_name</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Name of the variable being negotiated.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>current_var_value</name>
-                <type>
-                  <string/>
-                </type>
-                <default>n/a</default>
-                <conftime/>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Value of the variable being negotiated (e.g.: value of an environment variable,
-                  an X display location value, etc.).
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>enable_audit</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>FALSE</default>
-                <conftime>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Enable session auditing.
-                </description>
-              </attribute>
-            </attributes>
+            <arguments/>
           </metainfo>
-        </class>
+        </method>
         """
-	name = "telnet"
-	def __init__(self, session):
-		"""<method maturity="stable" internal="yes">
-                  <summary>
-                    Constructor to initialize a TelnetProxy instance.
-                  </summary>
-                  <description>
-                    <para>
-                      This function initializes a TelnetProxy instance by calling
-                      the inherited __init__ constructor with appropriate 
-                      parameters.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
-		Proxy.__init__(self, session)
+        self.option[TELNET_ECHO]                = TELNET_OPT_ACCEPT
+        self.option[TELNET_SUPPRESS_GO_AHEAD]   = TELNET_OPT_ACCEPT
+        self.option[TELNET_TERMINAL_TYPE]       = TELNET_OPT_ACCEPT
+        self.option[TELNET_NAWS]                = TELNET_OPT_ACCEPT
+        self.option[TELNET_EOR]                 = TELNET_OPT_ACCEPT
+        self.option[TELNET_TERMINAL_SPEED]      = TELNET_OPT_ACCEPT
+        self.option[TELNET_X_DISPLAY_LOCATION]  = TELNET_OPT_ACCEPT
+        self.option[TELNET_ENVIRONMENT]         = TELNET_OPT_ACCEPT
+        self.option["*"]                        = TELNET_OPT_REJECT
 
-	def config(self):
-                """<method maturity="stable" internal="yes">
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
-		pass
+        self.option[TELNET_TERMINAL_TYPE,       TELNET_SB_TERMINAL_TYPE_IS]             = TELNET_OPT_ACCEPT
+        self.option[TELNET_TERMINAL_TYPE,       TELNET_SB_TERMINAL_TYPE_SEND]           = TELNET_OPT_ACCEPT
+        self.option[TELNET_TERMINAL_SPEED,      TELNET_SB_TERMINAL_SPEED_IS]            = TELNET_OPT_ACCEPT
+        self.option[TELNET_TERMINAL_SPEED,      TELNET_SB_TERMINAL_SPEED_SEND]          = TELNET_OPT_ACCEPT
+        self.option[TELNET_X_DISPLAY_LOCATION,  TELNET_SB_X_DISPLAY_LOCATION_IS]        = TELNET_OPT_ACCEPT
+        self.option[TELNET_X_DISPLAY_LOCATION,  TELNET_SB_X_DISPLAY_LOCATION_SEND]      = TELNET_OPT_ACCEPT
+        self.option[TELNET_ENVIRONMENT,         TELNET_SB_ENVIRONMENT_IS]               = TELNET_OPT_ACCEPT
+        self.option[TELNET_ENVIRONMENT,         TELNET_SB_ENVIRONMENT_SEND]             = TELNET_OPT_ACCEPT
+        self.option[TELNET_ENVIRONMENT,         TELNET_SB_ENVIRONMENT_INFO]             = TELNET_OPT_ACCEPT
+        self.option[TELNET_NAWS,                "*"]                                    = TELNET_OPT_ACCEPT
+        self.option[TELNET_EOR,                 "*"]                                    = TELNET_OPT_ACCEPT
+        self.option["*",                        "*"]                                    = TELNET_OPT_REJECT
 
-class TelnetProxy(AbstractTelnetProxy):
-	"""<class maturity="stable">
+        self.negotiation["239"]                 = int(TELNET_EOR)
+
+class TelnetProxyNonTransparent(TelnetProxy):
+    """<class maturity="stable" internal="yes">
+      <summary>
+      </summary>
+      <description/>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    auth_inband_supported = TRUE
+
+    def config(self):
+        """<method maturity="stable" internal="yes">
           <summary>
-            Default Telnet proxy based on AbstractTelnetProxy.
           </summary>
           <description>
-	  <para>TelnetProxy is a proxy class based on AbstractTelnetProxy, allowing the use of all Telnet options.</para>
           </description>
           <metainfo>
-            <attributes/>
+            <arguments/>
           </metainfo>
-        </class>
+        </method>
         """
-	def config(self):
-		"""<method maturity="stable" internal="yes">
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
-		self.option["*"]	= TELNET_OPT_ACCEPT
-		self.option["*", "*"]	= TELNET_OPT_ACCEPT
-		self.negotiation["239"]	= int(TELNET_EOR)
+class TelnetProxyNonTransparent(TelnetProxy):
+    """<class maturity="stable" internal="yes">
+      <summary>
+      </summary>
+      <description/>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    auth_inband_supported = TRUE
 
-class TelnetProxyStrict(AbstractTelnetProxy):
-	"""<class maturity="stable">
+    def config(self):
+        """<method maturity="stable" internal="yes">
           <summary>
-            Telnet proxy based on AbstractTelnetProxy, allowing only the minimal command set.
           </summary>
           <description>
-	  <para>TelnetProxyStrict is a proxy class based on AbstractTelnetProxy, allowing the use of the options minimally required for a useful Telnet session.</para>
-	  <para>The following options are permitted: ECHO; SUPPRESS_GO_AHEAD; TERMINAL_TYPE; NAWS; EOR; TERMINAL_SPEED; X_DISPLAY_LOCATION; ENVIRONMENT.
-		    All other options are rejected.
-		    </para>
           </description>
           <metainfo>
-            <attributes/>
+            <arguments/>
           </metainfo>
-        </class>
+        </method>
         """
-	def config(self):
-		"""<method maturity="stable" internal="yes">
-                  <summary>
-                    Configuration for TelnetProxy
-                  </summary>
-                  <description>
-                    <para>
-                      It enables all options needed for a useful Telnet session.
-                    </para>
-		    
-                  </description>
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
-		self.option[TELNET_ECHO]		= TELNET_OPT_ACCEPT
-		self.option[TELNET_SUPPRESS_GO_AHEAD]	= TELNET_OPT_ACCEPT
-		self.option[TELNET_TERMINAL_TYPE]	= TELNET_OPT_ACCEPT
-		self.option[TELNET_NAWS]		= TELNET_OPT_ACCEPT
-		self.option[TELNET_EOR]			= TELNET_OPT_ACCEPT
-		self.option[TELNET_TERMINAL_SPEED]	= TELNET_OPT_ACCEPT
-		self.option[TELNET_X_DISPLAY_LOCATION]	= TELNET_OPT_ACCEPT
-		self.option[TELNET_ENVIRONMENT]		= TELNET_OPT_ACCEPT
-		self.option["*"]			= TELNET_OPT_REJECT
-
-		self.option[TELNET_TERMINAL_TYPE,	TELNET_SB_TERMINAL_TYPE_IS] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_TERMINAL_TYPE,	TELNET_SB_TERMINAL_TYPE_SEND] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_TERMINAL_SPEED,	TELNET_SB_TERMINAL_SPEED_IS] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_TERMINAL_SPEED,	TELNET_SB_TERMINAL_SPEED_SEND] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_X_DISPLAY_LOCATION,	TELNET_SB_X_DISPLAY_LOCATION_IS] 	= TELNET_OPT_ACCEPT
-		self.option[TELNET_X_DISPLAY_LOCATION,	TELNET_SB_X_DISPLAY_LOCATION_SEND]	= TELNET_OPT_ACCEPT
-		self.option[TELNET_ENVIRONMENT,		TELNET_SB_ENVIRONMENT_IS] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_ENVIRONMENT,		TELNET_SB_ENVIRONMENT_SEND] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_ENVIRONMENT,		TELNET_SB_ENVIRONMENT_INFO] 		= TELNET_OPT_ACCEPT
-		self.option[TELNET_NAWS,		"*"]					= TELNET_OPT_ACCEPT
-		self.option[TELNET_EOR,			"*"]					= TELNET_OPT_ACCEPT
-		self.option["*",			"*"]					= TELNET_OPT_REJECT
-
-		self.negotiation["239"] 		= int(TELNET_EOR)
-
+        super(TelnetProxyNonTransparent, self).config()
+        self.transparent_mode = FALSE
+        self.server_name_prompt = "Please enter server host name: "

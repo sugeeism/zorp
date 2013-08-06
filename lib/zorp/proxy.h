@@ -39,6 +39,8 @@
 #include <zorp/proxyssl.h>
 
 
+#include <glib.h>
+
 /* proxy states, the order of these enums is important */
 enum
 {
@@ -52,7 +54,7 @@ enum
 };
 
 /* proxy flags */
-enum 
+enum
 {
   ZPF_NONBLOCKING=0x0001,
   ZPF_STOP_REQUEST=0x0002,
@@ -91,6 +93,7 @@ typedef enum _ZProxyUserAuthType
   Z_PROXY_USER_AUTHENTICATED_SERVER,             /**< The authentication is a server-side authentication. Auth_info param is "server". */
 } ZProxyUserAuthType;
 
+typedef struct _ZProxyModuleFuncs ZProxyModuleFuncs;
 typedef struct _ZProxyParams ZProxyParams;
 typedef struct _ZProxyIface ZProxyIface;
 typedef struct _ZProxyFuncs ZProxyFuncs;
@@ -140,13 +143,14 @@ struct _ZProxy
   ZPolicyObj *py_endpoints[EP_MAX];
 
   GString *language;
+  GString *alerting_config;
 
   /* a pointer to the parent proxy */
   ZProxy *parent_proxy;
   /* the linked list of child proxies */
   GList *child_proxies;
 
-  GStaticMutex interfaces_lock;  
+  GStaticMutex interfaces_lock;
   GList *interfaces;
 
   ZProxySsl ssl_opts;
@@ -159,6 +163,13 @@ extern ZClass ZProxy__class;
 
 /* function prototypes registered in the registry */
 typedef ZProxy *(*ZProxyCreateFunc)(ZProxyParams *params);
+typedef void (*ZProxyModulePyInitFunc)(void);
+
+struct _ZProxyModuleFuncs
+{
+  ZProxyCreateFunc create_proxy;
+  ZProxyModulePyInitFunc module_py_init;
+};
 
 /* log functions */
 #define z_proxy_log(self, class, level, format, args...) 		\
@@ -212,7 +223,7 @@ ZProxyIface *z_proxy_find_iface(ZProxy *self, ZClass *compat);
 gboolean z_proxy_policy_config(ZProxy *);
 gboolean z_proxy_policy_startup(ZProxy *);
 void z_proxy_policy_shutdown(ZProxy *);
-void z_proxy_policy_destroy(ZProxy *self); 
+void z_proxy_policy_destroy(ZProxy *self);
 
 /* compatibility functions for ZPolicyDict based attribute handling */
 void z_proxy_var_new(ZProxy *self, const gchar *name, guint flags, ...);
@@ -228,7 +239,6 @@ gboolean z_proxy_set_server_address(ZProxy *self, const gchar *host, gint port);
 gint z_proxy_connect_server(ZProxy *self, const gchar *host, gint port);
 gint z_proxy_user_authenticated(ZProxy *self, const gchar *entity, gchar const **groups, ZProxyUserAuthType type);
 
-
 /** Wrapper for z_proxy_user_authenticated() with the default #Z_PROXY_USER_AUTHENTICATED_INBAND parameter.
  * @see z_proxy_user_authenticated()
  */
@@ -239,13 +249,13 @@ z_proxy_user_authenticated_default(ZProxy *self, const gchar *entity, gchar cons
 }
 
 gboolean
-z_proxy_get_addresses(ZProxy *self, 
+z_proxy_get_addresses(ZProxy *self,
                       guint *protocol,
                       ZSockAddr **client_address, ZSockAddr **client_local,
                       ZSockAddr **server_address, ZSockAddr **server_local,
                       ZDispatchBind **client_listen);
 gboolean
-z_proxy_get_addresses_locked(ZProxy *self, 
+z_proxy_get_addresses_locked(ZProxy *self,
                              guint *protocol,
                              ZSockAddr **client_address, ZSockAddr **client_local,
                              ZSockAddr **server_address, ZSockAddr **server_local,
@@ -255,16 +265,22 @@ gboolean z_proxy_threaded_start(ZProxy *self, ZProxyGroup *group);
 gboolean z_proxy_nonblocking_start(ZProxy *self, ZProxyGroup *group);
 void z_proxy_nonblocking_stop(ZProxy *self);
 
-
 gboolean z_proxy_check_license(ZProxy *self);
 
 static inline gboolean
 z_proxy_stop_requested(ZProxy *self)
 {
-  return self->flags & ZPF_STOP_REQUEST; 
+  return self->flags & ZPF_STOP_REQUEST;
+}
+
+static inline void
+z_proxy_clear_stop_request(ZProxy *self)
+{
+  self->flags &= ~ZPF_STOP_REQUEST;
 }
 
 gboolean z_proxy_loop_iteration(ZProxy *self);
+
 
 /* constructor for ZProxy */
 ZProxy *
@@ -275,47 +291,47 @@ void z_proxy_free_method(ZObject *s);
 
 static inline gboolean
 z_proxy_config(ZProxy *self)
-{ 
+{
   return Z_FUNCS(self, ZProxy)->config(self);
 }
 
 static inline gboolean
 z_proxy_startup(ZProxy *self)
-{ 
+{
   return Z_FUNCS(self, ZProxy)->startup(self);
 }
 
 static inline void
 z_proxy_main(ZProxy *self)
-{ 
+{
   Z_FUNCS(self, ZProxy)->main(self);
 }
 
 static inline void
 z_proxy_shutdown(ZProxy *self)
-{ 
+{
   Z_FUNCS(self, ZProxy)->shutdown(self);
 }
 
 static inline void
 z_proxy_destroy(ZProxy *self)
-{ 
+{
   Z_FUNCS(self, ZProxy)->destroy(self);
 }
 
 static inline gboolean
 z_proxy_nonblocking_init(ZProxy *self, ZPoll *poll)
-{ 
+{
   return Z_FUNCS(self, ZProxy)->nonblocking_init(self, poll);
 }
 
 static inline void
 z_proxy_nonblocking_deinit(ZProxy *self)
-{ 
+{
   Z_FUNCS(self, ZProxy)->nonblocking_deinit(self);
 }
 
-static inline void 
+static inline void
 z_proxy_wakeup(ZProxy *self)
 {
   Z_FUNCS(self, ZProxy)->wakeup(self);
@@ -327,7 +343,7 @@ z_proxy_ref(ZProxy *self)
   return (ZProxy *) z_object_ref(&self->super);
 }
 
-static inline void 
+static inline void
 z_proxy_unref(ZProxy *self)
 {
   z_object_unref(&self->super);
@@ -363,10 +379,10 @@ void z_proxy_iface_free_method(ZObject *s);
 /* NOTE: this interface is implemented by all proxies. dynamic references to
  * self->parent should only be used through this interface as in this case it
  * is ensured that the parent proxy exists by the time it is referenced.
- */ 
+ */
 
-typedef ZProxyIface ZProxyBasicIface; 
-typedef struct _ZProxyBasicIfaceFuncs 
+typedef ZProxyIface ZProxyBasicIface;
+typedef struct _ZProxyBasicIfaceFuncs
 {
   ZObjectFuncs super;
   gboolean (*get_var)(ZProxyBasicIface *self, const gchar *var_name, gchar **value);
@@ -394,7 +410,7 @@ ZProxyBasicIface *z_proxy_basic_iface_new(ZClass *class, ZProxy *proxy);
 /* ZProxyStackIface */
 
 typedef ZProxyIface ZProxyStackIface;
-typedef struct _ZProxyStackIfaceFuncs 
+typedef struct _ZProxyStackIfaceFuncs
 {
   ZObjectFuncs super;
   void (*set_verdict)(ZProxyStackIface *self, ZVerdict verdict, const gchar *description);
@@ -448,8 +464,8 @@ z_proxy_host_iface_check_name(ZProxyHostIface *s, const gchar *host_name, gchar 
 
 gboolean z_proxy_stop_request(const gchar *session_id);
 
-
 void z_proxy_hash_init(void);
 void z_proxy_hash_destroy(void);
+
 
 #endif

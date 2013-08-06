@@ -5,10 +5,7 @@ import optparse
 import sys
 import types
 import socket
-from kznf.kznfnetlink import *
-from kznf.nfnetlink import *
-
-KZNL_MSG_COPY_ZONE_DAC=16
+import kzorp.kzorp_netlink as kznl
 
 AttributeRequiredError = "required attribute missing"
 
@@ -42,372 +39,100 @@ def size_to_mask(family, size):
 
     return socket.inet_ntop(family, packed_mask)
 
-def mask_to_description(mask, definition):
-    text = ""
-    first = True
-    for i in definition.keys():
-        if (mask & i):
-            if first:
-                text = definition[i]
-                first = False
-            else:
-                text = text + ",%s" % (definition[i])
-    return text
-
-
 class DumpBase():
-    def __init__(self, quiet, type, create_func):
-      self.quiet = quiet
-      self.type = type
-      self.create_func = create_func
-      self.has_data = False
+    def __init__(self, quiet, msg):
+        self.quiet = quiet
+        self.msg = msg
+        self.replies = []
 
+    replies = []
     def dump(self):
-        # initialize nfnetlink
-        h = Handle()
-        h.register_subsystem(Subsystem(NFNL_SUBSYS_KZORP))
-
-        # create dump message
-        m = h.create_message(NFNL_SUBSYS_KZORP, self.type, NLM_F_REQUEST | NLM_F_DUMP)
-        m.set_nfmessage(self.create_func(None))
-
-        if not self.quiet:
-            res = h.talk(m, (0, 0), self._msg_handler)
-        else:
-            res = h.talk(m, (0, 0), self._msg_handler_quiet)
-
-        if res != 0:
+        try:
+            handle = kznl.Handle()
+            for reply in handle.talk(self.msg, True):
+                self.replies.append(reply)
+                if self.quiet:
+                    pass
+                else:
+                    print str(reply)
+        except kznl.NetlinkException as e:
+            res = int(e.detail)
             sys.stderr.write("Dump failed: result='%d' error='%s'\n" % (res, os.strerror(-res)))
             return 1
 
-        if self.quiet:
-            if self.has_data:
-                res = 0
-            else:
-                res = 1
-
-        return res
-
-    def _msg_handler(self, msg):
-        pass
-
-    def _msg_handler_quiet(self, msg):
-      self.has_data = True
+        return 0
 
 class DumpZones(DumpBase):
     def __init__(self, quiet):
-        DumpBase.__init__(self, quiet, KZNL_MSG_GET_ZONE, create_get_zone_msg)
-
-    def _print_add_zone_svc(self, msg, attrs):
-        if attrs.has_key(KZA_ZONE_UNAME):
-            name = parse_name_attr(attrs[KZA_ZONE_UNAME])
-        else:
-            raise AttributeRequiredError, "KZA_ZONE_UNAME"
-
-        if attrs.has_key(KZA_SVC_NAME):
-            svc_name = parse_name_attr(attrs[KZA_SVC_NAME])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_NAME"
-
-        print "%s: '%s'" % (msg, svc_name)
-
-    def _print_add_zone(self, attrs):
-
-        zone_flags = {1: "umbrella"}
-        
-        if attrs.has_key(KZA_ZONE_PARAMS):
-            flags = parse_int32_attr(attrs[KZA_ZONE_PARAMS])
-        else:
-            raise AttributeRequiredError, "KZA_ZONE_PARAMS"
-
-        if attrs.has_key(KZA_ZONE_NAME):
-            name = parse_name_attr(attrs[KZA_ZONE_NAME])
-        else:
-            name = None
-
-        if attrs.has_key(KZA_ZONE_UNAME):
-            unique_name = parse_name_attr(attrs[KZA_ZONE_UNAME])
-        else:
-            raise AttributeRequiredError, "KZA_ZONE_UNAME"
-
-        if attrs.has_key(KZA_ZONE_PNAME):
-            admin_parent = parse_name_attr(attrs[KZA_ZONE_PNAME])
-        else:
-            admin_parent = None
-
-        if attrs.has_key(KZA_ZONE_RANGE):
-            (family, addr, mask) = parse_inet_range_attr(attrs[KZA_ZONE_RANGE])
-            range_str = ", range '%s/%s'" % (socket.inet_ntop(family, addr), socket.inet_ntop(family, mask))
-        else:
-            range_str = ""
-
-        flags_str = mask_to_description(flags, zone_flags)
-
-        print "Zone unique_name='%s', visible_name='%s', admin_parent='%s',\n        flags '%s'%s" % \
-              (unique_name, name, admin_parent, flags_str, range_str)
-
-    def _msg_handler(self, msg):
-        attrs = msg.get_nfmessage().get_attributes()
-
-        if msg.type & 0xff == KZNL_MSG_ADD_ZONE:
-            self._print_add_zone(attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_ZONE_SVC_IN:
-            self._print_add_zone_svc("        Inbound service: ", attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_ZONE_SVC_OUT:
-            self._print_add_zone_svc("        Outbound service: ", attrs)
+        DumpBase.__init__(self, quiet, kznl.KZorpGetZoneMessage())
 
 class DumpServices(DumpBase):
     def __init__(self, quiet):
-        DumpBase.__init__(self, quiet, KZNL_MSG_GET_SERVICE, create_get_service_msg)
-
-    def _nat_range_str(self, flags, ip1, ip2, p1, p2):
-        if ip1 == ip2:
-            return "%s" % (inet_ntoa(ip1),)
-        else:
-            return "(%s - %s)" % (inet_ntoa(ip1), inet_ntoa(ip2))
-
-    def _print_add_svc_nat(self, msg, attrs):
-        if attrs.has_key(KZA_SVC_NAME):
-            name = parse_name_attr(attrs[KZA_SVC_NAME])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_NAME"
-
-        if attrs.has_key(KZA_SVC_NAT_SRC):
-            sflags, sip1, sip2, sp1, sp2 = parse_nat_range_attr(attrs[KZA_SVC_NAT_SRC])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_NAT_SRC"
-
-        if attrs.has_key(KZA_SVC_NAT_DST):
-            dflags, dip1, dip2, dp1, dp2 = parse_nat_range_attr(attrs[KZA_SVC_NAT_DST])
-        else:
-            dflags = None
-
-        if attrs.has_key(KZA_SVC_NAT_MAP):
-            mflags, mip1, mip2, mp1, mp2 = parse_nat_range_attr(attrs[KZA_SVC_NAT_MAP])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_NAT_MAP"
-
-        if dflags:
-            print "%s src %s dst %s mapped to %s" % \
-                  (msg, self._nat_range_str(sflags, sip1, sip2, sp1, sp2), \
-                   self._nat_range_str(dflags, dip1, dip2, dp1, dp2), \
-                   self._nat_range_str(mflags, mip1, mip2, mp1, mp2))
-        else:
-            print "%s src %s mapped to %s" % \
-                  (msg, self._nat_range_str(sflags, sip1, sip2, sp1, sp2), \
-                   self._nat_range_str(mflags, mip1, mip2, mp1, mp2))
-
-    def _print_add_svc(self, attrs):
-
-        svc_type = ("INVALID", "Service", "PFService")
-        svc_flags = {1: "transparent", 2: "forge_addr"}
-        
-        if attrs.has_key(KZA_SVC_NAME):
-            name = parse_name_attr(attrs[KZA_SVC_NAME])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_NAME"
-
-        if attrs.has_key(KZA_SVC_PARAMS):
-            flags, type = parse_service_params_attr(attrs[KZA_SVC_PARAMS])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_PARAMS"
-
-        if attrs.has_key(KZA_SVC_SESSION_CNT):
-            cnt = parse_int32_attr(attrs[KZA_SVC_SESSION_CNT])
-        else:
-            cnt = None
-
-        if attrs.has_key(KZA_SVC_ROUTER_DST_ADDR):
-            addr = parse_inet_addr_attr(attrs[KZA_SVC_ROUTER_DST_ADDR])
-        else:
-            addr = None
-
-        if attrs.has_key(KZA_SVC_ROUTER_DST_PORT):
-            port = parse_port_attr(attrs[KZA_SVC_ROUTER_DST_PORT])
-        else:
-            port = None
-
-        flags_str = mask_to_description(flags, svc_flags)
-
-        print "Service name='%s', flags='%s', type='%s', session_cnt='%d'" % (name, flags_str, svc_type[type], cnt)
-
-        if addr and port:
-            print "        router_dst='%s:%d'" % (socket.inet_ntoa(addr), port)
-
-    def _msg_handler(self, msg):
-        attrs = msg.get_nfmessage().get_attributes()
-
-        if msg.type & 0xff == KZNL_MSG_ADD_SERVICE:
-            self._print_add_svc(attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_SERVICE_NAT_SRC:
-            self._print_add_svc_nat("        SNAT: ", attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_SERVICE_NAT_DST:
-            self._print_add_svc_nat("        DNAT: ", attrs)
+        DumpBase.__init__(self, quiet, kznl.KZorpGetServiceMessage())
 
 class DumpDispatchers(DumpBase):
     def __init__(self, quiet):
-      DumpBase.__init__(self, quiet, KZNL_MSG_GET_DISPATCHER, create_get_dispatcher_msg)
-      self.rules_value = {}
-      self._max = 0
-      self._index = 0
-      self.dpt_protocols = {6: "TCP", 17: "UDP"}
+        DumpBase.__init__(self, True, kznl.KZorpGetDispatcherMessage())
+        self.__real_quiet = quiet
 
-    def _print_ports(self, ports):
-        p = ""
-        for s, e in ports:
-            if s == e:
-                p = "".join((p, "%d," % (s,)))
-            else:
-                p = "".join((p, "%d:%d," % (s, e)))
-        return p.rstrip(",")
+    @staticmethod
+    def __rule_entries_to_str(rule_entries):
+        dimensions = [
+            (kznl.KZNL_ATTR_N_DIMENSION_REQID    ,   'reqid'),
+            (kznl.KZNL_ATTR_N_DIMENSION_IFACE    ,   'iface'),
+            (kznl.KZNL_ATTR_N_DIMENSION_IFGROUP  ,   'ifgroup'),
+            (kznl.KZNL_ATTR_N_DIMENSION_PROTO    ,   'proto'),
+            (kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT ,   'src_port'),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_PORT ,   'dst_port'),
+            (kznl.KZNL_ATTR_N_DIMENSION_SRC_IP   ,   'src_subnet'),
+            (kznl.KZNL_ATTR_N_DIMENSION_SRC_IP6  ,   'src_subnet'),
+            (kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE ,   'src_zone'),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_IP   ,   'dst_subnet'),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_IP6  ,   'dst_subnet'),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_IFACE,   'dst_iface'),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_IFGROUP, 'dst_ifgroup'),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE ,   'dst_zone')
+        ]
 
-    def _print_add_dpt(self, attrs):
+        entries = dict(rule_entries)
 
-        dpt_flags = {1: "transparent", 2: "follow_parent"}
+        for ip in [
+            (kznl.KZNL_ATTR_N_DIMENSION_SRC_IP, kznl.KZNL_ATTR_N_DIMENSION_SRC_IP6),
+            (kznl.KZNL_ATTR_N_DIMENSION_DST_IP, kznl.KZNL_ATTR_N_DIMENSION_DST_IP6)
+        ]:
+            if ip[0] in rule_entries and ip[1] in rule_entries:
+                entries[ip[0]] += rule_entries[ip[1]]
+                del entries[ip[1]]
 
-        if attrs.has_key(KZA_DPT_NAME):
-            name = parse_name_attr(attrs[KZA_DPT_NAME])
-        else:
-            raise AttributeRequiredError, "KZA_DPT_NAME"
+        res = ""
+        for dim_type in dimensions:
+            if dim_type[0] in entries:
+                res += "           %s=%s\n" % (dim_type[1], entries[dim_type[0]])
+        return res
 
-        if attrs.has_key(KZA_DPT_PARAMS):
-            flags, proxy_port, dpt_type = parse_dispatcher_params_attr(attrs[KZA_DPT_PARAMS])
-        else:
-            raise AttributeRequiredError, "KZA_DPT_PARAMS"
+    def dump(self):
+        DumpBase.dump(self)
+        if not self.__real_quiet:
+            rule_entries = {}
+            for reply in self.replies:
+                if reply.command == kznl.KZorpAddRuleEntryMessage.command:
+                    reply.aggregate_rule_entries(rule_entries)
+                elif reply.command == kznl.KZorpAddRuleMessage.command:
+                    print DumpDispatchers.__rule_entries_to_str(rule_entries)
+                    rule_entries = {}
+                    print reply
+                else:
+                    print reply
 
-        if dpt_type == KZ_DPT_TYPE_INET:
-            if attrs.has_key(KZA_DPT_BIND_ADDR):
-                proto, addr, ports = parse_bind_addr_attr(attrs[KZA_DPT_BIND_ADDR])
-                proto_str = self.dpt_protocols[proto]
-                addr_str = "        proto='%s', addr='%s', proxy_port='%d', num_ranges='%d', ports='%s'" % \
-                           (proto_str, inet_ntoa(addr), proxy_port, len(ports), self._print_ports(ports))
-            else:
-                raise AttributeRequiredError, "KZA_DPT_BIND_ADDR"
-        elif dpt_type == KZ_DPT_TYPE_IFACE:
-            if attrs.has_key(KZA_DPT_BIND_IFACE):
-                proto, iface, ports, pref_addr = parse_bind_iface_attr(attrs[KZA_DPT_BIND_IFACE])
-                proto_str = self.dpt_protocols[proto]
-                addr_str = "        proto='%s', iface='%s', pref_addr='%s', proxy_port='%d', num_ranges='%d, ports='%s'" % \
-                           (proto_str, iface, inet_ntoa(pref_addr), proxy_port, len(ports), self._print_ports(ports))
-            else:
-                raise AttributeRequiredError, "KZA_DPT_BIND_IFACE"
-        elif dpt_type == KZ_DPT_TYPE_IFGROUP:
-            if attrs.has_key(KZA_DPT_BIND_IFGROUP):
-                proto, group, mask, ports, pref_addr = parse_bind_ifgroup_attr(attrs[KZA_DPT_BIND_IFGROUP])
-                proto_str = self.dpt_protocols[proto]
-                addr_str = "        proto='%s', ifgroup='%s', pref_addr='%s', proxy_port='%d', num_ranges='%d', ports='%s'" % \
-                           (proto_str, group, inet_ntoa(pref_addr), proxy_port, len(ports), self._print_ports(ports))
-            else:
-                raise AttributeRequiredError, "KZA_DP_BIND_IFGROUP"
-        elif dpt_type == KZ_DPT_TYPE_N_DIMENSION:
-            num_rules = parse_n_dimension_attr(attrs[KZA_DISPATCHER_N_DIMENSION_PARAMS])
-            addr_str = "        proxy_port='%d', num_rules='%d'" % (proxy_port, num_rules)
-
-        flags_str = mask_to_description(flags, dpt_flags)
-
-        print "Dispatcher name='%s' flags='%s'\n%s" % (name, flags_str, addr_str)
-
-    def _print_add_dpt_css(self, attrs):
-        if attrs.has_key(KZA_DPT_NAME):
-            name = parse_name_attr(attrs[KZA_DPT_NAME])
-        else:
-            raise AttributeRequiredError, "KZA_DPT_NAME"
-
-        if attrs.has_key(KZA_DPT_CSS_CZONE):
-            czone = parse_name_attr(attrs[KZA_DPT_CSS_CZONE])
-        else:
-            czone = "*"
-
-        if attrs.has_key(KZA_DPT_CSS_SZONE):
-            szone = parse_name_attr(attrs[KZA_DPT_CSS_SZONE])
-        else:
-            szone = "*"
-
-        if attrs.has_key(KZA_SVC_NAME):
-            sname = parse_name_attr(attrs[KZA_SVC_NAME])
-        else:
-            raise AttributeRequiredError, "KZA_SVC_NAME"
-
-        print "        ('%s', '%s') -> '%s'" % (czone, szone, sname)
-
-    def _print_add_rule(self, attrs):
-      rule_id, service, rules = parse_rule_attrs(attrs)
-      if (rules.values() == []):
-        self._max = 0
-      else:
-        (self._max,) = max(rules.values())
-
-      print "        rule_id='%d', service='%s'" % (rule_id, service)
-
-    def _print_add_rule_entry(self, attrs):
-      dimensions = [ (KZA_N_DIMENSION_AUTH     , 'auth'),   (KZA_N_DIMENSION_IFACE    , 'iface'),    (KZA_N_DIMENSION_IFGROUP  , 'ifgroup'), \
-                     (KZA_N_DIMENSION_PROTO    , 'proto'),  (KZA_N_DIMENSION_SRC_PORT , 'src_port'), (KZA_N_DIMENSION_DST_PORT , 'dst_port'), \
-                     (KZA_N_DIMENSION_SRC_IP   , 'src_ip'), (KZA_N_DIMENSION_SRC_ZONE , 'src_zone'), (KZA_N_DIMENSION_DST_IP   , 'dst_ip'), \
-                     (KZA_N_DIMENSION_SRC_IP6  , 'src_ip'), (KZA_N_DIMENSION_DST_IP6   , 'dst_ip'), \
-                     (KZA_N_DIMENSION_DST_ZONE , 'dst_zone') ]
-
-      # NOTE: we detect that all entries were received by counting the
-      # ADD_RULE_ENTRY messages and comparing that to the max
-      # dimension array length. This is OK with the current kernel
-      # implementation but may break if we change the kernel.
-
-      rule_id, rule_entries = parse_rule_entry_attrs(attrs)
-      for k, v in rule_entries.items():
-        if not k in self.rules_value:
-          self.rules_value[k] = []
-        if k == KZA_N_DIMENSION_SRC_IP or k == KZA_N_DIMENSION_DST_IP or \
-           k == KZA_N_DIMENSION_SRC_IP6 or k == KZA_N_DIMENSION_DST_IP6:
-          (family, addr, mask) = v
-          self.rules_value[k].append((socket.inet_ntop(family, addr), socket.inet_ntop(family, mask)))
-        elif k == KZA_N_DIMENSION_PROTO:
-          self.rules_value[k].append(self.dpt_protocols[v[0]])
-        elif k == KZA_N_DIMENSION_SRC_PORT or k == KZA_N_DIMENSION_DST_PORT:
-          self.rules_value[k].append((v[0], v[1]))
-        else:
-          self.rules_value[k].append(v[0])
-      self._index += 1
-      if self._index == self._max:
-        for k in dimensions:
-          if k[0] in self.rules_value:
-            print "           %s=%s " % (k[1], self.rules_value[k[0]])
-        self.rules_value = {}
-        self._index = 0
-        print ""
-
-    def _msg_handler(self, msg):
-        attrs = msg.get_nfmessage().get_attributes()
-
-        if msg.type & 0xff == KZNL_MSG_ADD_DISPATCHER:
-            self._print_add_dpt(attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_DISPATCHER_CSS:
-            self._print_add_dpt_css(attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_RULE:
-            self._print_add_rule(attrs)
-        if msg.type & 0xff == KZNL_MSG_ADD_RULE_ENTRY:
-            self._print_add_rule_entry(attrs)
+            res = DumpDispatchers.__rule_entries_to_str(rule_entries)
+            if res:
+                print res
 
 class DumpBinds(DumpBase):
     def __init__(self, quiet):
-        DumpBase.__init__(self, quiet, KZNL_MSG_GET_BIND, create_get_bind_msg)
-
-    def _msg_handler(self, msg):
-        (instance, proto, addr_family, addr, port) = NfnetlinkMessageGetBind.parse(msg)
-
-        if proto == socket.IPPROTO_TCP:
-            proto = "TCP"
-        elif proto == socket.IPPROTO_UDP:
-            proto = "UDP"
-
-        print "Bind instance='%s' protocol='%s', address='%s', port='%d'" % (instance, proto, socket.inet_ntop(addr_family, addr), port)
+        DumpBase.__init__(self, quiet, kznl.KZorpGetBindMessage())
 
 def upload_zones(fname):
-
-    def exchange_message(h, msg, payload):
-        m = h.create_message(NFNL_SUBSYS_KZORP, msg, NLM_F_REQUEST | NLM_F_ACK)
-        m.set_nfmessage(payload)
-        result = h.talk(m, (0, 0), None)
-        if result != 0:
-            raise NfnetlinkException, "Error while talking to KZorp, result='%d'" % result
 
     def parse_range(r):
         if r.count("/") == 0:
@@ -420,7 +145,6 @@ def upload_zones(fname):
 
         family = socket.AF_INET
         try:
-            print family, addr
             socket.inet_pton(family, addr)
         except socket.error:
             family = socket.AF_INET6
@@ -432,26 +156,20 @@ def upload_zones(fname):
             elif family == socket.AF_INET6:
                 mask = 128
 
-
         mask = size_to_mask(family, int(mask))
-        return (socket.inet_pton(family, addr), socket.inet_pton(family, mask))
+        return (family, socket.inet_pton(family, addr), socket.inet_pton(family, mask))
 
-    def process_line(h, l):
+    def process_line(handle, line):
         # skip comments
-        if l.startswith("#"):
+        if line.startswith("#"):
             return
 
-        zone, parent, umbrella, r = l.split(";")
+        zone, parent, r = line.split(";")
 
         zone = zone.strip('"')
         parent = parent.strip('"')
         if parent == "":
             parent = None
-
-        if int(umbrella) == 1:
-            flags = KZF_ZONE_UMBRELLA
-        else:
-            flags = 0
 
         ranges = r.split(",")
         if len(ranges) <= 1:
@@ -461,111 +179,141 @@ def upload_zones(fname):
                 ranges = [r]
 
         # we send the "parent" first
-        exchange_message(h, KZNL_MSG_ADD_ZONE, \
-            create_add_zone_msg(zone, flags, address=None, mask=None, uname=zone, pname=parent))
+        handle.send(kznl.KZorpAddZoneMessage(zone, address=None, mask=None, uname=zone, pname=parent))
         # then the rest
         for i in xrange(len(ranges)):
             uname = zone + "-#%d" % (i,)
-            addr, mask = parse_range(ranges[i])
-            exchange_message(h, KZNL_MSG_ADD_ZONE, \
-                create_add_zone_msg(zone, flags, address=addr, mask=mask, uname=uname, pname=zone))
+            family, addr, mask = parse_range(ranges[i])
+            handle.send(kznl.KZorpAddZoneMessage(zone, family=family, address=addr, mask=mask, uname=uname, pname=zone))
 
-    # initialize nfnetlink
-    h = Handle()
-    h.register_subsystem(Subsystem(NFNL_SUBSYS_KZORP))
-
-    # start zone transaction
-    exchange_message(h, KZNL_MSG_START, create_start_msg(KZ_INSTANCE_GLOBAL))
-    # flush zones
-    exchange_message(h, KZNL_MSG_FLUSH_ZONE, create_flush_msg())
-    exchange_message(h, KZNL_MSG_COPY_ZONE_DAC, create_flush_msg())
+    handle = kznl.Handle()
+    handle.send(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
+    handle.send(kznl.KZorpFlushZonesMessage())
 
     # process each zone
     f = file(fname)
     while 1:
-        l = f.readline()
-        if not l: break
+        line = f.readline()
+        if not line: break
 
-        l = l.strip()
+        line = line.strip()
 
         try:
-            process_line(h, l)
+            process_line(handle, line)
         except Exception, e:
-            sys.stderr.write("Error while processing the following line: %s\n%s\n" % (e, l))
+            sys.stderr.write("Error while processing the following line: %s\n%s\n" % (e, line))
             return 1
 
-    # commit transaction
-    exchange_message(h, KZNL_MSG_COMMIT, create_commit_msg())
+    handle.send(kznl.KZorpCommitTransactionMessage())
 
     return 0
 
+def evaluate_option_parser_cb(option, opt_str, value, parser):
+    assert value is None
+    value = []
+    if len(parser.rargs) < 6 or len(parser.rargs) > 7:
+        raise optparse.OptionValueError("-e option requires 6 or 7 arguments")
+
+    for arg in parser.rargs:
+        # stop on --foo like options
+        if arg[:2] == "--" and len(arg) > 2:
+            break
+
+        # stop on -a
+        if arg[:1] == "-" and len(arg) > 1:
+            break
+        value.append(arg)
+
+    del parser.rargs[:len(value)]
+    setattr(parser.values, option.dest, value)
+
 def evaluate(parser, args, quiet):
-  def parse_ip(parser, ip, description):
-    try:
-      return (socket.AF_INET, socket.inet_pton(socket.AF_INET, ip))
-    except socket.error:
-      try:
-        return (socket.AF_INET, socket.inet_pton(socket.AF_INET6, ip))
-      except socket.error:
-        parser.error("invalid %s ip: %s" % (description, ip))
+    EVAL_ARG_NUM_PROTO    = 0
+    EVAL_ARG_NUM_SRC_IP   = 1
+    EVAL_ARG_NUM_SRC_PORT = 2
+    EVAL_ARG_NUM_DST_IP   = 3
+    EVAL_ARG_NUM_DST_PORT = 4
+    EVAL_ARG_NUM_IFACE    = 5
+    EVAL_ARG_NUM_REQID    = 6
+    EVAL_ARG_NUM          = 7
 
-  def parse_port(parser, port, description):
-    try:
-      p = int(port)
-      if (0 < p < 65535):
-        return p
-      else:
-        raise ValueError, ""
-    except ValueError:
-      parser.error("invalid %s port: %s" % (description, port))
+    optional_argument_num = len([EVAL_ARG_NUM_REQID, ])
 
-  def handle_reply(r):
-    attrs = r.get_nfmessage().get_attributes()
-    client_zone = "not found"
-    if attrs.has_key(KZA_QUERY_CLIENT_ZONE):
-      client_zone = parse_name_attr(attrs[KZA_QUERY_CLIENT_ZONE])
-    server_zone = "not found"
-    if attrs.has_key(KZA_QUERY_SERVER_ZONE):
-      server_zone = parse_name_attr(attrs[KZA_QUERY_SERVER_ZONE])
-    service = "not found"
-    if attrs.has_key(KZA_SVC_NAME):
-      service = parse_name_attr(attrs[KZA_SVC_NAME])
-    dispatcher = "not found"
-    if attrs.has_key(KZA_DPT_NAME):
-      dispatcher = parse_name_attr(attrs[KZA_DPT_NAME])
-    print "Client zone: %s\nServer zone: %s\nService: %s\nDispatcher: %s" % \
-          (client_zone, server_zone, service, dispatcher)
+    def parse_ip(parser, ip, description):
+        try:
+            return (socket.AF_INET, socket.inet_pton(socket.AF_INET, ip))
+        except socket.error:
+            try:
+                return (socket.AF_INET6, socket.inet_pton(socket.AF_INET6, ip))
+            except socket.error:
+                parser.error("invalid %s ip: %s" % (description, ip))
 
-  if args[0].lower() == "tcp":
-    proto = socket.IPPROTO_TCP
-  elif args[0].lower() == "udp":
-    proto = socket.IPPROTO_UDP
-  else:
-    parser.error('protocol must be "tcp" or "udp"')
+    def parse_num(parser, num_str, max_num_bits, description):
+        try:
+            num = int(num_str)
+            if 0 < num < 2 ** max_num_bits:
+                return num
+            else:
+                raise ValueError, ""
+        except ValueError:
+            parser.error("invalid %s: %s" % (description, num_str))
 
-  (sfamily, saddr) = parse_ip(parser,   args[1], "client")
-  sport = parse_port(parser, args[2], "client")
-  (dfamily, daddr) = parse_ip(parser,   args[3], "server")
-  dport = parse_port(parser, args[4], "server")
+    def parse_reqid(parser, reqid, description):
+        return parse_num(parser, reqid, 32, description)
 
-  if len(args[5]) > 16:
-    parser.error('invalid interface name (>16 characters)')
+    def parse_port(parser, port, description):
+        return parse_num(parser, port, 16, description)
 
-  if sfamily != dfamily:
-    parser.error('family of source and destination address is not the same')
+    def parse_proto(parser, proto):
+        if proto.lower() == "tcp":
+            return socket.IPPROTO_TCP
+        elif proto.lower() == "udp":
+            return socket.IPPROTO_UDP
+        else:
+            parser.error('protocol must be "tcp" or "udp"')
 
-  iface = args[5]
+    if len(args) < EVAL_ARG_NUM - optional_argument_num:
+        parser.error('evaluate requires at least %d parameters', EVAL_ARG_NUM - optional_argument_num)
 
-  if not quiet:
-    print "evaluating %s:%s -> %s:%s on %s" % (args[1], sport, args[3], dport, iface)
+    kws = {}
+    kws['proto'] = parse_proto(parser, args[EVAL_ARG_NUM_PROTO])
 
-  h = Handle()
-  h.register_subsystem(Subsystem(NFNL_SUBSYS_KZORP))
-  kzorp_m = h.create_message(NFNL_SUBSYS_KZORP, KZNL_MSG_QUERY, NLM_F_REQUEST | NLM_F_ACK)
-  m = create_query_msg(proto, sfamily, saddr, sport, daddr, dport, iface)
-  kzorp_m.set_nfmessage(m)
+    kws['saddr_str'] = args[EVAL_ARG_NUM_SRC_IP]
+    (sfamily, saddr) = parse_ip(parser, kws['saddr_str'], "client")
+    kws['family'] = sfamily
+    kws['saddr'] = saddr
 
-  res = h.talk(kzorp_m, (0, 0), handle_reply)
+    kws['sport'] = parse_port(parser, args[EVAL_ARG_NUM_SRC_PORT], "client port")
+
+    kws['daddr_str'] = args[EVAL_ARG_NUM_DST_IP]
+    (dfamily, daddr) = parse_ip(parser, kws['daddr_str'], "server")
+    kws['daddr'] = daddr
+
+    kws['dport'] = parse_port(parser, args[EVAL_ARG_NUM_DST_PORT], "server port")
+
+    kws['iface'] = args[EVAL_ARG_NUM_IFACE]
+    if len(args[EVAL_ARG_NUM_IFACE]) > 15:
+        parser.error('invalid interface name (>15 characters)')
+
+    if len(args) == EVAL_ARG_NUM:
+        kws['reqid'] = parse_reqid(parser, args[EVAL_ARG_NUM_REQID], "request id")
+
+    if sfamily != dfamily:
+        parser.error("family of source and destination address is not the same")
+
+    if not quiet:
+        eval_str = "evaluating %(saddr_str)s:%(sport)s -> %(daddr_str)s:%(dport)s on %(iface)s" % kws
+        if 'reqid' in kws:
+            eval_str += " with request id is %s" % (kws['reqid'])
+        print eval_str
+
+    del kws['saddr_str']
+    del kws['daddr_str']
+
+    handle = kznl.Handle()
+    query_msg = kznl.KZorpQueryMessage(**kws)
+    for reply in handle.talk(query_msg, False):
+        print str(reply)
 
 def main(args):
     option_list = [
@@ -591,11 +339,11 @@ def main(args):
                                                "[default: %default]"),
                      optparse.make_option("-e", "--evaluate",
                                           dest="evaluate",
-                                          type="string",
-                                          nargs=6,
+                                          action="callback",
                                           default=None,
+                                          callback=evaluate_option_parser_cb,
                                           help="evaluate "
-                                               "arguments: <protocol> <client address> <client port> <server address> <server port> <interface name>"),
+                                               "arguments: <protocol> <client address> <client port> <server address> <server port> <interface name> [request id]"),
                      optparse.make_option("-q", "--quiet",
                                           action="store_true", dest="quiet",
                                           default=False,
@@ -612,30 +360,30 @@ def main(args):
     (options, args) = parser.parse_args()
 
     if (options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None) == False:
-      parser.error("at least one option must be set")
+        parser.error("at least one option must be set")
 
     if os.getuid() != 0:
-      sys.stderr.write("kzorp must be run as root\n")
-      return 2
+        sys.stderr.write("kzorp must be run as root\n")
+        return 2
 
     res = 3
     try:
-      if options.zones:
-          dump_zones = DumpZones(options.quiet)
-          res = dump_zones.dump()
-      if options.services:
-          dump_services = DumpServices(options.quiet)
-          res = dump_services.dump()
-      if options.dispatchers:
-          dump_dispatchers = DumpDispatchers(options.quiet)
-          res = dump_dispatchers.dump()
-      if options.binds:
-          dump_binds = DumpBinds(options.quiet)
-          res = dump_binds.dump()
-      if options.upload:
-          res = upload_zones(options.upload)
-      if options.evaluate:
-          res = evaluate(parser, options.evaluate, options.quiet)
+        if options.zones:
+            dump_zones = DumpZones(options.quiet)
+            res = dump_zones.dump()
+        if options.services:
+            dump_services = DumpServices(options.quiet)
+            res = dump_services.dump()
+        if options.dispatchers:
+            dump_dispatchers = DumpDispatchers(options.quiet)
+            res = dump_dispatchers.dump()
+        if options.binds:
+            dump_binds = DumpBinds(options.quiet)
+            res = dump_binds.dump()
+        if options.upload:
+            res = upload_zones(options.upload)
+        if options.evaluate:
+            res = evaluate(parser, options.evaluate, options.quiet)
     except socket.error, e:
         if e[0] == 111:
             sys.stderr.write("KZorp support not present in kernel\n")

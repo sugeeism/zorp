@@ -29,4 +29,10 @@ libzorp_la_SOURCES = \
 	proxyssl.c pyx509.c proxysslhostiface.c \
 	bllookup.c \
 	kzorp.c \
-	credentials.c
+	credentials.c \
+	certchain.c pyx509chain.c \
+	session.c session_init.c
+
+if ALERTING_ENABLED
+libzorp_la_SOURCES += alerting.c
+endif

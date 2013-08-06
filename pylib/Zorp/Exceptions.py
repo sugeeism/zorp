@@ -30,6 +30,9 @@
 """
 
 class ZorpException(Exception):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -38,9 +41,14 @@ class ZorpException(Exception):
         self.detail = detail
 
     def __str__(self):
+        """<method internal="yes">
+        </method>"""
         return '%s: %s' % (self.what, self.detail)
 
 class ZoneException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -48,6 +56,9 @@ class ZoneException(ZorpException):
         self.what = 'Zone not found'
 
 class ServiceException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -55,6 +66,9 @@ class ServiceException(ZorpException):
         self.what = 'Service'
 
 class DACException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -62,6 +76,9 @@ class DACException(ZorpException):
         self.what = 'DAC policy violation'
 
 class MACException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -69,6 +86,9 @@ class MACException(ZorpException):
         self.what = 'MAC policy violation'
 
 class AAException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -79,6 +99,9 @@ class AAException(ZorpException):
 AuthException = AAException
 
 class LimitException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -86,6 +109,9 @@ class LimitException(ZorpException):
         self.what = 'Limit error'
 
 class InternalException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -93,6 +119,9 @@ class InternalException(ZorpException):
         self.what = 'Internal error occured'
 
 class UserException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -100,6 +129,9 @@ class UserException(ZorpException):
         self.what = 'Incorrect, or unspecified parameter'
 
 class LicenseException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -107,6 +139,9 @@ class LicenseException(ZorpException):
         self.what = 'Attempt to use unlicensed components'
 
 class MatcherException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""
@@ -114,6 +149,9 @@ class MatcherException(ZorpException):
         self.what = 'Matcher error'
 
 class ConfigException(ZorpException):
+    """
+    <class internal="yes"/>
+    """
     def __init__(self, detail):
         """<method internal="yes">
         </method>"""

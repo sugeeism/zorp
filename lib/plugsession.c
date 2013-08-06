@@ -1,5 +1,5 @@
 /***************************************************************************
- *   
+ *
  * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
  * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
  *
@@ -23,10 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : bazsi
- * Auditor : 
+ * Auditor :
  * Last audited version: 1.1
  * Notes:
- *   
+ *
  ***************************************************************************/
 
 #include <zorp/plugsession.h>
@@ -78,9 +78,9 @@ static void
 z_plug_update_eof_mask(ZPlugSession *self, guint add_mask)
 {
   guint old_mask = self->eofmask;
-  
+
   self->eofmask |= add_mask;
-  
+
   if ((self->eofmask & (EOF_CLIENT_R | EOF_CLIENT_W | EOF_CLIENT_REMOVED)) == (EOF_CLIENT_R | EOF_CLIENT_W))
     {
       z_poll_remove_stream(self->poll, self->endpoints[EP_CLIENT]);
@@ -92,7 +92,7 @@ z_plug_update_eof_mask(ZPlugSession *self, guint add_mask)
       z_poll_remove_stream(self->poll, self->endpoints[EP_SERVER]);
       self->eofmask |= EOF_SERVER_REMOVED;
     }
-  
+
   if ((self->eofmask & (EOF_DESTROYED | EOF_CLIENT_REMOVED | EOF_SERVER_REMOVED)) == (EOF_CLIENT_REMOVED | EOF_SERVER_REMOVED))
     {
       z_plug_session_cancel(self);
@@ -113,7 +113,6 @@ z_plug_update_eof_mask(ZPlugSession *self, guint add_mask)
     }
 }
 
-
 static guint
 z_plug_read_input(ZPlugSession *self, ZStream *input, ZPlugIOBuffer *buf)
 {
@@ -130,7 +129,7 @@ z_plug_read_input(ZPlugSession *self, ZStream *input, ZPlugIOBuffer *buf)
          (self->global_packet_count % self->session_data->packet_stats_interval_packet) == 0)
         {
           if (!self->session_data->packet_stats(self,
-                                                self->buffers[EP_CLIENT].packet_bytes, 
+                                                self->buffers[EP_CLIENT].packet_bytes,
                                                 self->buffers[EP_CLIENT].packet_count,
                                                 self->buffers[EP_SERVER].packet_bytes,
                                                 self->buffers[EP_SERVER].packet_count,
@@ -149,13 +148,13 @@ z_plug_write_output(ZPlugSession *self G_GNUC_UNUSED, ZPlugIOBuffer *buf, ZStrea
 {
   GIOStatus rc;
   gsize bytes_written;
-  
+
   z_enter();
   if (buf->ofs != buf->end)
     {
       /* buffer not empty */
       rc = z_stream_write(output, &buf->buf[buf->ofs], buf->end - buf->ofs, &bytes_written, NULL);
-      switch (rc) 
+      switch (rc)
         {
         case G_IO_STATUS_NORMAL:
           buf->ofs += bytes_written;
@@ -185,13 +184,13 @@ z_plug_copy_data(ZPlugSession *self, ZStream *from, ZStream *to, ZPlugIOBuffer *
   int pkt_count = 0;
 
   z_enter();
-  
+
   if (self->timeout)
     z_timeout_source_set_timeout(self->timeout, self->session_data->timeout);
-  
+
   if (!from || !buf)
     z_return(G_IO_STATUS_ERROR);
-  
+
   z_stream_set_cond(from, G_IO_IN, FALSE);
 
   if (to)
@@ -203,7 +202,7 @@ z_plug_copy_data(ZPlugSession *self, ZStream *from, ZStream *to, ZPlugIOBuffer *
     }
 
   while (pkt_count < MAX_READ_AT_A_TIME)
-    {  
+    {
       buf->ofs = buf->end = 0;
       rc = z_plug_read_input(self, from, buf);
       if (rc == G_IO_STATUS_NORMAL)
@@ -232,7 +231,6 @@ z_plug_copy_data(ZPlugSession *self, ZStream *from, ZStream *to, ZPlugIOBuffer *
   z_return(rc);
 }
 
-
 /* callbacks when no stacking is made */
 static gboolean
 z_plug_copy_client_to_server(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GNUC_UNUSED, gpointer user_data)
@@ -257,7 +255,7 @@ z_plug_copy_client_to_server(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_
     case G_IO_STATUS_NORMAL:
     case G_IO_STATUS_AGAIN:
       break;
-      
+
     case G_IO_STATUS_EOF:
       if (self->session_data->shutdown_soft)
         {
@@ -270,7 +268,7 @@ z_plug_copy_client_to_server(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_
           z_plug_update_eof_mask(self, EOF_ALL);
         }
       break;
-      
+
     default:
       z_plug_update_eof_mask(self, EOF_ALL);
       z_return(FALSE);
@@ -314,7 +312,7 @@ z_plug_copy_server_to_client(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_
           z_plug_update_eof_mask(self, EOF_ALL);
         }
       break;
-      
+
     default:
       z_plug_update_eof_mask(self, EOF_ALL);
       z_return(FALSE);
@@ -346,7 +344,7 @@ z_plug_copy_client_to_down(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GN
     case G_IO_STATUS_NORMAL:
     case G_IO_STATUS_AGAIN:
       break;
-      
+
     case G_IO_STATUS_EOF:
       if (self->session_data->shutdown_soft)
         {
@@ -383,7 +381,7 @@ z_plug_copy_down_to_client(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GN
     case G_IO_STATUS_NORMAL:
     case G_IO_STATUS_AGAIN:
       break;
-      
+
     case G_IO_STATUS_EOF:
       if (self->session_data->shutdown_soft)
         {
@@ -396,7 +394,7 @@ z_plug_copy_down_to_client(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GN
           z_plug_update_eof_mask(self, EOF_ALL);
         }
       break;
-      
+
     default:
       z_plug_update_eof_mask(self, EOF_ALL);
       z_return(FALSE);
@@ -426,7 +424,7 @@ z_plug_copy_server_to_down(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GN
     case G_IO_STATUS_NORMAL:
     case G_IO_STATUS_AGAIN:
       break;
-      
+
     case G_IO_STATUS_EOF:
       if (self->session_data->shutdown_soft)
         {
@@ -439,7 +437,7 @@ z_plug_copy_server_to_down(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GN
           z_plug_update_eof_mask(self, EOF_ALL);
         }
       break;
-      
+
     default:
       z_plug_update_eof_mask(self, EOF_ALL);
       z_return(FALSE);
@@ -488,7 +486,7 @@ gboolean
 z_plug_timeout(gpointer user_data)
 {
   ZPlugSession *self = (ZPlugSession *) user_data;
-  
+
   z_enter();
   if (self->session_data->timeout_cb)
     self->session_data->timeout_cb (self, self->user_data);
@@ -503,13 +501,13 @@ z_plug_session_init_streams(ZPlugSession *self)
   z_enter();
   self->buffers[EP_CLIENT].buf = g_new0(char, self->session_data->buffer_size);
   self->buffers[EP_SERVER].buf = g_new0(char, self->session_data->buffer_size);
-  
+
   z_stream_set_nonblock(self->endpoints[EP_CLIENT], TRUE);
   z_stream_set_callback(self->endpoints[EP_CLIENT], G_IO_IN, z_plug_copy_client_to_server, z_plug_session_ref(self), (GDestroyNotify) z_plug_session_unref);
   z_stream_set_callback(self->endpoints[EP_CLIENT], G_IO_OUT, z_plug_copy_server_to_client, z_plug_session_ref(self), (GDestroyNotify) z_plug_session_unref);
   z_stream_set_cond(self->endpoints[EP_CLIENT], G_IO_IN, TRUE);
   z_stream_set_timeout(self->endpoints[EP_CLIENT], -2);
-  
+
   z_stream_set_nonblock(self->endpoints[EP_SERVER], TRUE);
   z_stream_set_callback(self->endpoints[EP_SERVER], G_IO_IN, z_plug_copy_server_to_client, z_plug_session_ref(self), (GDestroyNotify) z_plug_session_unref);
   z_stream_set_callback(self->endpoints[EP_SERVER], G_IO_OUT, z_plug_copy_client_to_server, z_plug_session_ref(self), (GDestroyNotify) z_plug_session_unref);
@@ -525,7 +523,7 @@ static gboolean
 z_plug_session_init_stacked_streams(ZPlugSession *self)
 {
   z_enter();
-  
+
   if (self->stacked)
     {
       self->downbufs[EP_CLIENT].buf = g_new0(char, self->session_data->buffer_size);
@@ -555,7 +553,7 @@ static gboolean
 z_plug_session_stats_timeout(gpointer user_data)
 {
   ZPlugSession *self = (ZPlugSession *) user_data;
-  
+
   if (self->session_data->packet_stats)
     {
       if (!self->session_data->packet_stats(self,
@@ -582,13 +580,13 @@ z_plug_session_query_bandwidth(ZPlugSession *self, gchar *name, gpointer value G
 {
   GTimeVal now, spent;
   double bandwidth = 0.0;
-  
+
   g_get_current_time(&now);
   spent.tv_sec = now.tv_sec - self->started_time.tv_sec;
   spent.tv_usec = now.tv_usec - self->started_time.tv_usec;
   if (spent.tv_usec < -500000)
     spent.tv_sec++;
-    
+
   if (strcmp(name, "bandwidth_to_client") == 0)
     {
       bandwidth = (double) self->buffers[EP_CLIENT].packet_bytes / spent.tv_sec;
@@ -607,28 +605,27 @@ z_plug_session_register_vars(ZPlugSession *self, ZPolicyDict *dict)
                                  /* value, get, set, free, userdata, destroy-notify */
                                  NULL, z_plug_session_query_bandwidth, NULL, NULL, self, NULL);
 
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "bandwidth_to_server", Z_VF_READ, 
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "bandwidth_to_server", Z_VF_READ,
                                  NULL, z_plug_session_query_bandwidth, NULL, NULL, self, NULL);
-                                 
-}
 
+}
 
 gboolean
 z_plug_session_start(ZPlugSession *self, ZPoll *poll)
 {
   if (self->started)
     g_assert_not_reached();
-    
+
   z_poll_ref(poll);
   self->poll = poll;
-  
+
   if (z_plug_session_init_streams(self) && z_plug_session_init_stacked_streams(self))
     {
       g_get_current_time(&self->started_time);
       if (self->session_data->packet_stats_interval_time > 0)
         {
           GMainContext *context;
-         
+
           self->stats_timeout = g_timeout_source_new(self->session_data->packet_stats_interval_time);
           g_source_set_callback(self->stats_timeout, z_plug_session_stats_timeout, self, NULL);
           context = z_poll_get_context(self->poll);
@@ -637,7 +634,7 @@ z_plug_session_start(ZPlugSession *self, ZPoll *poll)
       if (self->session_data->timeout > 0)
         {
           GMainContext *context;
-         
+
           self->timeout = z_timeout_source_new(self->session_data->timeout);
           g_source_set_callback(self->timeout, z_plug_timeout, self, NULL);
           context = z_poll_get_context(self->poll);
@@ -653,10 +650,10 @@ void
 z_plug_session_cancel(ZPlugSession *self)
 {
   gint i;
-  
+
   if (!self->started)
     return;
-    
+
   for (i = EP_CLIENT; i < EP_MAX; i++)
     {
       if (self->stacked)
@@ -665,13 +662,13 @@ z_plug_session_cancel(ZPlugSession *self)
         }
       z_poll_remove_stream(self->poll, self->endpoints[i]);
     }
-  
+
   if (self->stacked)
     {
       z_stacked_proxy_destroy(self->stacked);
       self->stacked = NULL;
     }
-    
+
   if (self->stats_timeout)
     {
       g_source_destroy(self->stats_timeout);
@@ -712,11 +709,11 @@ z_plug_session_new(ZPlugSessionData *session_data, ZStream *client_stream, ZStre
 {
   ZPlugSession *self = g_new0(ZPlugSession, 1);
   gchar buf[Z_STREAM_MAX_NAME];
-  
+
   self->user_data = user_data;
   z_stream_ref(client_stream);
   z_stream_ref(server_stream);
-  
+
   if (!client_stream->name[0])
     {
       g_snprintf(buf, sizeof(buf), "%s/%s", fake_session_id, "client");
@@ -740,11 +737,11 @@ void
 z_plug_session_destroy(ZPlugSession *self)
 {
   gint i;
-  
+
   if (self)
     {
       g_assert(!self->started);
-      
+
       for (i = EP_CLIENT; i < EP_MAX; i++)
         {
           if (self->downbufs[i].buf)
@@ -754,14 +751,13 @@ z_plug_session_destroy(ZPlugSession *self)
             }
           g_free(self->buffers[i].buf);
           self->buffers[i].buf = NULL;
-          
+
           z_stream_unref(self->endpoints[i]);
           self->endpoints[i] = NULL;
         }
-      
+
       z_poll_unref(self->poll);
       self->poll = NULL;
       z_plug_session_unref(self);
     }
 }
-

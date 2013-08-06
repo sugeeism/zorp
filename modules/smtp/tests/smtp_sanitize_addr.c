@@ -11,7 +11,7 @@ test_case(gchar *path, gchar *email, gboolean expected)
 {
   GString *result = g_string_sized_new(128);
   gchar *end = 0;
-  
+
   if (smtp_sanitize_address(dummy, result, path, TRUE, &end) == expected)
     {
       /* printf("result->str=%s\n", result->str); */    /* for parser debugging */
@@ -24,7 +24,7 @@ test_case(gchar *path, gchar *email, gboolean expected)
 	  printf("failure, different email, path=%s, email=%s, end=%s\n", path, email, end);
 	  exit_code = 1;
 	}
-      
+
     }
   else
     {

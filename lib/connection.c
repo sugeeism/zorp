@@ -62,20 +62,20 @@ z_connection_new(void)
  * This function creates a textual representation of the ZConnection. It
  * puts its output into @buf ensuring that the output's size does not exceed
  * @buflen.
- * 
+ *
  * Returns: the address of the first character in @buf
  **/
 gchar *
 z_connection_format(ZConnection *conn, gchar *buf, gint buflen)
 {
   gchar buf_remote[MAX_SOCKADDR_STRING], buf_local[MAX_SOCKADDR_STRING], buf_dest[MAX_SOCKADDR_STRING];
-  
+
   if (!conn)
     {
       g_strlcpy(buf, "conn='NULL'", buflen);
       return buf;
     }
-  
+
   if (conn->remote)
     z_sockaddr_format(conn->remote, buf_remote, sizeof(buf_remote));
   else

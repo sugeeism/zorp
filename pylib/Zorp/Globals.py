@@ -51,7 +51,7 @@ notification_policy = None
 instance_name = ''
 external_authorization_waiting_lock = threading.Lock()
 external_authorization_waiting = {}
-kzorp_responds_to_ping = False
+kzorp_available = False
 encryption_policies = {}
 
 deinit_callbacks = []

@@ -27,7 +27,7 @@ static gboolean netlink_initialized = FALSE;
 gboolean
 z_rtnetlink_request_dump(gint type, gint family)
 {
-  struct 
+  struct
   {
     struct nlmsghdr h;
     struct rtgenmsg g;
@@ -89,7 +89,7 @@ z_netlink_process_responses(gboolean timed_out G_GNUC_UNUSED, gpointer user_data
       for (p = netlink_event_handlers; p; p = g_list_next(p))
         {
           ZNetlinkEventHandler *handler = (ZNetlinkEventHandler *) p->data;
-          
+
           if (handler->event == h->nlmsg_type)
             {
               handler->callback((gchar *) h, h->nlmsg_len);
@@ -132,7 +132,7 @@ z_netlink_init(void)
 
   g_source_set_callback(netlink_source, (GSourceFunc) z_netlink_process_responses, NULL, NULL);
   g_source_attach(netlink_source, NULL);
-  
+
   netlink_initialized = TRUE;
 }
 
@@ -185,8 +185,8 @@ struct _ZIfmonGroupWatch
 static GHashTable *iface_hash;
 static GList *iface_watches;
 static GList *iface_group_watches;
-static GStaticMutex iface_watches_lock;
-static GStaticMutex iface_group_watches_lock;
+G_LOCK_DEFINE_STATIC(iface_watches_lock);
+G_LOCK_DEFINE_STATIC(iface_group_watches_lock);
 
 static gboolean
 match_by_name(guint *ifindex G_GNUC_UNUSED, ZIfaceInfo *info, gchar *iface_name)
@@ -200,12 +200,11 @@ z_ifmon_find_by_name(const gchar *iface_name)
   return (ZIfaceInfo *) g_hash_table_find(iface_hash, (GHRFunc) match_by_name, (gchar *) iface_name);
 }
 
-
 static void
 z_ifmon_call_watchers_unlocked(const gchar *iface, ZIfChangeType change, gint family, void *addr)
 {
   GList *p, *p_next;
-  
+
   for (p = iface_watches; p; p = p_next)
     {
       ZIfmonWatch *w = (ZIfmonWatch *) p->data;
@@ -221,11 +220,10 @@ z_ifmon_call_watchers_unlocked(const gchar *iface, ZIfChangeType change, gint fa
 static void
 z_ifmon_call_watchers(const gchar *iface, ZIfChangeType change, gint family, void *addr)
 {
-  g_static_mutex_lock(&iface_watches_lock);
+  G_LOCK(iface_watches_lock);
   z_ifmon_call_watchers_unlocked(iface, change, family, addr);
-  g_static_mutex_unlock(&iface_watches_lock);    
+  G_UNLOCK(iface_watches_lock);
 }
-
 
 static void
 z_ifmon_iterate_addrs(ZIfaceInfo *info, ZIfChangeType change)
@@ -235,14 +233,13 @@ z_ifmon_iterate_addrs(ZIfaceInfo *info, ZIfChangeType change)
   if (!info)
     return;
 
-  g_static_mutex_lock(&iface_watches_lock);
+  G_LOCK(iface_watches_lock);
   for (i = 0; i < info->in4_address_count; i++)
     {
       z_ifmon_call_watchers_unlocked(info->name, change, AF_INET, &info->in4_addresses[i]);
     }
-  g_static_mutex_unlock(&iface_watches_lock);    
+  G_UNLOCK(iface_watches_lock);
 }
-
 
 gboolean
 z_ifmon_watch_iface_matches(ZIfmonWatch *w, const gchar *if_name)
@@ -256,7 +253,7 @@ z_ifmon_watch_free(ZIfmonWatch *watch)
   if (watch->user_data_destroy)
     watch->user_data_destroy(watch->user_data);
   g_free(watch);
-  
+
 }
 
 ZIfmonWatch *
@@ -264,7 +261,7 @@ z_ifmon_register_watch(const gchar *iface, gint family, ZIfmonWatchFunc callback
 {
   ZIfmonWatch *w = g_new0(ZIfmonWatch, 1);
   ZIfaceInfo *info;
-  
+
   g_strlcpy(w->iface_name, iface, sizeof(w->iface_name));
   w->callback = callback;
   w->family = family;
@@ -276,38 +273,38 @@ z_ifmon_register_watch(const gchar *iface, gint family, ZIfmonWatchFunc callback
   if (info && info->flags & IFF_UP)
     {
       gint i;
-      
+
       for (i = 0; i < info->in4_address_count; i++)
         {
           callback(iface, Z_IFC_ADD, AF_INET, &info->in4_addresses[i], user_data);
         }
     }
- 
-  g_static_mutex_lock(&iface_watches_lock);
+
+  G_LOCK(iface_watches_lock);
   iface_watches = g_list_prepend(iface_watches, w);
-  g_static_mutex_unlock(&iface_watches_lock);
-  
+  G_UNLOCK(iface_watches_lock);
+
   return w;
 }
 
 void
-z_ifmon_unregister_watch(ZIfmonWatch *watch)                         
+z_ifmon_unregister_watch(ZIfmonWatch *watch)
 {
   ZIfaceInfo *info;
-  
+
   info = z_ifmon_find_by_name(watch->iface_name);
   if (info && info->flags & IFF_UP)
     {
       gint i;
-      
+
       for (i = 0; i < info->in4_address_count; i++)
         {
           watch->callback(watch->iface_name, Z_IFC_REMOVE, AF_INET, &info->in4_addresses[i], watch->user_data);
         }
     }
-  g_static_mutex_lock(&iface_watches_lock);
+  G_LOCK(iface_watches_lock);
   iface_watches = g_list_remove(iface_watches, watch);
-  g_static_mutex_unlock(&iface_watches_lock);
+  G_UNLOCK(iface_watches_lock);
   z_ifmon_watch_free(watch);
 }
 
@@ -331,7 +328,7 @@ static void
 z_ifmon_call_group_watchers_unlocked(guint32 group, ZIfChangeType change, const gchar *if_name)
 {
   GList *p, *p_next;
-  
+
   for (p = iface_group_watches; p; p = p_next)
     {
       ZIfmonGroupWatch *w = (ZIfmonGroupWatch *) p->data;
@@ -347,16 +344,16 @@ z_ifmon_call_group_watchers_unlocked(guint32 group, ZIfChangeType change, const 
 static void
 z_ifmon_call_group_watchers(guint32 group, ZIfChangeType change, const gchar *if_name)
 {
-  g_static_mutex_lock(&iface_group_watches_lock);
+  G_LOCK(iface_group_watches_lock);
   z_ifmon_call_group_watchers_unlocked(group, change, if_name);
-  g_static_mutex_unlock(&iface_group_watches_lock);    
+  G_UNLOCK(iface_group_watches_lock);
 }
 
 static void
 z_ifmon_iterate_ifaces(guint32 group, ZIfmonGroupWatch *watch, ZIfChangeType change)
 {
   ZIfmonGroupIterState state;
-  
+
   state.change = change;
   state.group = group;
   state.watch = watch;
@@ -369,33 +366,33 @@ z_ifmon_group_watch_free(ZIfmonGroupWatch *watch)
   if (watch->user_data_destroy)
     watch->user_data_destroy(watch->user_data);
   g_free(watch);
-  
+
 }
 
 ZIfmonGroupWatch *
 z_ifmon_register_group_watch(guint32 group, ZIfmonGroupWatchFunc callback, gpointer user_data, GDestroyNotify user_data_destroy)
 {
   ZIfmonGroupWatch *w = g_new0(ZIfmonGroupWatch, 1);
-  
+
   w->group = group;
   w->callback = callback;
   w->user_data = user_data;
   w->user_data_destroy = user_data_destroy;
- 
-  g_static_mutex_lock(&iface_group_watches_lock);
+
+  G_LOCK(iface_group_watches_lock);
   iface_group_watches = g_list_prepend(iface_group_watches, w);
-  g_static_mutex_unlock(&iface_group_watches_lock);
+  G_UNLOCK(iface_group_watches_lock);
   /* add all already registered interfaces */
   z_ifmon_iterate_ifaces(group, w, Z_IFC_ADD);
   return w;
 }
 
 void
-z_ifmon_unregister_group_watch(ZIfmonGroupWatch *watch)                         
+z_ifmon_unregister_group_watch(ZIfmonGroupWatch *watch)
 {
-  g_static_mutex_lock(&iface_group_watches_lock);
+  G_LOCK(iface_group_watches_lock);
   iface_watches = g_list_remove(iface_watches, watch);
-  g_static_mutex_unlock(&iface_group_watches_lock);
+  G_UNLOCK(iface_group_watches_lock);
   z_ifmon_group_watch_free(watch);
 }
 
@@ -504,7 +501,7 @@ z_ifmon_parse_ifaddr(const gchar *msg, gsize msg_len, guint *ifa_index, guint *i
       z_log(NULL, CORE_ERROR, 1, "Error parsing ifaddrmsg netlink message;");
       return FALSE;
     }
-  
+
   return TRUE;
 }
 
@@ -527,7 +524,6 @@ z_ifmon_add_iface(const gchar *msg, gsize msg_len)
    * Since we create the new ZIfaceInfo instance with g_new0, it is zeroed and so its group is zeroed.
    * This means the group check below won't call group watchers if there's no group.
    **/
-
 
   info = g_hash_table_lookup(iface_hash, &if_index);
   if (!info)
@@ -599,7 +595,7 @@ z_ifmon_add_iface(const gchar *msg, gsize msg_len)
       info->group = if_group;
       z_ifmon_call_group_watchers(info->group, Z_IFC_ADD, info->name);
     }
-    
+
   if (new)
     {
       z_rtnetlink_request_dump(RTM_GETADDR, PF_PACKET);
@@ -702,7 +698,6 @@ z_ifmon_change_iface_addr(const gchar *msg, gsize msg_len)
     }
 }
 
-
 static const void*
 z_ifmon_get_primary_address_impl(const ZIfaceInfo *info, gint family)
 {
@@ -746,7 +741,7 @@ guint
 z_ifmon_get_iface_flags(guint ifindex)
 {
   ZIfaceInfo *info = g_hash_table_lookup(iface_hash, &ifindex);
-  
+
   return info ? info->flags : 0;
 }
 

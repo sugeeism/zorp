@@ -28,35 +28,34 @@ from Zorp.Http import *
 
 Zorp.firewall_name = 'bzorp@balabit'
 
-InetZone('site-net', '192.168.1.0/24', 
-	 inbound_services=["*"], 
-	 outbound_services=["*"])
+InetZone('site-net', '192.168.1.0/24',
+         inbound_services=["*"],
+         outbound_services=["*"])
 
 InetZone('local', '127.0.0.0/8',
-	 inbound_services=["*"],
-	 outbound_services=["*"])
+         inbound_services=["*"],
+         outbound_services=["*"])
 
 InetZone('internet', '0.0.0.0/0',
-	 inbound_services=["*"],
-	 outbound_services=["*"])
+         inbound_services=["*"],
+         outbound_services=["*"])
 
 # transparent Https proxy
 class MyHttpsProxy(PsslProxy):
 
-	class EmbeddedHttpProxy(HttpProxy):
-		def config(self):
-			HttpProxy.config(self)
-			self.request_headers["User-Agent"] = (Http.HTTP_CHANGE_VALUE, "Lynx 2.8,1")
-			
-	def config(self):
-		self.server_need_ssl = TRUE
-		self.client_need_ssl = TRUE
-		self.client_key = '/etc/zorp/server.key'
-		self.client_cert = '/etc/zorp/server.crt'
-		self.stack_proxy = EmbeddedHttpProxy
+    class EmbeddedHttpProxy(HttpProxy):
+        def config(self):
+            HttpProxy.config(self)
+            self.request_headers["User-Agent"] = (Http.HTTP_CHANGE_VALUE, "Lynx 2.8,1")
+
+    def config(self):
+        self.server_need_ssl = TRUE
+        self.client_need_ssl = TRUE
+        self.client_key = '/etc/zorp/server.key'
+        self.client_cert = '/etc/zorp/server.crt'
+        self.stack_proxy = EmbeddedHttpProxy
 
 def zorp():
- 	Service("https", MyHttpsProxy, 
-		router=TransparentRouter())
- 	Listener(SockAddrInet("0.0.0.0", 8080), "https")
-
+    Service("https", MyHttpsProxy,
+            router=TransparentRouter())
+    Listener(SockAddrInet("0.0.0.0", 8080), "https")

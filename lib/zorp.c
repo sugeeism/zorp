@@ -32,7 +32,6 @@
 #include <zorp/zorp.h>
 #include <zorp/log.h>
 
-
 #include <zorp/zpython.h>
 #include <zorp/policy.h>
 #include <zorp/szig.h>
@@ -41,7 +40,6 @@
 
 #include <zorp/blob.h>
 #include <zorp/process.h>
-
 
 
 GMainLoop *main_loop;
@@ -62,6 +60,7 @@ static gboolean term_received = 0;
 
 static gboolean hup_received = 0;
 static gboolean reload_result = FALSE;
+static gboolean initial_policy_load_done = FALSE;
 
 /**
  * NOTE: this must either be called from a signal handler (in which case
@@ -82,6 +81,12 @@ gboolean
 z_main_loop_get_last_reload_result(void)
 {
   return reload_result;
+}
+
+gboolean
+z_main_loop_is_initial_policy_load(void)
+{
+  return !initial_policy_load_done;
 }
 
 void
@@ -148,6 +153,10 @@ z_load_policy(const gchar *policy_file,
       z_policy_deinit(old_policy, instance_policy_list, virtual_instance_name);
       z_policy_unref(old_policy);
     }
+
+  if (!initial_policy_load_done)
+    initial_policy_load_done = TRUE;
+
   return TRUE;
 }
 
@@ -164,11 +173,11 @@ z_generate_policy_load_event(const gchar *policy_file, gboolean reload_result)
       else
         policy_stamp = st.st_mtime;
 
-      z_szig_event(Z_SZIG_RELOAD, 
-           z_szig_value_new_props("policy", 
-                                  "file", z_szig_value_new_string(policy_file), 
-                                  "file_stamp", z_szig_value_new_long(policy_stamp), 
-                                  "reload_stamp", z_szig_value_new_long(time(NULL)), 
+      z_szig_event(Z_SZIG_RELOAD,
+           z_szig_value_new_props("policy",
+                                  "file", z_szig_value_new_string(policy_file),
+                                  "file_stamp", z_szig_value_new_long(policy_stamp),
+                                  "reload_stamp", z_szig_value_new_long(time(NULL)),
                                   NULL));
     }
 }
@@ -180,7 +189,7 @@ z_main_loop(const gchar *policy_file, const gchar *instance_name,
             gboolean is_master)
 {
   gint new_verbosity;
-  
+
   if (!z_load_policy(policy_file, instance_policy_list, virtual_instance_name, is_master))
     {
       /*LOG
@@ -195,16 +204,16 @@ z_main_loop(const gchar *policy_file, const gchar *instance_name,
     }
   /* signal successful start */
   z_process_startup_ok();
-  
+
   /* z_process_startup_ok() closes the inherited stderr, we need to open our
    * own to see messages written to stderr */
-  
+
   if (z_log_get_use_syslog())
     z_log_enable_stderr_redirect(TRUE);
 
   if (term_received)
     z_main_loop_quit(0);
-    
+
   z_read_global_params(current_policy);
   z_blob_system_default_init();
 

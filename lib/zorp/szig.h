@@ -76,7 +76,7 @@ struct _ZSzigServiceProps
   gchar *name;
   gint instance_id;
   gushort sec_conn_id;
-  gushort related_id; 
+  gushort related_id;
   gint string_count;
   gchar *string_list[Z_SZIG_MAX_PROPS * 2];
 };
@@ -88,7 +88,6 @@ struct _ZSzigProps
   gchar *name_list[Z_SZIG_MAX_PROPS];
   ZSzigValue *value_list[Z_SZIG_MAX_PROPS];
 };
-
 
 struct _ZSzigValue
 {
@@ -135,5 +134,7 @@ ZSzigValue *z_szig_value_new_props(const gchar *name, const gchar *first_prop, .
 void z_szig_value_free(ZSzigValue *v, gboolean free_inst);
 
 ZSzigNode *z_szig_tree_lookup(const gchar *node_name, gboolean create, ZSzigNode **parent, gint *parent_ndx);
+
+void z_szig_value_add_thread_id();
 
 #endif

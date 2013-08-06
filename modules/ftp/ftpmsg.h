@@ -24,7 +24,6 @@
  *
  ***************************************************************************/
 
-
 #ifndef ZORP_MODULES_FTP_FTPMSG_H
 #define ZORP_MODULES_FTP_FTPMSG_H
 

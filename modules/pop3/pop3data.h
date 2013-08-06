@@ -32,4 +32,3 @@
 gboolean pop3_data_transfer(Pop3Proxy *owner);
 
 #endif
-

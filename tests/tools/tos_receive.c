@@ -6,7 +6,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#define PORT 12345
+#define PORT (unsigned short)12345
 
 int
 make_socket (uint16_t port)

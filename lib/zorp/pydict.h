@@ -23,7 +23,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
+ * Auditor :
  * Last audited version:
  * Notes:
  *
@@ -37,7 +37,7 @@
 
 typedef struct _ZPolicyDict ZPolicyDict;
 
-typedef enum 
+typedef enum
 {
   Z_VT_NONE     = 0,    /* end of argument list */
   Z_VT_INT,	        /* variable is an int */
@@ -56,6 +56,7 @@ typedef enum
   Z_VT_DIMHASH,         /* variable is a multidimensional hash */
   Z_VT_ALIAS,	        /* variable is an alias of another variable */
   Z_VT_PTR,             /* variable is a generic pointer */
+  Z_VT_BYTEARRAY,       /* variable is a byte array, representing data possibly containing \0 */
 } ZVarType;
 
 enum
@@ -99,4 +100,3 @@ void z_policy_dict_unref(ZPolicyDict *self);
 void z_policy_dict_destroy(ZPolicyDict *self);
 
 #endif
-

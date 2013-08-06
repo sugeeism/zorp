@@ -2,12 +2,12 @@
 .\"     Title: instances.conf
 .\"    Author: [see the "Author" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 08/02/2013
+.\"      Date: 08/06/2013
 .\"    Manual: [FIXME: manual]
 .\"    Source: [FIXME: source]
 .\"  Language: English
 .\"
-.TH "INSTANCES\&.CONF" "5" "08/02/2013" "[FIXME: source]" "[FIXME: manual]"
+.TH "INSTANCES\&.CONF" "5" "08/06/2013" "[FIXME: source]" "[FIXME: manual]"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -84,20 +84,12 @@ parameter of
 zorp(8)) multiplied by 4\&.
 .RE
 .PP
-\fB\-\-process\-limit <number>\fR or \fB\-p <number>\fR
-.RS 4
-Set the process limit to <number>\&. The process limit defaults to the number of threads (specified by the
-\fI\-\-threads\fR
-parameter of
-zorp(8)) multiplied by 2\&.
-.RE
-.PP
 \fB\-\-enable\-core\fR
 .RS 4
 Explicitly enable core dumps for Zorp processes\&. The core limit is inherited from the local starting environment (e\&.g\&.: starting shell) if not specified\&.
 .RE
 .PP
-\fB\-\-parallel\-instances <number>\fR or \fB\-P <number> \fR
+\fB\-\-num\-of\-processes <number>\fR or \fB\-P <number> \fR
 .RS 4
 Run <number> of processes for the instance\&.
 \fBzorpctl\fR

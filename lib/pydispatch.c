@@ -23,8 +23,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
- * Last audited version: 
+ * Auditor :
+ * Last audited version:
  * Notes:
  *
  ***************************************************************************/
@@ -36,7 +36,6 @@
 #include <zorp/pysockaddr.h>
 #include <zorp/pystream.h>
 #include <zorp/kzorp.h>
-
 /* ZPolicyDispatchBind */
 
 ZDispatchBind *
@@ -46,11 +45,11 @@ z_policy_dispatch_bind_get_db(ZPolicyObj *self)
 
   if (!z_policy_dispatch_bind_check(self))
     return NULL;
-  
+
   db = (ZDispatchBind *) z_policy_dict_get_app_data(z_policy_struct_get_dict(self));
   return z_dispatch_bind_ref(db);
 }
-  
+
 ZPolicyObj *
 z_policy_dispatch_format(ZPolicyObj *s)
 {
@@ -94,7 +93,6 @@ z_policy_dispatch_bind_format(gpointer user_data, ZPolicyObj *args, ZPolicyObj *
 
   return PyString_FromString(z_dispatch_bind_format(bind, buf, sizeof(buf)));
 }
-            
 
 static ZPolicyObj *
 z_policy_dispatch_bind_new(ZDispatchBind *bind)
@@ -203,14 +201,14 @@ z_policy_dispatch_bind_new_instance_iface_group(ZPolicyObj *self G_GNUC_UNUSED, 
     {
       return NULL;
     }
-    
+
   if (z_policy_str_check(group_obj))
     {
       FILE *ifgroups;
       gchar *group_name, *end;
-      
+
       group_name = z_policy_str_as_string(group_obj);
-      
+
       group = strtoul(group_name, &end, 0);
       if (*end != 0)
         {
@@ -221,9 +219,9 @@ z_policy_dispatch_bind_new_instance_iface_group(ZPolicyObj *self G_GNUC_UNUSED, 
               guint value;
               gchar name[32];
               gchar buf[256];
-              
+
               while (fgets(buf, sizeof(buf), ifgroups))
-                { 
+                {
                   if (buf[0] == '#' || buf[0] == '\n' || buf[0] == 0)
                     continue;
                   if (sscanf(buf, "%x %32s\n", &value, name) == 2)
@@ -238,7 +236,7 @@ z_policy_dispatch_bind_new_instance_iface_group(ZPolicyObj *self G_GNUC_UNUSED, 
               fclose(ifgroups);
             }
         }
-      
+
       if (!group)
         {
           PyErr_SetString(PyExc_RuntimeError, "Error resolving interface group name");
@@ -249,7 +247,7 @@ z_policy_dispatch_bind_new_instance_iface_group(ZPolicyObj *self G_GNUC_UNUSED, 
     {
       group = PyInt_AsLong(group_obj);
     }
-    
+
   if (port == 0)
     {
       PyErr_SetString(PyExc_ValueError, "Interface Group bound dispatches require a non-zero port");
@@ -276,7 +274,6 @@ typedef struct _ZPolicyDispatch
 static PyTypeObject z_policy_dispatch_type;
 static PyMethodDef z_policy_dispatch_methods[];
 
-
 /**
  * z_policy_dispatch_accept:
  * @conn The new incoming connection
@@ -286,7 +283,7 @@ static PyMethodDef z_policy_dispatch_methods[];
  * instances in the constructor of ZPolicyDispatch. This function will be called
  * on new incoming connections, passes the connection to self->handler, which
  * will end up in the 'accepted' method of AbstractDispatch.
- * 
+ *
  * Called by the main thread, so it locks using the global python state
  *
  * Returns: TRUE
@@ -302,13 +299,13 @@ z_policy_dispatch_accept(ZConnection *conn, gpointer user_data)
   if (conn)
     {
       ZSockAddr *tmpsa;
-     
+
       /* NOTE: we cloning sockaddrs here as ref/unref on sockaddrs is not
        * reentrant, thus it is wise to use separate copies in each thread */
       tmpsa = z_sockaddr_clone(conn->dest, FALSE);
       local = z_policy_sockaddr_new(tmpsa);
       z_sockaddr_unref(tmpsa);
-      
+
       tmpsa = z_sockaddr_clone(conn->remote, FALSE);
       addr = z_policy_sockaddr_new(tmpsa);
       z_sockaddr_unref(tmpsa);
@@ -329,7 +326,7 @@ z_policy_dispatch_accept(ZConnection *conn, gpointer user_data)
   Py_XDECREF(addr);
   Py_XDECREF(local);
   Py_XDECREF(pystream);
-  
+
   /* once python was called we assume that it takes care about the fd
    * we just passed. As an exception if an exception occurs we close it ourselves
    */
@@ -370,16 +367,15 @@ z_policy_dispatch_destroy_notify(gpointer p)
 {
   ZPolicyDispatch *self = (ZPolicyDispatch *) p;
   ZPolicy *policy;
-  
+
   policy = z_policy_ref(self->policy);
-  
+
   z_policy_acquire_main(policy);
   Py_XDECREF(self);
   z_policy_release_main(policy);
-  
+
   z_policy_unref(policy);
 }
-
 
 /**
  * z_policy_dispatch_destroy_method:
@@ -388,7 +384,7 @@ z_policy_dispatch_destroy_notify(gpointer p)
  *
  * Detaches a ZPolicyDispatch instance from its dispatch entry ?and from
  * Python?
- * 
+ *
  * Returns: Py_None
  */
 static PyObject *
@@ -424,7 +420,7 @@ static PyObject *
 z_policy_dispatch_getattr(PyObject *o, char *name)
 {
   PyObject *back;
-  
+
   z_enter();
   back = Py_FindMethod(z_policy_dispatch_methods, o, name);
   z_leave();
@@ -448,7 +444,7 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
 {
   ZPolicyDispatch *self = NULL;
   PyObject *addr;
-  ZSockAddr *bound_addr;
+  ZSockAddr *bound_addr = NULL;
   PyObject *handler, *keywords, *fake_args = NULL;
   ZDispatchBind *db;
   gint prio;
@@ -494,9 +490,9 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
     case ZD_PROTO_TCP:
       params.tcp.accept_one = FALSE;
       params.tcp.backlog = 255;
-      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiiii", tcp_keywords, 
-                                       &params.tcp.accept_one, 
-                                       &params.tcp.backlog, 
+      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiiii", tcp_keywords,
+                                       &params.tcp.accept_one,
+                                       &params.tcp.backlog,
                                        &params.common.threaded,
                                        &params.common.mark_tproxy,
                                        &params.common.transparent))
@@ -510,9 +506,9 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
        * z_dispatch_register calls returns, it is discarded by Python
        * afterwards.  This is not a problem as this name is used in
        * z_conntrack_new, and never referenced again */
-       
+
       params.udp.rcvbuf = 65536;
-      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiiii", udp_keywords, 
+      if (!PyArg_ParseTupleAndKeywords(fake_args, keywords, "|iiiii", udp_keywords,
                                        &session_limit_dummy,
                                        &params.udp.rcvbuf,
                                        &params.common.threaded,
@@ -522,7 +518,7 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
           goto error_exit;
         }
       break;
-      
+
     }
 
   self = PyObject_New(ZPolicyDispatch, &z_policy_dispatch_type);
@@ -533,7 +529,7 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
     This message indicates that a Listener on the given local address is
     started.
    */
-  z_log(session_id, CORE_DEBUG, 7, "Dispatcher on address; local='%s', prio='%d'", 
+  z_log(session_id, CORE_DEBUG, 7, "Dispatcher on address; local='%s', prio='%d'",
         z_dispatch_bind_format(db, buf, sizeof(buf)), prio);
 
   Py_XINCREF(self);
@@ -549,7 +545,7 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
      while our callback is running, this makes a possible cross-lock deadlock:
      1) This function (Python lock) -> z_dispatch_register (chain lock)
      2) z_dispatch_callback (chain lock) -> our callback (Python lock)
-     
+
      That's the reason for BEGIN_ALLOW_THREADS here.
    */
   Py_BEGIN_ALLOW_THREADS;
@@ -619,14 +615,13 @@ z_policy_dispatch_free(ZPolicyDispatch *self)
   PyObject_Del(self);
 }
 
-
 static PyMethodDef z_policy_dispatch_methods[] =
 {
   { "destroy",     (PyCFunction) z_policy_dispatch_destroy_method, 0, NULL },
   { NULL,          NULL, 0, NULL }   /* sentinel*/
 };
 
-static PyTypeObject z_policy_dispatch_type = 
+static PyTypeObject z_policy_dispatch_type =
 {
   PyVarObject_HEAD_INIT(&PyType_Type, 0)
   .tp_name = "ZPolicyDispatch",
@@ -662,7 +657,6 @@ z_policy_dispatch_get_kzorp_result(PyObject *o G_GNUC_UNUSED, PyObject *args)
     }
 
   memset(&buf, 0, sizeof(buf));
-
   if (!z_kzorp_get_lookup_result(family, fd, &buf))
     {
       return z_policy_none_ref();
@@ -673,7 +667,6 @@ z_policy_dispatch_get_kzorp_result(PyObject *o G_GNUC_UNUSED, PyObject *args)
 
   return ret;
 }
-
 PyMethodDef z_policy_dispatch_funcs[] =
 {
   { "Dispatch", (PyCFunction) z_policy_dispatch_new_instance, METH_VARARGS, NULL },
@@ -694,4 +687,3 @@ z_policy_dispatch_module_init(void)
 {
   Py_InitModule("Zorp.Zorp", z_policy_dispatch_funcs);
 }
-

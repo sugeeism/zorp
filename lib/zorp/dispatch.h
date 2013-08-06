@@ -26,10 +26,9 @@ enum
   ZD_BIND_IFACE_GROUP,
 } ZDispatchBindType;
 
-
 typedef struct _ZDispatchCommonParams
 {
-  gboolean threaded; 
+  gboolean threaded;
   gboolean mark_tproxy;
   gboolean transparent;
 } ZDispatchCommonParams;
@@ -101,8 +100,8 @@ void z_dispatch_bind_unref(ZDispatchBind *self);
 ZDispatchEntry *
 z_dispatch_register(gchar *session_id,
                         ZDispatchBind *key,
-		        ZSockAddr **bound_addr, 
-                        gint prio, 
+		        ZSockAddr **bound_addr,
+                        gint prio,
                         ZDispatchParams *params,
                         ZDispatchCallbackFunc cb, gpointer user_data, GDestroyNotify data_destroy);
 

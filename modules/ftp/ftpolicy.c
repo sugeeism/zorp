@@ -53,7 +53,7 @@ ftp_policy_bounce_check(FtpProxy *self, guint  side, ZSockAddr *remote, gboolean
   gboolean called;
   ZPolicyObj *res;
   gboolean ret;
-  
+
   z_proxy_enter(self);
   z_policy_lock(self->super.thread);
   zsock = z_policy_sockaddr_new(remote);
@@ -63,7 +63,7 @@ ftp_policy_bounce_check(FtpProxy *self, guint  side, ZSockAddr *remote, gboolean
       z_policy_unlock(self->super.thread);
       z_proxy_return(self, TRUE);
     }
-  
+
   if ((res == NULL) || !z_policy_var_parse(res, "i", &ret))
     ret = FALSE;
 
@@ -118,7 +118,7 @@ gboolean
 ftp_policy_command_hash_search(FtpProxy *self,gchar *command)
 {
   FtpCommandDescriptor *tmp;
-  
+
   tmp = g_hash_table_lookup(self->policy_command_hash, command);
   return tmp != NULL;
 }
@@ -146,7 +146,6 @@ ftp_hash_get_type(ZPolicyObj *tuple, guint *filter_type)
   z_policy_var_unref(tmp);
   return TRUE;
 }
-                                                          
 
 guint
 ftp_policy_command_hash_do(FtpProxy *self)
@@ -159,7 +158,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
   gchar work[10];
   gchar *msg;
   int i;
-  
+
   z_proxy_enter(self);
   tmp = g_hash_table_lookup(self->policy_command_hash, self->request_cmd->str);
   if (!tmp)
@@ -176,7 +175,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 5, "Policy does not contain this request, using hard-coded default; request='%s'", self->request_cmd->str);
       z_proxy_return(self, FTP_REQ_REJECT);
     }
-  
+
   z_policy_lock(self->super.thread);
   if (!ftp_hash_get_type(tmp,&command_do))
     {
@@ -189,14 +188,14 @@ ftp_policy_command_hash_do(FtpProxy *self)
       z_proxy_return(self, FTP_REQ_REJECT);
     }
   z_policy_unlock(self->super.thread);
-  
+
   switch(command_do)
     {
     case FTP_REQ_ACCEPT:
     case FTP_REQ_ABORT:
       ret = command_do;
       break;
-      
+
     case FTP_REQ_REJECT:
       z_policy_lock(self->super.thread);
       if (z_policy_var_parse(tmp, "(is)", &command_do, &msg))
@@ -211,7 +210,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
       ret = command_do;
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case FTP_REQ_POLICY:
       z_policy_lock(self->super.thread);
       if (!z_policy_var_parse(tmp,"(iO)",&command_do,&command_where))
@@ -242,7 +241,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
           else if (!z_policy_var_parse(res,"i",&ret))
             {
               /*LOG
-                This message indicates that the returned value of the callback for the given request policy 
+                This message indicates that the returned value of the callback for the given request policy
                 is invalid and Zorp rejects the request. Check the callback function.
                */
               z_proxy_log(self, FTP_POLICY, 1, "Can't parsing return code; command='%s'", self->request_cmd->str);
@@ -256,7 +255,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
                 case FTP_REQ_ABORT:
                 case FTP_REQ_REJECT:
                   break;
-                  
+
                 case ZV_UNSPEC:
                 case ZV_DROP:
                   ret = FTP_REQ_REJECT;
@@ -269,7 +268,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     default:
       ret = FTP_REQ_ABORT;
       break;
@@ -320,7 +319,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
       z_proxy_log(self, FTP_POLICY, 5, "Policy does not contain this response, using hard-coded default; request='%s', response='%s", self->request_cmd->str, self->answer_cmd->str);
       z_proxy_return(self, FTP_RSP_REJECT);
     }
-    
+
   z_policy_lock(self->super.thread);
   if (!ftp_hash_get_type(tmp, &answer_do))
     {
@@ -332,7 +331,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
       z_proxy_return(self, FTP_RSP_REJECT);
     }
   z_policy_unlock(self->super.thread);
-  
+
   switch(answer_do)
     {
     case FTP_RSP_REJECT:
@@ -353,11 +352,11 @@ ftp_policy_answer_hash_do(FtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case FTP_RSP_ACCEPT:
       ret = FTP_RSP_ACCEPT;
       break;
-      
+
     case FTP_RSP_ABORT:
       ret = FTP_RSP_ABORT;
       z_policy_lock(self->super.thread);
@@ -376,7 +375,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     case FTP_RSP_POLICY:
       z_policy_lock(self->super.thread);
       if (!z_policy_var_parse(tmp,"(iO)", &answer_do, &answer_where))
@@ -409,7 +408,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
           else if (!z_policy_var_parse(res, "i", &ret))
             {
               /*LOG
-                This message indicates that the returned value of the callback for the given response policy 
+                This message indicates that the returned value of the callback for the given response policy
                 is invalid and Zorp rejects the response. Check the callback function.
                */
               z_proxy_log(self, FTP_POLICY, 1, "Return code invalid from policy function; command='%s', answer='%s'", self->request_cmd->str, self->answer_cmd->str);
@@ -425,12 +424,12 @@ ftp_policy_answer_hash_do(FtpProxy *self)
                 case FTP_RSP_REJECT:
                 case FTP_RSP_ABORT:
                   break;
-                  
+
                 case ZV_DROP:
                 case ZV_UNSPEC:
                   ret = FTP_RSP_REJECT;
                   break;
-                  
+
                 default:
                   g_string_assign(self->answer_cmd, "500");
                   g_string_assign(self->answer_param, "Error parsing answer, connection dropped.");
@@ -441,7 +440,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
         }
       z_policy_unlock(self->super.thread);
       break;
-      
+
     default:
       g_string_assign(self->answer_cmd, "500");
       g_string_assign(self->answer_param, "Error parsing answer, connection dropped.");

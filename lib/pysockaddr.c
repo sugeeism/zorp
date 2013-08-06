@@ -53,7 +53,7 @@ z_policy_sockaddr_inet_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args)
   gchar *ip;
   gint port;
   guint32 ip_addr;
-  
+
   if (PyArg_Parse(args, "(si)", &ip, &port))
     {
       sa = z_sockaddr_inet_new(ip, port);
@@ -69,13 +69,13 @@ z_policy_sockaddr_inet_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args)
       if (PyArg_Parse(args, "(ii)", &ip_addr, &port))
         {
           struct sockaddr_in socket;
-          
+
           memset(&socket, 0, sizeof(socket));
-          
+
           socket.sin_family = AF_INET;
           socket.sin_addr.s_addr = htonl(ip_addr);
           socket.sin_port = htons(port);
-          
+
           sa = z_sockaddr_inet_new2(&socket);
           if (!sa)
             {
@@ -89,7 +89,7 @@ z_policy_sockaddr_inet_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args)
           return NULL;
         }
     }
-  
+
   res = z_policy_sockaddr_new(sa);
   z_sockaddr_unref(sa);
 
@@ -153,10 +153,10 @@ z_policy_sockaddr_inet_range_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *a
   ZSockAddr *sa;
   gchar *ip;
   gint min_port, max_port;
-  
+
   if (!PyArg_Parse(args, "(sii)", &ip, &min_port, &max_port))
     return NULL;
-  
+
   sa = z_sockaddr_inet_range_new(ip, min_port, max_port);
 
   if (!sa)
@@ -186,7 +186,7 @@ z_policy_sockaddr_inet6_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args)
   ZSockAddr *sa;
   gchar *ip;
   gint port;
-  
+
   if (!PyArg_Parse(args, "(si)", &ip, &port))
     return NULL;
 
@@ -218,7 +218,7 @@ z_policy_sockaddr_unix_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args)
   ZSockAddr *sa;
   PyObject *res;
   gchar *path;
-  
+
   if (!PyArg_Parse(args, "(s)", &path))
     return NULL;
 
@@ -255,10 +255,9 @@ z_policy_sockaddr_format(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw G_
 
   if (!z_policy_var_parse(args, "()"))
     return NULL;
-  
+
   return PyString_FromString(z_sockaddr_format(sa, buf, sizeof(buf)));
 }
-
 
 /**
  * z_policy_sockaddr_clone:
@@ -276,10 +275,10 @@ z_policy_sockaddr_clone(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw G_G
   PyObject *res;
   gint wild;
   ZSockAddr *sa = (ZSockAddr *) user_data, *a;
-  
+
   if (!z_policy_var_parse(args, "(i)", &wild))
     return NULL;
-      
+
   a = z_sockaddr_clone(sa, wild);
   res = z_policy_sockaddr_new(a);
   z_sockaddr_unref(a);
@@ -301,10 +300,10 @@ z_policy_sockaddr_equal(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw G_G
 {
   PyObject *other_obj, *res;
   ZSockAddr *this_sa = (ZSockAddr *) user_data, *other_sa;
-  
+
   if (!z_policy_var_parse(args, "(O)", &other_obj))
     return NULL;
-  
+
   if (!z_policy_sockaddr_check(other_obj))
     {
       PyErr_SetString(PyExc_ValueError, "Argument must be a SockAddr instance");
@@ -313,7 +312,7 @@ z_policy_sockaddr_equal(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw G_G
   other_sa = z_policy_sockaddr_get_sa(other_obj);
   res = PyInt_FromLong(z_sockaddr_equal(this_sa, other_sa));
   z_sockaddr_unref(other_sa);
-      
+
   return res;
 }
 
@@ -373,7 +372,6 @@ z_policy_sockaddr_pack(gpointer user_data, ZPolicyObj *args G_GNUC_UNUSED, ZPoli
       return z_policy_none_ref();
   }
 }
-
 /**
  * z_policy_sockaddr_new:
  * @sa ZSockAddr address
@@ -389,7 +387,7 @@ z_policy_sockaddr_new(ZSockAddr *sa)
   ZPolicyDict *dict;
   ZPolicyObj *res;
   gint struct_type;
-  
+
   dict = z_policy_dict_new();
   z_policy_dict_register(dict, Z_VT_INT16, "family", Z_VF_READ | Z_VF_LITERAL, sa->sa.sa_family);
   z_policy_dict_register(dict, Z_VT_METHOD, "clone", Z_VF_READ, z_policy_sockaddr_clone, z_sockaddr_ref(sa), z_sockaddr_unref);
@@ -443,7 +441,6 @@ z_policy_sockaddr_new(ZSockAddr *sa)
 
   return res;
 }
-
 
 /**
  * z_policy_sockaddr_init:

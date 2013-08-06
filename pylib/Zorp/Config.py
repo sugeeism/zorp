@@ -42,14 +42,14 @@ FALSE = 0
 config = sys.modules[__name__]
 
 def addConfigContainer(cont):
-	"""
-	<function internal="yes">
-	  <summary>
-	    Create a container for global configuration variables.
-	  </summary>
-	</function>
-	"""
-	setattr(config, cont, new.module(cont))
+    """
+    <function internal="yes">
+      <summary>
+        Create a container for global configuration variables.
+      </summary>
+    </function>
+    """
+    setattr(config, cont, new.module(cont))
 
 addConfigContainer('blob')
 # The directory where blobs are swapped out
@@ -170,13 +170,13 @@ config.audit.reopen_size_threshold = 2000000000L
 config.audit.reopen_time_threshold = 28800
 
 # Rate of filling the bucket in byte/sec
-config.audit.rate_limit = 2*1024*1024 
+config.audit.rate_limit = 2*1024*1024
 
 # Interval between two notifications, if bucket is empty, in seconds
 config.audit.rate_notification_interval = 300
 
 # Maximum size of audit trail files in bytes
-config.audit.write_size_max = 50*1024*1024
+config.audit.write_size_max = 2048*1024*1024
 
 # Terminate proxy if cannot write audit trail (max size exceeded)
 config.audit.terminate_on_max_size = FALSE
@@ -192,19 +192,9 @@ config.options.language = "en"
 # Zone and CSZoneDispatcher shift cache parameter
 config.options.zone_dispatcher_shift_threshold = 1000
 
-# Zone lookup shift cache parameter
-config.options.zone_cache_shift_threshold = 1000
-
-# Inbound DAC shift cache parameter
-config.options.inbound_service_cache_threshold = 1000
-
-# Outbound DAC shift cache parameter
-config.options.outbound_service_cache_threshold = 1000
-
 # DSCP -> thread priority mapping
 config.options.dscp_prio_mapping = {}
 
 # KZorp enabled or not. If KZorp is not present in the kernel and this is
 # enabled, Zorp startup/shutdown/reload will be delayed by about 5sec
 config.options.kzorp_enabled = TRUE
-

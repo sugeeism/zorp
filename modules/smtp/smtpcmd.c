@@ -34,6 +34,8 @@
 #include <zorp/log.h>
 #include <zorp/misc.h>
 
+#include <string.h>
+
 #define FROM_ADDR "From:"
 #define TO_ADDR   "To:"
 
@@ -51,24 +53,13 @@ static gboolean
 smtp_parse_atom(SmtpProxy *self G_GNUC_UNUSED, gchar *path, gchar **end)
 {
   /* characters excluded from <c> in RFC821, that is, members of <special> and <SP> */
-  gchar specials[] = { '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '.', '[', ']', ' ' };
-  gint i = 0, j;
-  
+  static const gchar specials[] = { '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '.', '[', ']', ' ', '\0' };
+
   z_proxy_enter(self);
-  while (path[i])
-    {
-      for (j = 0; j < (gint) sizeof(specials); j++)
-        {
-          if (path[i] == specials[j])
-            {
-              *end = &path[i];
-              z_proxy_leave(self);
-              return TRUE;
-            }
-        }
-      i++;
-    }
-  *end = &path[i];
+
+  size_t num_of_ordinary_chars = strcspn(path, specials);
+  *end = path + num_of_ordinary_chars;
+
   z_proxy_leave(self);
   return TRUE;
 }
@@ -87,7 +78,7 @@ static gboolean
 smtp_parse_domain(SmtpProxy *self, gchar *path, gchar **end)
 {
   gchar *src;
-  
+
   z_proxy_enter(self);
   if (path[0] == '#')
     {
@@ -112,7 +103,7 @@ smtp_parse_domain(SmtpProxy *self, gchar *path, gchar **end)
             {
               src++;
             }
-            
+
           src++;
         }
       *end = src + 1;
@@ -153,7 +144,7 @@ smtp_parse_source_route(SmtpProxy *self, gchar *path, gchar **end)
 
   z_proxy_enter(self);
   /* Source route format: @fqdn,fqdn,fqdn: */
-  
+
   src = path;
   *end = src;
   /* source route present */
@@ -179,7 +170,7 @@ smtp_parse_source_route(SmtpProxy *self, gchar *path, gchar **end)
         }
       continued = TRUE;
     }
-  
+
   z_proxy_leave(self);
   return !continued;
 }
@@ -198,13 +189,13 @@ static gboolean
 smtp_parse_local_part(SmtpProxy *self, gchar *path, gchar **end)
 {
   gchar *src;
-  
+
   z_proxy_enter(self);
   src = path;
   if (*src == '"')
     {
       /* quoted local part */
-      
+
       src = path + 1;
       while (*src)
         {
@@ -216,7 +207,7 @@ smtp_parse_local_part(SmtpProxy *self, gchar *path, gchar **end)
             {
               src++;
             }
-            
+
           src++;
         }
       *end = src + 1;
@@ -224,7 +215,7 @@ smtp_parse_local_part(SmtpProxy *self, gchar *path, gchar **end)
   else
     {
       /* *atom */
-      while (*src) 
+      while (*src)
         {
           if (!smtp_parse_atom(self, src, &src) || *src != '.')
             {
@@ -255,7 +246,7 @@ smtp_parse_address(SmtpProxy *self, GString *result, gchar *path, gchar **end)
 {
   gchar *src = path;
   gchar *start;
-  
+
   z_proxy_enter(self);
   start = src;
   *end = src;
@@ -326,13 +317,13 @@ smtp_sanitize_address(SmtpProxy *self, GString *result, gchar *path, gboolean em
   gchar *src, *end;
   gboolean res;
   gboolean unbracketed = FALSE;
-  
+
   z_proxy_enter(self);
   src = path;
   /* skip spaces */
   while (*src == ' ')
     src++;
-    
+
   if (*src != '<' )
     {
       unbracketed = TRUE;
@@ -424,11 +415,11 @@ smtp_sanitize_address(SmtpProxy *self, GString *result, gchar *path, gboolean em
  *
  * Returns: TRUE to indicate success
  **/
-static gboolean 
+static gboolean
 smtp_is_domain(SmtpProxy *self, gchar *domain)
 {
   gchar *end;
-  
+
   if (smtp_parse_domain(self, domain, &end) && *end == '\0')
     return TRUE;
   return FALSE;
@@ -441,10 +432,10 @@ smtp_is_domain(SmtpProxy *self, gchar *domain)
  *
  * This function validates an SMTP queue tag when the '#' form of ETRN is
  * used.
- * 
+ *
  * Returns: TRUE to indicate success
  **/
-static gboolean 
+static gboolean
 smtp_is_queue_tag(SmtpProxy *self G_GNUC_UNUSED, gchar *tag)
 {
   gchar *p = tag;
@@ -463,14 +454,14 @@ smtp_is_queue_tag(SmtpProxy *self G_GNUC_UNUSED, gchar *tag)
  * This function validates an SMTP xtext, which is a string consisting of
  * characters in the range [33-126] inclusive, other characters are encoded
  * using two hexadecimal characters.
- * 
+ *
  * Returns: TRUE to indicate success
  **/
 static gboolean
 smtp_is_xtext(SmtpProxy *self G_GNUC_UNUSED, gchar *xtext)
 {
   const guchar *p = (const guchar *) xtext;
-  
+
   while (*p)
     {
       if (*p < 33 || *p > 126 || *p == '=')
@@ -488,7 +479,7 @@ smtp_is_xtext(SmtpProxy *self G_GNUC_UNUSED, gchar *xtext)
 }
 
 /**
- * smtp_parse_mail_extensions: 
+ * smtp_parse_mail_extensions:
  * @self: SmtpProxy instance
  * @ext: MAIL extensions
  *
@@ -504,7 +495,7 @@ smtp_parse_mail_extensions(SmtpProxy *self, gchar *ext, GString *forward_extensi
   gchar *p;
   gchar kw[32], val[256];
   guint kw_len, val_len;
-  
+
   z_proxy_enter(self);
   g_string_truncate(forward_extensions, 0);
   p = ext;
@@ -520,7 +511,7 @@ smtp_parse_mail_extensions(SmtpProxy *self, gchar *ext, GString *forward_extensi
           p++;
         }
       kw[kw_len] = 0;
-      
+
       if (*p != '=')
         z_proxy_return(self, FALSE);
       p++;
@@ -531,7 +522,7 @@ smtp_parse_mail_extensions(SmtpProxy *self, gchar *ext, GString *forward_extensi
           p++;
         }
       val[val_len] = 0;
-      
+
       if ((self->active_extensions & SMTP_EM_SIZE) && strcasecmp(kw, "SIZE") == 0)
         {
           gchar *end;
@@ -584,7 +575,7 @@ smtp_parse_mail_extensions(SmtpProxy *self, gchar *ext, GString *forward_extensi
           z_proxy_log(self, SMTP_VIOLATION, 2, "Invalid extension in the MAIL command; extensions='%s'", ext);
           z_proxy_return(self, FALSE);
         }
-      
+
       while (*p == ' ')
         p++;
     }
@@ -604,7 +595,7 @@ smtp_request_EHLO(SmtpProxy *self)
 {
   g_string_assign(self->helo_string, self->request_param->str);
   g_string_assign(self->protocol, strcmp(self->request->str, "HELO") ? "ESMTP" : "SMTP");
-  
+
   return smtp_is_domain(self, self->request_param->str) ? SMTP_REQ_ACCEPT : SMTP_REQ_REJECT;
 }
 
@@ -621,14 +612,14 @@ smtp_response_EHLO(SmtpProxy *self)
   else if (self->response_lines)
     {
       GList *p, *pnext;
-      
+
       for (p = self->response_lines; p; p = pnext)
         {
           gchar token[256], *dst = token;
           const gchar *src;
           gboolean remove_ext_from_list = TRUE;
           SmtpExtensionDesc *ext;
-          
+
           for (src = ((GString *) p->data)->str;
                (dst - token) < (gint) sizeof(token) - 1 && isalnum(*src);
                src++, dst++)
@@ -638,7 +629,7 @@ smtp_response_EHLO(SmtpProxy *self)
             }
           *dst = 0;
           pnext = p->next;
-          
+
           if (smtp_policy_is_extension_permitted(self, token))
             {
               remove_ext_from_list = FALSE;
@@ -692,7 +683,7 @@ SmtpRequestTypes
 smtp_request_AUTH(SmtpProxy *self)
 {
   SmtpRequestTypes res = SMTP_REQ_REJECT;
-  
+
   z_proxy_enter(self);
   if (self->active_extensions & SMTP_EM_AUTH)
     res = SMTP_REQ_ACCEPT;
@@ -720,7 +711,7 @@ smtp_request_MAIL(SmtpProxy *self)
 {
   GString *sanitized_address, *forward_extensions = NULL;
   gchar *end;
-  
+
   z_proxy_enter(self);
   if (g_ascii_strncasecmp(self->request_param->str, FROM_ADDR, strlen(FROM_ADDR)) == 0)
     {
@@ -731,9 +722,9 @@ smtp_request_MAIL(SmtpProxy *self)
             forward_extensions = g_string_sized_new(strlen(end) + 1);
           if (*end == 0 || smtp_parse_mail_extensions(self, end, forward_extensions))
             {
-              g_string_sprintf(self->request_param, "%s<%s>%s%s", 
-                               FROM_ADDR, sanitized_address->str, 
-                               forward_extensions ? " " : "", 
+              g_string_sprintf(self->request_param, "%s<%s>%s%s",
+                               FROM_ADDR, sanitized_address->str,
+                               forward_extensions ? " " : "",
                                forward_extensions ? forward_extensions->str : "");
               g_string_assign(self->sender, sanitized_address->str);
               g_string_free(sanitized_address, TRUE);
@@ -853,7 +844,7 @@ SmtpRequestTypes
 smtp_request_general_noarg(SmtpProxy *self)
 {
   SmtpRequestTypes res;
-  
+
   z_proxy_enter(self);
   res = self->request_param->len == 0 ? SMTP_REQ_ACCEPT : SMTP_REQ_REJECT;
   z_proxy_return(self, res);
@@ -1037,7 +1028,7 @@ error:
   z_proxy_return(self, SMTP_REQ_REJECT);
 }
 
-static struct _SmtpCommandDesc known_commands_table[] = 
+static struct _SmtpCommandDesc known_commands_table[] =
 {
   { "HELO",     smtp_request_EHLO,          smtp_response_EHLO,     NULL,                 SMTP_STATE_INITIAL | SMTP_STATE_EHLO },
   { "EHLO",     smtp_request_EHLO,          smtp_response_EHLO,     NULL,                 SMTP_STATE_INITIAL | SMTP_STATE_EHLO },
@@ -1068,14 +1059,14 @@ GHashTable *known_extensions;
 
 /**
  * smtp_init_cmd_hash:
- * 
+ *
  * Called at module initialization time to fill the known commands hash.
  */
 void
 smtp_init_cmd_hash(void)
 {
   gint i;
-  
+
   /* known_commands is always looked up with an uppercase command */
   known_commands = g_hash_table_new(g_str_hash, g_str_equal);
   i = 0;

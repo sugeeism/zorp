@@ -95,7 +95,7 @@ extern ZPolicy *current_policy;
 
 /* Zorp policy verdicts, determines what the proxy does with a specific event
  * Can be extended with proxy specific values above 100 */
-typedef enum 
+typedef enum
 {
   ZV_UNSPEC     = 0, /* policy doesn't specify it, do something sensible */
   ZV_ACCEPT     = 1,
@@ -133,13 +133,12 @@ gboolean z_policy_var_parse_int64(PyObject *val, gint64 *result);
 gboolean z_policy_var_parse_uint64(PyObject *val, guint64 *result);
 gboolean z_policy_var_parse_size(PyObject *val, gsize *result);
 
-static inline gboolean 
+static inline gboolean
 z_policy_var_parse_ssize(PyObject *val, gssize *result)
 {
   return z_policy_var_parse_size(val, (gsize *) result);
 
 }
-
 
 #define z_policy_var_parse(v, format, args...) \
   ({gboolean __res = PyArg_Parse(v, format, ##args); if (!__res) PyErr_Clear(); __res;})
@@ -178,7 +177,6 @@ z_policy_var_parse_ssize(PyObject *val, gssize *result)
 #define z_policy_str_check(v) PyString_Check(v)
 #define z_policy_str_as_string(v) PyString_AsString(v)
 
-
 #define z_policy_error_clear() PyErr_Clear()
 
 gboolean z_policy_tuple_get_verdict(ZPolicyObj *tuple, guint *verdict);
@@ -188,7 +186,9 @@ ZPolicyObj *z_policy_call(ZPolicyObj *handler, char *name, ZPolicyObj *args, gbo
 int z_policy_event(ZPolicyObj *handler, char *name, ZPolicyObj *args, gchar *session_id);
 PyObject *z_policy_call_object(PyObject *func, PyObject *args, gchar *session_id);
 gint z_policy_setattr(ZPolicyObj *handler, char *name, ZPolicyObj *value);
+gint z_policy_setattr_expr(PyObject *container, const char *name, PyObject *new_value);
 ZPolicyObj *z_policy_getattr(ZPolicyObj *handler, char *name);
+PyObject *z_policy_getattr_expr(PyObject *container, const char *name);
 PyObject *z_session_getattr(PyObject *handler, char *name);
 PyObject *z_global_getattr(const gchar *name);
 

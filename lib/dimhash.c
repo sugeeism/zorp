@@ -40,15 +40,14 @@
  * Similar to the linear hashes where the elements are (key, value) pairs,
  * but here the key is a vector, so the values occupy an N-dimensional space,
  * where N is the length of the key vector.
- * 
+ *
  * Operations of this class include creating/destroying such tables (providing
  * the ability of using custom deallocator functions for values),
  * inserting into and deleting from the tables, searching for an exact match
  * of a key vector (it may even contain unspecified elements), and recursive
  * searching also.
- * 
+ *
  */
-
 
 /**
  * z_dim_hash_key_free:
@@ -61,7 +60,7 @@ void
 z_dim_hash_key_free(int num, gchar **key)
 {
   int i;
-  
+
   z_enter();
   for (i = 0; i < num; i++)
     {
@@ -71,7 +70,6 @@ z_dim_hash_key_free(int num, gchar **key)
   g_free(key);
   z_return();
 }
-
 
 /**
  * z_dim_hash_nextstep:
@@ -88,30 +86,29 @@ static gboolean
 z_dim_hash_nextstep(gchar *key, guint flags)
 {
   gboolean ret;
-  
+
   z_enter();
   if (!flags || (*key == 0))
     z_return(FALSE);
-  
+
   switch (flags)
     {
     case DIMHASH_WILDCARD:
       *key = 0;
       ret = TRUE;
       break;
-      
+
     case DIMHASH_CONSUME:
       key[strlen(key)-1] = 0;
       ret = TRUE;
       break;
-      
+
     default:
       ret = FALSE;
       break;
     }
   z_return(ret);
 }
-
 
 /**
  * z_dim_hash_table_makekey:
@@ -123,7 +120,7 @@ z_dim_hash_nextstep(gchar *key, guint flags)
  *
  * Creates a composite key from the dimensional key parts. The composite key
  * is a '::'-separated concatenation of the parts.
- * 
+ *
  * Returns: TRUE on success, FALSE if the destination buffer is too short
  */
 static gboolean
@@ -131,16 +128,16 @@ z_dim_hash_table_makekey(gchar *new_key, guint key_len, ZDimHashTable *self G_GN
 {
   guint keylen;
   guint i;
-  
+
   z_enter();
   keylen = 0;
   for (i = 0; i < num; i++)
     keylen += strlen(key_parts[i]);
-  
+
   memset(new_key, 0, key_len);
   if (keylen > key_len)
     z_return(FALSE);
-  
+
   if (key_parts[0][0] != 0 && (key_parts[0][1] != 0 || key_parts[0][0] != '*'))
     strcpy(new_key, key_parts[0]);
 
@@ -152,7 +149,6 @@ z_dim_hash_table_makekey(gchar *new_key, guint key_len, ZDimHashTable *self G_GN
     }
   z_return(TRUE);
 }
-
 
 /**
  * z_dim_hash_table_rec_search:
@@ -196,10 +192,9 @@ z_dim_hash_table_rec_search(ZDimHashTable *self, guint num, guint i, gchar **key
   z_return(NULL);
 }
 
-
 /**
  * z_dim_hash_table_new:
- * @minnum Minimal number of specified dimensions for operations 
+ * @minnum Minimal number of specified dimensions for operations
  * @num Number of dimensions
  * @vararg Flags for the dimensions
  *
@@ -214,7 +209,7 @@ z_dim_hash_table_new(guint minnum, guint num, ...)
   guint i;
   va_list l;
   ZDimHashTable *self = g_new0(ZDimHashTable, 1);
-  
+
   z_enter();
   self->keynum = num;
   self->minkeynum = minnum;
@@ -226,7 +221,6 @@ z_dim_hash_table_new(guint minnum, guint num, ...)
   self->hash = g_hash_table_new(g_str_hash, g_str_equal);
   z_return(self);
 }
-
 
 /**
  * z_dim_hash_table_free_item:
@@ -250,7 +244,6 @@ z_dim_hash_table_free_item(gpointer key, gpointer value, gpointer user_data)
   g_free(key);
   z_return(TRUE);
 }
-
 
 /**
  * z_dim_hash_table_free:
@@ -290,7 +283,7 @@ z_dim_hash_table_lookup(ZDimHashTable *self, guint num, gchar **keys)
   gchar key[DIMHASH_MAX_KEYNUM * (DIMHASH_MAX_KEYSIZE + 2) + 1];
   guint keylen = DIMHASH_MAX_KEYNUM * (DIMHASH_MAX_KEYSIZE + 2) + 1;
   gpointer *ret = NULL;
-  
+
   z_enter();
   if (self->minkeynum > num || self->keynum < num)
     z_return(NULL);
@@ -299,7 +292,6 @@ z_dim_hash_table_lookup(ZDimHashTable *self, guint num, gchar **keys)
   z_return(ret);
 }
 
-
 /**
  * z_dim_hash_table_delete:
  * @self ZDimHashTable instance to delete from
@@ -307,8 +299,8 @@ z_dim_hash_table_lookup(ZDimHashTable *self, guint num, gchar **keys)
  * @keys Key vector
  * @func The function to use for freeing entry values
  *
- * Delete the matching entry from the hash 
- */ 
+ * Delete the matching entry from the hash
+ */
 void
 z_dim_hash_table_delete(ZDimHashTable *self, guint num, gchar **keys, ZDimHashFreeFunc func)
 {
@@ -320,7 +312,7 @@ z_dim_hash_table_delete(ZDimHashTable *self, guint num, gchar **keys, ZDimHashFr
   z_enter();
   if (self->keynum < num || self->minkeynum > num)
     z_return();
-  
+
   if (z_dim_hash_table_makekey(key, keylen, self, num, keys) &&
       g_hash_table_lookup_extended(self->hash, key, &orig_key, &value))
     {
@@ -331,7 +323,6 @@ z_dim_hash_table_delete(ZDimHashTable *self, guint num, gchar **keys, ZDimHashFr
   z_return();
 }
 
-
 /**
  * z_dim_hash_table_insert:
  * @self ZDimHashTable instance to insert into
@@ -340,18 +331,18 @@ z_dim_hash_table_delete(ZDimHashTable *self, guint num, gchar **keys, ZDimHashFr
  * @keys Key vector
  *
  * Insert an entry into the hash
- */ 
+ */
 void
 z_dim_hash_table_insert(ZDimHashTable *self, gpointer value, guint num, gchar **keys)
 {
   gchar key[DIMHASH_MAX_KEYNUM * (DIMHASH_MAX_KEYSIZE + 2) + 1];
   guint keylen = DIMHASH_MAX_KEYNUM * (DIMHASH_MAX_KEYSIZE + 2) + 1;
   gchar *new_key;
-  
+
   z_enter();
   if (self->keynum < num || self->minkeynum > num)
     z_return();
-  
+
   if (z_dim_hash_table_makekey(key, keylen, self, num, keys))
     {
       new_key = g_strdup(key);
@@ -359,7 +350,6 @@ z_dim_hash_table_insert(ZDimHashTable *self, gpointer value, guint num, gchar **
     }
   z_return();
 }
-
 
 /**
  * z_dim_hash_table_search:
@@ -379,10 +369,10 @@ z_dim_hash_table_search(ZDimHashTable *self, guint num, gchar **keys)
   gpointer *ret = NULL;
   guint i;
 
-  z_enter();  
+  z_enter();
   if (self->keynum < num || self->minkeynum > num)
     z_return(NULL);
-  
+
   for (i = 0; i < num; i++)
     {
       save_keys[i] = alloca(DIMHASH_MAX_KEYSIZE);

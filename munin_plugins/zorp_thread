@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ "$1" = "config" ]; then
+
+
+	echo 'graph_title Zorp threads'
+	echo 'graph_args --base 1000 -l 0'
+	echo 'graph_vlabel threads'
+	echo 'graph_category Zorp'
+
+	/usr/sbin/zorpctl status | cut -d " " -f2 | sed -e "s/://g" | while read i; do
+	echo $i".label" $i
+	done
+	exit 0
+fi
+
+	
+/usr/sbin/zorpctl status | cut -d " " -f2,4 | sed -e "s/://g" | while read i; do
+	echo `echo $i | cut -d " " -f1`".value "`echo $i | cut -d " " -f2`
+done

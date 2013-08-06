@@ -35,7 +35,7 @@
       </para>
       <para>
       Several configuration examples and considerations are discussed in the
-	Technical White Paper and Tutorial <emphasis>Proxying secure channels - the Secure Socket Layer</emphasis>, available at the BalaBit Documentation Page <ulink url="http://www.balabit.com/support/documentation/">http://www.balabit.com/support/documentation/</ulink>.
+        Technical White Paper and Tutorial <emphasis>Proxying secure channels - the Secure Socket Layer</emphasis>, available at the BalaBit Documentation Page <ulink url="http://www.balabit.com/support/documentation/">http://www.balabit.com/support/documentation/</ulink>.
       </para>
       <section>
         <title>General behavior</title>
@@ -197,15 +197,15 @@
           </listitem>
         </itemizedlist>
 
-	<para>
-	Zorp uses X.509 certificates to provide a convenient and efficient way to
-	manage and distribute certificates and keys used by the various components and proxies of the managed Zorp
-	hosts. It is mainly aimed at providing certificates required for the secure communication between the different
-	parts of the firewall system, e.g. Zorp hosts and ZMS engine (the actual communication is realized by agents).
-	</para>
-	<para>
-	Certificates of trusted CAs (and their accompanying CRLs) are used in Zorp to validate the certificates of servers accessed by the clients. The hashes and structures below are used by the various certificate-related attributes of the Zorp Pssl proxy, particularly the ones of <parameter>certificate</parameter> type.
-	</para>
+        <para>
+        Zorp uses X.509 certificates to provide a convenient and efficient way to
+        manage and distribute certificates and keys used by the various components and proxies of the managed Zorp
+        hosts. It is mainly aimed at providing certificates required for the secure communication between the different
+        parts of the firewall system, e.g. Zorp hosts and ZMS engine (the actual communication is realized by agents).
+        </para>
+        <para>
+        Certificates of trusted CAs (and their accompanying CRLs) are used in Zorp to validate the certificates of servers accessed by the clients. The hashes and structures below are used by the various certificate-related attributes of the Zorp Pssl proxy, particularly the ones of <parameter>certificate</parameter> type.
+        </para>
 
       <section>
         <title>X.509 Certificate Names</title>
@@ -277,8 +277,8 @@
       application level information about the server. Currently it can compare the <parameter>Subject</parameter> field to the domain name of the HTTP request in HTTPS
        communication. If the <parameter>server_check_subject</parameter> is set to
         <parameter>TRUE</parameter> and <parameter>server_verify_type</parameter> is
-	 <parameter>SSL_VERIFY_REQUIRED_UNTRUSTED</parameter> or  <parameter>SSL_VERIFY_REQUIRED_TRUSTED</parameter>, the HTTP proxy stacked into SSL
-	 will deny access to the page and return an error if the <parameter>Subject</parameter> field does not match the domain name of the URL.
+         <parameter>SSL_VERIFY_REQUIRED_UNTRUSTED</parameter> or  <parameter>SSL_VERIFY_REQUIRED_TRUSTED</parameter>, the HTTP proxy stacked into SSL
+         will deny access to the page and return an error if the <parameter>Subject</parameter> field does not match the domain name of the URL.
       </para>
       </section>
      </section>
@@ -295,14 +295,14 @@
           the selected protocol. Only one constant can be specified. Zorp
           currently supports the SSL versions 2 and 3 and the TLS v1
           protocols.
-	 <inline type="enum" target="enum.pssl.method"/>
+         <inline type="enum" target="enum.pssl.method"/>
         </para>
-	<warning>
-	 <para>
-	 The OpenSSL implementation of the SSL protocol (used by Zorp) has an important feature regarding method selection: it allows automatical fallbacks if one side
-	 does not support the selected method. That means that even if <parameter>PSSL_METHOD_SSLv3</parameter> is specified, the communication might fall back to SSLv2 if one f the communicating parties does not support v3. To explicitly deny a protocol, set the appropriate <parameter>client_disable_proto_*</parameter> or <parameter>server_disable_proto_*</parameter> attribute to <parameter>TRUE</parameter>. In Zorp SSLv2 is disabled by default.
-	 </para>
-	 </warning>
+        <warning>
+         <para>
+         The OpenSSL implementation of the SSL protocol (used by Zorp) has an important feature regarding method selection: it allows automatical fallbacks if one side
+         does not support the selected method. That means that even if <parameter>PSSL_METHOD_SSLv3</parameter> is specified, the communication might fall back to SSLv2 if one f the communicating parties does not support v3. To explicitly deny a protocol, set the appropriate <parameter>client_disable_proto_*</parameter> or <parameter>server_disable_proto_*</parameter> attribute to <parameter>TRUE</parameter>. In Zorp SSLv2 is disabled by default.
+         </para>
+         </warning>
       </section>
       <section>
         <title>SSL cipher selection</title>
@@ -316,7 +316,7 @@
         <para>
           The default set of ciphers can be set by using the following predefined
          variables.
-	  <inline type="enum" target="enum.pssl.ciphers"/>
+          <inline type="enum" target="enum.pssl.ciphers"/>
         </para>
         <para>
           Cipher specifications as defined above are sorted by key length,
@@ -365,27 +365,27 @@
         </description>
         <item>
           <name>PSSL_VERIFY_NONE</name>
-	  <description>Automatic certificate verification is disabled.</description>
+          <description>Automatic certificate verification is disabled.</description>
         </item>
 <!--        <item>
           <name>PSSL_VERIFY_OPTIONAL</name>
-	  <description>Certificate is optional, all certificates are accepted.</description>
+          <description>Certificate is optional, all certificates are accepted.</description>
         </item>-->
         <item>
           <name>PSSL_VERIFY_OPTIONAL_UNTRUSTED</name>
-	  <description>Certificate is optional, if present, both trusted and untrusted certificates are accepted.</description>
+          <description>Certificate is optional, if present, both trusted and untrusted certificates are accepted.</description>
         </item>
         <item>
           <name>PSSL_VERIFY_OPTIONAL_TRUSTED</name>
-	  <description>Certificate is optional, but if a certificate is present, only  certificates signed by a trusted CA are accepted.</description>
+          <description>Certificate is optional, but if a certificate is present, only  certificates signed by a trusted CA are accepted.</description>
         </item>
         <item>
           <name>PSSL_VERIFY_REQUIRED_UNTRUSTED</name>
-	  <description>Valid certificate is required, both trusted and untrusted certificates are accepted.</description>
+          <description>Valid certificate is required, both trusted and untrusted certificates are accepted.</description>
         </item>
         <item>
           <name>PSSL_VERIFY_REQUIRED_TRUSTED</name>
-	  <description>Certificate is required, only valid certificates signed by a trusted CA are accepted.</description>
+          <description>Certificate is required, only valid certificates signed by a trusted CA are accepted.</description>
         </item>
       </enum>
       <enum maturity="stable" id="enum.pssl.method">
@@ -394,31 +394,31 @@
         </description>
         <item>
           <name>PSSL_METHOD_SSLV23</name>
-	  <description>
+          <description>
            Permit the use of SSLv2 and v3.
           </description>
         </item>
         <item>
           <name>PSSL_METHOD_SSLV2</name>
-	  <description>
+          <description>
            Permit the use of SSLv2 exclusively.
           </description>
         </item>
         <item>
           <name>PSSL_METHOD_SSLV3</name>
-	  <description>
-		Permit the use of SSLv3 exclusively.
-	  </description>
+          <description>
+                Permit the use of SSLv3 exclusively.
+          </description>
         </item>
         <item>
           <name>PSSL_METHOD_TLSV1</name>
-	  <description>
-		Permit the use of TLSv1 exclusively.
-	  </description>
+          <description>
+                Permit the use of TLSv1 exclusively.
+          </description>
         </item>
         <item>
           <name>PSSL_METHOD_ALL</name>
-	  <description>
+          <description>
            Permit the use of all the supported (SSLv2, SSLv3, and TLSv1) protocols.
           </description>
         </item>
@@ -429,27 +429,27 @@
         </description>
         <item>
           <name>PSSL_CIPHERS_ALL</name>
-	  <description>
-	   Permit the use of all supported ciphers, including the 40 and 56 bit exportable ciphers.
-	  </description>
+          <description>
+           Permit the use of all supported ciphers, including the 40 and 56 bit exportable ciphers.
+          </description>
         </item>
         <item>
           <name>PSSL_CIPHERS_HIGH</name>
-	  <description>
-		Permit only the use of ciphers which use at least 128 bit long keys.
-	  </description>
+          <description>
+                Permit only the use of ciphers which use at least 128 bit long keys.
+          </description>
         </item>
         <item>
           <name>PSSL_CIPHERS_MEDIUM</name>
-	  <description>
-		Permit only the use of ciphers which use 128 bit long keys.
-	  </description>
+          <description>
+                Permit only the use of ciphers which use 128 bit long keys.
+          </description>
         </item>
         <item>
           <name>PSSL_CIPHERS_LOW</name>
-	  <description>
-		Permit only the use of ciphers which use keys shorter then 128 bits.
-	  </description>
+          <description>
+                Permit only the use of ciphers which use keys shorter then 128 bits.
+          </description>
         </item>
       </enum>
       <enum maturity="stable" id="enum.pssl.hso">
@@ -523,9 +523,9 @@ import thread
 import string
 import fcntl
 
-PSSL_ERROR	= 'pssl.error'
-PSSL_DEBUG	= 'pssl.debug'
-PSSL_INFO	= 'pssl.info'
+PSSL_ERROR      = 'pssl.error'
+PSSL_DEBUG      = 'pssl.debug'
+PSSL_INFO       = 'pssl.info'
 PSSL_VIOLATION  = 'pssl.violation'
 
 PSSL_VERIFY_NONE = SSL_VERIFY_NONE
@@ -560,1224 +560,1224 @@ PSSL_ACCEPT_STARTTLS = SSL_ACCEPT_STARTTLS
 PSSL_FORWARD_STARTTLS = SSL_FORWARD_STARTTLS
 
 class AbstractPsslProxy(AbstractPlugProxy):
-	"""<class maturity="obsolete" abstract="yes">
+    """<class maturity="obsolete" abstract="yes">
+      <summary>
+        Class encapsulating the abstract Pssl proxy.
+      </summary>
+      <description>
+        <para>
+          This proxy is a compatibility wrapper for core SSL functionality. The documentation was left intact for reference, but SSL attributes should be used in each protocol proxy instead of this wrapper.
+          This abstract class encapsulates a plug proxy which uses SSL/TLS on both or either sides, making it possible for any protocol
+          proxy to analyze protocol streams embedded into SSL/TLS. AbstractPsslProxy serves as a starting point for customized proxy classes and is itself not directly usable. Service definitions should refer to a customized class derived from AbstractPsslProxy, or the predefined PsslProxy class.
+        </para>
+      </description>
+      <metainfo>
+      <attributes>
+          <attribute maturity="stable">
+            <name>copy_to_server</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Allow data transfer in the client->server direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>copy_to_client</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Allow data transfer in the server->client direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>bandwidth_to_client</name>
+            <type>
+              <integer/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Read-only variable containing the bandwidth currently used in server->client direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>bandwidth_to_server</name>
+            <type>
+              <integer/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Read-only variable containing the bandwidth currently used in client->server direction.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>packet_stats_interval</name>
+            <type>
+              <integer/>
+            </type>
+            <default>0</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The number of passing packages between two successive packetStats() events.
+              Set to 0 to turn packetStats() off.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>stack_proxy</name>
+            <type>
+              <link id="action.zorp.stack"/>
+            </type>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              The proxy class to stack into the connection to inspect the embedded protocol. See also <xref linkend="proxy_stacking"/>.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>timeout</name>
+            <type>
+              <integer/>
+            </type>
+            <default>600000</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              I/O timeout in milliseconds.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>handshake_timeout</name>
+            <type>
+              <integer/>
+            </type>
+            <default>30000</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              SSL handshake timeout in milliseconds.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>permit_invalid_certificates</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Accept any kind of verification failure when UNTRUSTED verify_type is set.
+              E.g.: accept expired, self-signed, etc. certificates.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>handshake_seq</name>
+            <type>
+              <link id="enum.pssl.hso"/>
+            </type>
+            <default>PSSL_HSO_CLIENT_SERVER</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Handshake order. PSSL_HSO_CLIENT_SERVER performs the client side handshake first, PSSL_HSO_SERVER_CLIENT the server side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_need_ssl</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Enable SSL on the client side of the proxy.
+              This requires setting up a client private key and a certificate.
+            </description>
+          </attribute>
+          <attribute internal="yes">
+            <name>client_handshake</name>
+            <type>HASH:empty:RW:R</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies policy callbacks for various SSL handshake phases.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_verify_type</name>
+            <type>
+              <link id="enum.pssl.verify"/>
+            </type>
+            <default>PSSL_VERIFY_REQUIRED_TRUSTED</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Verification setting of the peer certificate on the client side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_verify_depth</name>
+            <type>
+              <integer/>
+            </type>
+            <default>4</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The longest accepted CA verification chain.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_local_privatekey</name>
+            <type>
+              <certificate key="yes" cert="no"/>
+            </type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              The private key of the firewall on the client side. Specified as a string in PEM format.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_local_privatekey_passphrase</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Passphrase used to access <parameter>client_local_privatekey</parameter>.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>client_local_certificate</name>
+            <type>X509:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              The certificate associated to <parameter>client_local_privatekey</parameter> to be used on the client side.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>client_peer_certificate</name>
+            <type>X509:empty:R:R</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The certificate returned by the peer on the client side.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>client_local_ca_list</name>
+            <type>HASH;INTEGER;X509:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              A hash of trusted certificates. The items in this hash are used to verify client certificates.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>client_local_crl_list</name>
+            <type>HASH;INTEGER;X509_CRL:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              A hash of Certificate Revocation Lists, associated to CA certificates in <parameter>client_local_ca_list</parameter>.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_ssl_method</name>
+            <type>
+              <link id="enum.pssl.method"/>
+            </type>
+            <default>PSSL_METHOD_ALL</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies the allowed SSL/TLS protocols on the client side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_disable_proto_sslv2</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies that SSLv2 should be disabled even if the method selection would otherwise support SSLv2.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_disable_proto_sslv3</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies that SSLv3 should be disabled even if the method selection would otherwise support SSLv3.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_disable_proto_tlsv1</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies that TLSv1 should be disabled even if the method selection would otherwise support TLSv1.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_ssl_cipher</name>
+            <type>
+              <link id="enum.pssl.ciphers"/>
+            </type>
+            <default>PSSL_CIPHERS_ALL</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies the allowed ciphers on the client side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_need_ssl</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Enable SSL on the server side of the proxy.
+              This requires setting up a private key and a certificate on Zorp.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>server_handshake</name>
+            <type>HASH:empty:RW:R</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies policy callbacks for various SSL handshake phases.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_verify_type</name>
+            <type>
+              <link id="enum.pssl.verify"/>
+            </type>
+            <default>PSSL_VERIFY_REQUIRED_TRUSTED</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Verification settings of the peer certificate on the server side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_verify_depth</name>
+            <type>
+              <integer/>
+            </type>
+            <default>4</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The longest accepted CA verification chain.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_local_privatekey</name>
+            <type>
+              <certificate key="yes" cert="no"/>
+            </type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              The private key of the firewall on the server side,                  specified as a string in PEM format.
+              Server side key and certificate are optional.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_local_privatekey_passphrase</name>
+            <type>
+              <string/>
+            </type>
+            <default>n/a</default>
+            <conftime/>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Passphrase used to access <parameter>server_local_privatekey</parameter>.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>server_local_certificate</name>
+            <type>X509:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              The certificate to be used on the server side, associated with <parameter>server_local_privatekey</parameter>.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>server_peer_certificate</name>
+            <type>X509:empty:R:R</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              The certificate returned by the peer on the server side.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>server_local_ca_list</name>
+            <type>HASH;INTEGER;X509:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Hash of trusted certificates. The items in this hash are used to verify server certificates.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>server_peer_ca_list</name>
+            <type>HASH;INTEGER;X509:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Hash of names of trusted CAs as returned by the server to aid the selection of a local certificate.
+            </description>
+          </attribute>
+          <attribute maturity="stable" internal="yes">
+            <name>server_local_crl_list</name>
+            <type>HASH;INTEGER;X509_CRL:empty:RW:RW</type>
+            <default>empty</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+              <write/>
+            </runtime>
+            <description>
+              Hash of Certificate Revocation Lists, associated to CA certificates in <parameter>server_local_ca_list</parameter>.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_ssl_method</name>
+            <type>
+              <link id="enum.pssl.method"/>
+            </type>
+            <default>PSSL_METHOD_ALL</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies the SSL/TLS protocols allowed on the server side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_disable_proto_sslv2</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies that SSLv2 should be disabled even if the method selection would otherwise support SSLv2.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_disable_proto_sslv3</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies that SSLv3 should be disabled even if the method selection would otherwise support SSLv3.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_disable_proto_tlsv1</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies that TLSv1 should be disabled even if the method selection would otherwise support TLSv1.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_ssl_cipher</name>
+            <type>
+              <link id="enum.pssl.ciphers"/>
+            </type>
+            <default>PSSL_CIPHERS_ALL</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies the ciphers allowed on the server side.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_check_subject</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>TRUE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Specifies
+              whether the Subject of the
+              server side certificate is
+              checked against application
+              layer information
+              (e.g.: whether it matches the
+              hostname in the URL). See also <xref linkend="certificate_verification"/>.
+            </description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
+    name = "plug"
+
+    compat_attributes = frozenset(( \
+            'handshake_timeout', \
+            'permit_invalid_certificates', \
+            'handshake_seq', \
+            'client_handshake', \
+            'client_verify_type', \
+            'client_verify_depth', \
+            'client_local_privatekey', \
+            'client_local_privatekey_passphrase', \
+            'client_local_certificate', \
+            'client_peer_certificate', \
+            'client_local_ca_list', \
+            'client_local_crl_list', \
+            'client_ssl_method', \
+            'client_disable_proto_sslv2', \
+            'client_disable_proto_sslv3', \
+            'client_disable_proto_tlsv1', \
+            'client_ssl_cipher', \
+            'server_handshake', \
+            'server_verify_type', \
+            'server_verify_depth', \
+            'server_local_privatekey', \
+            'server_local_privatekey_passphrase', \
+            'server_local_certificate', \
+            'server_peer_certificate', \
+            'server_local_ca_list', \
+            'server_peer_ca_list', \
+            'server_local_crl_list', \
+            'server_ssl_method', \
+            'server_disable_proto_sslv2', \
+            'server_disable_proto_sslv3', \
+            'server_disable_proto_tlsv1', \
+            'server_ssl_cipher', \
+            'server_check_subject', \
+            'client_cert_file', \
+            'client_key_file', \
+            'client_keypair_files', \
+            'client_keypair_generate', \
+            'client_ca_directory', \
+            'client_crl_directory', \
+            'client_cagroup_directories', \
+            'client_trusted_certs_directory', \
+            'server_cert_file', \
+            'server_key_file', \
+            'server_keypair_files', \
+            'server_keypair_generate', \
+            'server_ca_directory', \
+            'server_crl_directory', \
+            'server_cagroup_directories', \
+            'server_trusted_certs_directory', \
+            'key_generator', \
+            'client_cert', \
+            'client_key', \
+            'server_cert', \
+            'server_key' ))
+
+    compat_value_ssl_enabled = { \
+            FALSE: PSSL_NONE, \
+            TRUE: PSSL_FORCE_SSL
+    }
+
+    compat_value_ssl_enabled_rev = { \
+            PSSL_NONE: FALSE, \
+            PSSL_FORCE_SSL: TRUE
+    }
+
+    def __init__(self, session):
+        """<method internal="yes">
           <summary>
-            Class encapsulating the abstract Pssl proxy.
+            Constructor to initialize a PsslProxy instance.
           </summary>
           <description>
             <para>
-              This proxy is a compatibility wrapper for core SSL functionality. The documentation was left intact for reference, but SSL attributes should be used in each protocol proxy instead of this wrapper.
-              This abstract class encapsulates a plug proxy which uses SSL/TLS on both or either sides, making it possible for any protocol
-              proxy to analyze protocol streams embedded into SSL/TLS. AbstractPsslProxy serves as a starting point for customized proxy classes and is itself not directly usable. Service definitions should refer to a customized class derived from AbstractPsslProxy, or the predefined PsslProxy class.
-            </para>
-          </description>
-          <metainfo>
-          <attributes>
-              <attribute maturity="stable">
-                <name>copy_to_server</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Allow data transfer in the client->server direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>copy_to_client</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Allow data transfer in the server->client direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-		<name>bandwidth_to_client</name>
-		<type>
-		  <integer/>
-		</type>
-		<default>n/a</default>
-		<conftime/>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Read-only variable containing the bandwidth currently used in server->client direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>bandwidth_to_server</name>
-		<type>
-		  <integer/>
-		</type>
-		<default>n/a</default>
-		<conftime/>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Read-only variable containing the bandwidth currently used in client->server direction.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>packet_stats_interval</name>
-		<type>
-		  <integer/>
-		</type>
-		<default>0</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  The number of passing packages between two successive packetStats() events.
-                  Set to 0 to turn packetStats() off.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>stack_proxy</name>
-		<type>
-		  <link id="action.zorp.stack"/>
-		</type>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		  <write/>
-		</runtime>
-                <description>
-                  The proxy class to stack into the connection to inspect the embedded protocol. See also <xref linkend="proxy_stacking"/>.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>timeout</name>
-		<type>
-		  <integer/>
-		</type>
-		<default>600000</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  I/O timeout in milliseconds.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>handshake_timeout</name>
-		<type>
-		  <integer/>
-		</type>
-		<default>30000</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  SSL handshake timeout in milliseconds.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>permit_invalid_certificates</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>FALSE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		  <write/>
-		</runtime>
-                <description>
-                  Accept any kind of verification failure when UNTRUSTED verify_type is set.
-		  E.g.: accept expired, self-signed, etc. certificates.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>handshake_seq</name>
-		<type>
-		  <link id="enum.pssl.hso"/>
-		</type>
-		<default>PSSL_HSO_CLIENT_SERVER</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Handshake order. PSSL_HSO_CLIENT_SERVER performs the client side handshake first, PSSL_HSO_SERVER_CLIENT the server side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_need_ssl</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Enable SSL on the client side of the proxy.
-                  This requires setting up a client private key and a certificate.
-                </description>
-              </attribute>
-              <attribute internal="yes">
-                <name>client_handshake</name>
-                <type>HASH:empty:RW:R</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Specifies policy callbacks for various SSL handshake phases.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_verify_type</name>
-		<type>
-		  <link id="enum.pssl.verify"/>
-		</type>
-		<default>PSSL_VERIFY_REQUIRED_TRUSTED</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Verification setting of the peer certificate on the client side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_verify_depth</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>4</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  The longest accepted CA verification chain.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_local_privatekey</name>
-		<type>
-		  <certificate key="yes" cert="no"/>
-		</type>
-		<default>empty</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		  <write/>
-		</runtime>
-                <description>
-                  The private key of the firewall on the client side. Specified as a string in PEM format.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_local_privatekey_passphrase</name>
-		<type>
-		  <string/>
-		</type>
-		<default>n/a</default>
-		<conftime/>
-		<runtime>
-		  <read/>
-		  <write/>
-		</runtime>
-                <description>
-                  Passphrase used to access <parameter>client_local_privatekey</parameter>.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>client_local_certificate</name>
-                <type>X509:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  The certificate associated to <parameter>client_local_privatekey</parameter> to be used on the client side.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>client_peer_certificate</name>
-                <type>X509:empty:R:R</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  The certificate returned by the peer on the client side.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>client_local_ca_list</name>
-                <type>HASH;INTEGER;X509:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  A hash of trusted certificates. The items in this hash are used to verify client certificates.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>client_local_crl_list</name>
-                <type>HASH;INTEGER;X509_CRL:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  A hash of Certificate Revocation Lists, associated to CA certificates in <parameter>client_local_ca_list</parameter>.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_ssl_method</name>
-		<type>
-		  <link id="enum.pssl.method"/>
-		</type>
-		<default>PSSL_METHOD_ALL</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies the allowed SSL/TLS protocols on the client side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_disable_proto_sslv2</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies that SSLv2 should be disabled even if the method selection would otherwise support SSLv2.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_disable_proto_sslv3</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>FALSE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies that SSLv3 should be disabled even if the method selection would otherwise support SSLv3.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_disable_proto_tlsv1</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>FALSE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies that TLSv1 should be disabled even if the method selection would otherwise support TLSv1.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_ssl_cipher</name>
-		<type>
-		  <link id="enum.pssl.ciphers"/>
-		</type>
-		<default>PSSL_CIPHERS_ALL</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies the allowed ciphers on the client side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_need_ssl</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Enable SSL on the server side of the proxy.
-                  This requires setting up a private key and a certificate on Zorp.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>server_handshake</name>
-                <type>HASH:empty:RW:R</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Specifies policy callbacks for various SSL handshake phases.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_verify_type</name>
-		<type>
-		  <link id="enum.pssl.verify"/>
-		</type>
-		<default>PSSL_VERIFY_REQUIRED_TRUSTED</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Verification settings of the peer certificate on the server side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_verify_depth</name>
-                <type>
-                  <integer/>
-                </type>
-                <default>4</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  The longest accepted CA verification chain.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_local_privatekey</name>
-		<type>
-		  <certificate key="yes" cert="no"/>
-		</type>
-		<default>empty</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		  <write/>
-		</runtime>
-                <description>
-                  The private key of the firewall on the server side,                  specified as a string in PEM format.
-                  Server side key and certificate are optional.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_local_privatekey_passphrase</name>
-		<type>
-		  <string/>
-		</type>
-		<default>n/a</default>
-		<conftime/>
-		<runtime>
-		  <read/>
-		  <write/>
-		</runtime>
-                <description>
-                  Passphrase used to access <parameter>server_local_privatekey</parameter>.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>server_local_certificate</name>
-                <type>X509:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  The certificate to be used on the server side, associated with <parameter>server_local_privatekey</parameter>.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>server_peer_certificate</name>
-                <type>X509:empty:R:R</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  The certificate returned by the peer on the server side.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>server_local_ca_list</name>
-                <type>HASH;INTEGER;X509:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Hash of trusted certificates. The items in this hash are used to verify server certificates.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>server_peer_ca_list</name>
-                <type>HASH;INTEGER;X509:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Hash of names of trusted CAs as returned by the server to aid the selection of a local certificate.
-                </description>
-              </attribute>
-              <attribute maturity="stable" internal="yes">
-                <name>server_local_crl_list</name>
-                <type>HASH;INTEGER;X509_CRL:empty:RW:RW</type>
-                <default>empty</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                  <write/>
-                </runtime>
-                <description>
-                  Hash of Certificate Revocation Lists, associated to CA certificates in <parameter>server_local_ca_list</parameter>.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_ssl_method</name>
-		<type>
-		  <link id="enum.pssl.method"/>
-		</type>
-		<default>PSSL_METHOD_ALL</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies the SSL/TLS protocols allowed on the server side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_disable_proto_sslv2</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies that SSLv2 should be disabled even if the method selection would otherwise support SSLv2.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_disable_proto_sslv3</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>FALSE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies that SSLv3 should be disabled even if the method selection would otherwise support SSLv3.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_disable_proto_tlsv1</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>FALSE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies that TLSv1 should be disabled even if the method selection would otherwise support TLSv1.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_ssl_cipher</name>
-		<type>
-		  <link id="enum.pssl.ciphers"/>
-		</type>
-		<default>PSSL_CIPHERS_ALL</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies the ciphers allowed on the server side.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_check_subject</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>TRUE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Specifies
-                  whether the Subject of the
-                  server side certificate is
-                  checked against application
-                  layer information
-                  (e.g.: whether it matches the
-                  hostname in the URL). See also <xref linkend="certificate_verification"/>.
-                </description>
-              </attribute>
-            </attributes>
-          </metainfo>
-        </class>
-        """
-	name = "plug"
-
-        compat_attributes = frozenset(( \
-                'handshake_timeout', \
-                'permit_invalid_certificates', \
-                'handshake_seq', \
-                'client_handshake', \
-                'client_verify_type', \
-                'client_verify_depth', \
-                'client_local_privatekey', \
-                'client_local_privatekey_passphrase', \
-                'client_local_certificate', \
-                'client_peer_certificate', \
-                'client_local_ca_list', \
-                'client_local_crl_list', \
-                'client_ssl_method', \
-                'client_disable_proto_sslv2', \
-                'client_disable_proto_sslv3', \
-                'client_disable_proto_tlsv1', \
-                'client_ssl_cipher', \
-                'server_handshake', \
-                'server_verify_type', \
-                'server_verify_depth', \
-                'server_local_privatekey', \
-                'server_local_privatekey_passphrase', \
-                'server_local_certificate', \
-                'server_peer_certificate', \
-                'server_local_ca_list', \
-                'server_peer_ca_list', \
-                'server_local_crl_list', \
-                'server_ssl_method', \
-                'server_disable_proto_sslv2', \
-                'server_disable_proto_sslv3', \
-                'server_disable_proto_tlsv1', \
-                'server_ssl_cipher', \
-                'server_check_subject', \
-                'client_cert_file', \
-                'client_key_file', \
-                'client_keypair_files', \
-                'client_keypair_generate', \
-                'client_ca_directory', \
-                'client_crl_directory', \
-                'client_cagroup_directories', \
-                'client_trusted_certs_directory', \
-                'server_cert_file', \
-                'server_key_file', \
-                'server_keypair_files', \
-                'server_keypair_generate', \
-                'server_ca_directory', \
-                'server_crl_directory', \
-                'server_cagroup_directories', \
-                'server_trusted_certs_directory', \
-                'key_generator', \
-                'client_cert', \
-                'client_key', \
-                'server_cert', \
-                'server_key' ))
-
-        compat_value_ssl_enabled = { \
-                FALSE: PSSL_NONE, \
-                TRUE: PSSL_FORCE_SSL
-        }
-
-        compat_value_ssl_enabled_rev = { \
-                PSSL_NONE: FALSE, \
-                PSSL_FORCE_SSL: TRUE
-        }
-
-	def __init__(self, session):
-		"""<method internal="yes">
-		  <summary>
-                    Constructor to initialize a PsslProxy instance.
-                  </summary>
-                  <description>
-                    <para>
-                      Sets attributes based on arguments, and calls the inherited
-                      constructor.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <attributes>
-                      <attribute maturity="stable">
-                        <name>session</name>
-                        <type>Session</type>
-                        <description>
-                          the reference of the owning session
-                        </description>
-                      </attribute>
-                      <attribute maturity="stable">
-                        <name>type</name>
-                        <type></type>
-                        <description>
-                          type of this session, must indicate STREAM session, since SSL is supported only on TCP streams
-                        </description>
-                      </attribute>
-                    </attributes>
-                  </metainfo>
-                </method>
-                """
-		self.stack_proxy = None
-		super(AbstractPsslProxy, self).__init__(session)
-
-	def __pre_config__(self):
-		"""<method internal="yes">
-                </method>
-                """
-		super(AbstractPsslProxy, self).__pre_config__()
-		self.ssl.key_generator = self.key_generator
-		self.ssl.client_connection_security = PSSL_FORCE_SSL
-		self.ssl.server_connection_security = PSSL_FORCE_SSL
-
-	def requestStack(self):
-		"""<method internal="yes">
-                  <summary>
-                    Function used to query whether to stack anything to Pssl.
-                  </summary>
-                  <description>
-                    <para>
-                      Callback called by the underlying C proxy to query if
-                      something is to be stacked.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments/>
-                  </metainfo>
-                </method>
-                """
-		return self.stack_proxy
-
-        def __setattr__(self, name, value):
-                if name == "client_need_ssl":
-                        setattr(self.ssl, "client_connection_security", self.compat_value_ssl_enabled[value])
-                elif name == "server_need_ssl":
-                        setattr(self.ssl, "server_connection_security", self.compat_value_ssl_enabled[value])
-                elif name in self.compat_attributes:
-                        setattr(self.ssl, name, value)
-                else:
-                        super(AbstractPsslProxy, self).__setattr__(name, value)
-
-        def __getattr__(self, name):
-                if name == "client_need_ssl":
-                        value = getattr(self.ssl, "client_connection_security")
-                        value = self.compat_value_ssl_enabled_rev[value]
-                elif name == "server_need_ssl":
-                        value = getattr(self.ssl, "server_connection_security")
-                        value = self.compat_value_ssl_enabled_rev[value]
-                elif name in self.compat_attributes:
-                        value = getattr(self.ssl, name)
-                else:
-                        value = super(AbstractPsslProxy, self).getattr(name)
-                return value
-
-class PsslProxy(AbstractPsslProxy):
-	"""<class maturity="stable">
-          <summary>
-            Default Pssl proxy based on AbstractPsslProxy.
-          </summary>
-          <description>
-            <para>
-              This proxy is a compatibility wrapper for core SSL functionality. The documentation was left intact for reference, but SSL attributes should be used in each protocol proxy instead of this wrapper.
-              PsslProxy is a default class for proxying SSL/TLS connections based on AbstractPsslProxy.
+              Sets attributes based on arguments, and calls the inherited
+              constructor.
             </para>
           </description>
           <metainfo>
             <attributes>
               <attribute maturity="stable">
-                <name>client_cert_file</name>
-		<type>
-		  <string/>
-		</type>
-		<default>""</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
+                <name>session</name>
+                <type>Session</type>
                 <description>
-                  File containing the client side certificate.
+                  the reference of the owning session
                 </description>
               </attribute>
               <attribute maturity="stable">
-                <name>client_key_file</name>
-		<type>
-		  <string/>
-		</type>
-		<default>""</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  File containing the client side private key.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>client_keypair_files</name>
-		<type>
-		  <certificate cert="yes" key="yes"/>
-		</type>
-		<default>""</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  A tuple of two file names containing the certificate and
-                  key files. Using <parameter>client_keypair_files</parameter> is alternative to using
-                  the <parameter>client_cert_file</parameter> and <parameter>client_key_file</parameter> attributes.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>client_keypair_generate</name>
-		<type>
-		  <boolean/>
-		</type>
-		<default>FALSE</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime/>
-                <description>
-                  Enables keybridging towards the clients. (Specifies whether to generate new certificates.)
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_ca_directory</name>
-		<type>
-		  <string/>
-		</type>
-		<default>""</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Directory where the trusted CA certificates are stored.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>client_crl_directory</name>
-		<type>
-		  <string/>
-		</type>
-		<default>""</default>
-		<conftime>
-		  <read/>
-		  <write/>
-		</conftime>
-		<runtime>
-		  <read/>
-		</runtime>
-                <description>
-                  Directory where the CRLs associated with trusted CAs are stored.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>client_cagroup_directories</name>
-                <type>
-                  <cagroup/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  A tuple of the trusted CA certificate directory and
-                  the corresponding CRL directory.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>client_trusted_certs_directory</name>
-                <type>
-                  <string/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  A directory where trusted IP - certificate assignments are
-                  stored.  When a specific IP address introduces itself with the
-                  certificate stored in this directory, it is accepted regardless of
-                  its expiration or issuer CA. Each file in the directory should
-                  contain a certificate in PEM format and have the name of the IP
-                  address.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_cert_file</name>
-                <type>
-                  <string/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  File containing the server side certificate.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_key_file</name>
-                <type>
-                  <string/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  File containing the server side private key.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>server_keypair_files</name>
-                <type>
-                  <certificate cert="yes" key="yes"/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  A tuple of two file names containing the certificate and key
-                  files. Using <parameter>client_keypair_files</parameter> is alternative to use the
-                  <parameter>client_cert_file</parameter> and <parameter>client_key_file</parameter> attributes.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>server_keypair_generate</name>
-                <type>
-                  <boolean/>
-                </type>
-                <default>FALSE</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime/>
-                <description>
-                  Enables keybridging towards the server. (Specifies whether to generate new certificates.)
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_ca_directory</name>
-                <type>
-                  <string/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Directory where the trusted CA certificates are stored.
-                </description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>server_crl_directory</name>
-                <type>
-                  <string/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  Directory where the CRLs associated with the trusted CAs are stored.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>server_cagroup_directories</name>
-                <type>
-                  <cagroup/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  A tuple of the trusted CA certificate directory and the corresponding
-                  CRL directory.
-                </description>
-              </attribute>
-              <attribute state="stable">
-                <name>server_trusted_certs_directory</name>
-                <type>
-                  <string/>
-                </type>
-                <default>""</default>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime>
-                  <read/>
-                </runtime>
-                <description>
-                  A directory where trusted IP:port - certificate assignments are
-                  stored. When a specific IP address introduces itself with the
-                  certificate stored in this directory, it is accepted regardless
-                  of its expiration or issuer CA. Each file in the directory should
-                  contain a certificate in PEM format and should be named as
-                  'IP:PORT'.
-                </description>
-              </attribute>
-              <attribute state="stable" global="yes">
-                <name>key_generator</name>
-                <type>
-                  <class filter="x509keymanager" instance="yes"/>
-                </type>
-                <conftime>
-                  <read/>
-                  <write/>
-                </conftime>
-                <runtime/>
-                <description>
-                  An instance of a X509KeyManager or derived class to generate keys
-                  automatically based on the keys on one of the other peers. Use
-                  X509KeyBridge to generate certificates automatically with a
-                  firewall hosted local CA.
-                </description>
-              </attribute>
-              <attribute maturity="obsolete">
-                <name>client_cert</name>
+                <name>type</name>
                 <type></type>
                 <description>
-                  Alias for Zorp 0.8 compatibility
-                  same as client_cert_file
-                </description>
-              </attribute>
-              <attribute maturity="obsolete">
-                <name>client_key</name>
-                <type></type>
-                <description>
-                  Alias for Zorp 0.8 compatibility
-                  same as client_key_file
-                </description>
-              </attribute>
-              <attribute maturity="obsolete">
-                <name>server_cert</name>
-                <type></type>
-                <description>
-                  Alias for Zorp 0.8 compatibility
-                  same as server_cert_file
-                </description>
-              </attribute>
-              <attribute maturity="obsolete">
-                <name>server_key</name>
-                <type></type>
-                <description>
-                  Alias for Zorp 0.8 compatibility
-                  same as server_key_file
+                  type of this session, must indicate STREAM session, since SSL is supported only on TCP streams
                 </description>
               </attribute>
             </attributes>
           </metainfo>
-        </class>
+        </method>
         """
-	key_generator = None
+        self.stack_proxy = None
+        super(AbstractPsslProxy, self).__init__(session)
+
+    def __pre_config__(self):
+        """<method internal="yes">
+        </method>
+        """
+        super(AbstractPsslProxy, self).__pre_config__()
+        self.ssl.key_generator = self.key_generator
+        self.ssl.client_connection_security = PSSL_FORCE_SSL
+        self.ssl.server_connection_security = PSSL_FORCE_SSL
+
+    def requestStack(self):
+        """<method internal="yes">
+          <summary>
+            Function used to query whether to stack anything to Pssl.
+          </summary>
+          <description>
+            <para>
+              Callback called by the underlying C proxy to query if
+              something is to be stacked.
+            </para>
+          </description>
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        return self.stack_proxy
+
+    def __setattr__(self, name, value):
+        if name == "client_need_ssl":
+            setattr(self.ssl, "client_connection_security", self.compat_value_ssl_enabled[value])
+        elif name == "server_need_ssl":
+            setattr(self.ssl, "server_connection_security", self.compat_value_ssl_enabled[value])
+        elif name in self.compat_attributes:
+            setattr(self.ssl, name, value)
+        else:
+            super(AbstractPsslProxy, self).__setattr__(name, value)
+
+    def __getattr__(self, name):
+        if name == "client_need_ssl":
+            value = getattr(self.ssl, "client_connection_security")
+            value = self.compat_value_ssl_enabled_rev[value]
+        elif name == "server_need_ssl":
+            value = getattr(self.ssl, "server_connection_security")
+            value = self.compat_value_ssl_enabled_rev[value]
+        elif name in self.compat_attributes:
+            value = getattr(self.ssl, name)
+        else:
+            value = super(AbstractPsslProxy, self).getattr(name)
+        return value
+
+class PsslProxy(AbstractPsslProxy):
+    """<class maturity="stable">
+      <summary>
+        Default Pssl proxy based on AbstractPsslProxy.
+      </summary>
+      <description>
+        <para>
+          This proxy is a compatibility wrapper for core SSL functionality. The documentation was left intact for reference, but SSL attributes should be used in each protocol proxy instead of this wrapper.
+          PsslProxy is a default class for proxying SSL/TLS connections based on AbstractPsslProxy.
+        </para>
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute maturity="stable">
+            <name>client_cert_file</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              File containing the client side certificate.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_key_file</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              File containing the client side private key.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>client_keypair_files</name>
+            <type>
+              <certificate cert="yes" key="yes"/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              A tuple of two file names containing the certificate and
+              key files. Using <parameter>client_keypair_files</parameter> is alternative to using
+              the <parameter>client_cert_file</parameter> and <parameter>client_key_file</parameter> attributes.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>client_keypair_generate</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime/>
+            <description>
+              Enables keybridging towards the clients. (Specifies whether to generate new certificates.)
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_ca_directory</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Directory where the trusted CA certificates are stored.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>client_crl_directory</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Directory where the CRLs associated with trusted CAs are stored.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>client_cagroup_directories</name>
+            <type>
+              <cagroup/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              A tuple of the trusted CA certificate directory and
+              the corresponding CRL directory.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>client_trusted_certs_directory</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              A directory where trusted IP - certificate assignments are
+              stored.  When a specific IP address introduces itself with the
+              certificate stored in this directory, it is accepted regardless of
+              its expiration or issuer CA. Each file in the directory should
+              contain a certificate in PEM format and have the name of the IP
+              address.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_cert_file</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              File containing the server side certificate.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_key_file</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              File containing the server side private key.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>server_keypair_files</name>
+            <type>
+              <certificate cert="yes" key="yes"/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              A tuple of two file names containing the certificate and key
+              files. Using <parameter>client_keypair_files</parameter> is alternative to use the
+              <parameter>client_cert_file</parameter> and <parameter>client_key_file</parameter> attributes.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>server_keypair_generate</name>
+            <type>
+              <boolean/>
+            </type>
+            <default>FALSE</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime/>
+            <description>
+              Enables keybridging towards the server. (Specifies whether to generate new certificates.)
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_ca_directory</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Directory where the trusted CA certificates are stored.
+            </description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>server_crl_directory</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              Directory where the CRLs associated with the trusted CAs are stored.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>server_cagroup_directories</name>
+            <type>
+              <cagroup/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              A tuple of the trusted CA certificate directory and the corresponding
+              CRL directory.
+            </description>
+          </attribute>
+          <attribute state="stable">
+            <name>server_trusted_certs_directory</name>
+            <type>
+              <string/>
+            </type>
+            <default>""</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime>
+              <read/>
+            </runtime>
+            <description>
+              A directory where trusted IP:port - certificate assignments are
+              stored. When a specific IP address introduces itself with the
+              certificate stored in this directory, it is accepted regardless
+              of its expiration or issuer CA. Each file in the directory should
+              contain a certificate in PEM format and should be named as
+              'IP:PORT'.
+            </description>
+          </attribute>
+          <attribute state="stable" global="yes">
+            <name>key_generator</name>
+            <type>
+              <class filter="x509keymanager" instance="yes"/>
+            </type>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime/>
+            <description>
+              An instance of a X509KeyManager or derived class to generate keys
+              automatically based on the keys on one of the other peers. Use
+              X509KeyBridge to generate certificates automatically with a
+              firewall hosted local CA.
+            </description>
+          </attribute>
+          <attribute maturity="obsolete">
+            <name>client_cert</name>
+            <type></type>
+            <description>
+              Alias for Zorp 0.8 compatibility
+              same as client_cert_file
+            </description>
+          </attribute>
+          <attribute maturity="obsolete">
+            <name>client_key</name>
+            <type></type>
+            <description>
+              Alias for Zorp 0.8 compatibility
+              same as client_key_file
+            </description>
+          </attribute>
+          <attribute maturity="obsolete">
+            <name>server_cert</name>
+            <type></type>
+            <description>
+              Alias for Zorp 0.8 compatibility
+              same as server_cert_file
+            </description>
+          </attribute>
+          <attribute maturity="obsolete">
+            <name>server_key</name>
+            <type></type>
+            <description>
+              Alias for Zorp 0.8 compatibility
+              same as server_key_file
+            </description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
+    key_generator = None

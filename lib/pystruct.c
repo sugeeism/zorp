@@ -23,7 +23,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author  : Bazsi
- * Auditor : 
+ * Auditor :
  * Last audited version:
  * Notes:
  *
@@ -189,7 +189,7 @@ z_policy_struct_module_init(void)
   static struct {
     gchar *name;
     gint parent_type;
-  } types[] = 
+  } types[] =
   {
     [Z_PST_NONE] = { "Unknown" , -1 },
     [Z_PST_SHARED] = { "Shared", -1 },
@@ -205,10 +205,9 @@ z_policy_struct_module_init(void)
   };
   ZPolicyObj *m;
   gint i;
-  
-  
+
   m = PyImport_AddModule("Zorp.Zorp");
-  
+
   for (i = Z_PST_NONE + 1; i < Z_PST_MAX; i++)
     {
       gchar type_ref[64];
@@ -236,11 +235,11 @@ z_policy_struct_module_init(void)
 
 PyTypeObject z_policy_struct_types[Z_PST_MAX] =
 {
-  [Z_PST_NONE] = 
+  [Z_PST_NONE] =
   {
     /* used as a template type for other types */
     PyObject_HEAD_INIT(&PyType_Type)
-    
+
     .ob_size = 0,
     .tp_name = "ZPolicyStruct",
     .tp_basicsize = sizeof(ZPolicyStruct),

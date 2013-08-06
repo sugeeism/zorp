@@ -97,9 +97,9 @@
       </item>
       <item>
         <name>Z_PORT_RANDOM</name>
-	<description>
-	  Select a random port using a cryptographically secure function.
-	</description>
+        <description>
+          Select a random port using a cryptographically secure function.
+        </description>
       </item>
       </enum>
       <enum maturity="stable" id="enum.zorp.bacl">
@@ -224,6 +224,8 @@ CORE_MESSAGE = "core.message"
 CORE_AUTH = "core.auth"
 CORE_INFO = "core.info"
 
+CORE_ALERTING = "core.alerting"
+
 # return values returned by event handlers
 ZV_UNSPEC         = 0
 ZV_ACCEPT         = 1
@@ -320,243 +322,237 @@ Z_KEEPALIVE_CLIENT = 1
 Z_KEEPALIVE_SERVER = 2
 Z_KEEPALIVE_BOTH   = 3
 
-Z_SSL_VERIFY_NONE		= 0
-Z_SSL_VERIFY_OPTIONAL_UNTRUSTED	= 1
-Z_SSL_VERIFY_OPTIONAL_TRUSTED	= 2
-Z_SSL_VERIFY_REQUIRED_UNTRUSTED	= 3
-Z_SSL_VERIFY_REQUIRED_TRUSTED	= 4
+Z_SSL_VERIFY_NONE               = 0
+Z_SSL_VERIFY_OPTIONAL_UNTRUSTED = 1
+Z_SSL_VERIFY_OPTIONAL_TRUSTED   = 2
+Z_SSL_VERIFY_REQUIRED_UNTRUSTED = 3
+Z_SSL_VERIFY_REQUIRED_TRUSTED   = 4
 
 import Globals
 
 def init(names, virtual_name, is_master):
-        """
-        <function internal="yes">
-          <summary>
-            Default init() function provided by Zorp
-          </summary>
-          <description>
-            This function is a default <function>init()</function> calling the init function
-            identified by the <parameter>name</parameter> argument. This way several Zorp
-            instances can use the same policy file.
-          </description>
-          <metainfo>
-            <attributes>
-              <attribute maturity="stable">
-                <name>names</name>
-                <type></type>
-                <description>Names (instance name and also-as names) of this instance.</description>
-              </attribute>
-              <attribute maturity="stable">
-                <name>virtual_name</name>
-                <type>string</type>
-                <description>
-                  Virtual instance name of this process. If a Zorp instance is backed by multiple
-                  Zorp processes using the same configuration each process has a unique virtual
-                  instance name that is used for SZIG communication, PID file creation, etc.
-                </description>
-              </attribute>
-              <attribute>
-                <name>is_master</name>
-                <type>int</type>
-                <description>
-                  TRUE if Zorp is running in master mode, FALSE for slave processes. Each Zorp instance
-                  should have exactly one master process and an arbitrary number of slaves.
-                </description>
-              </attribute>
-            </attributes>
-          </metainfo>
-        </function>
-	"""
-	import __main__
-	import SockAddr, KZorp, Rule
-        import kznf.nfnetlink
-        import kznf.kznfnetlink
-        import errno
+    """
+    <function internal="yes">
+      <summary>
+        Default init() function provided by Zorp
+      </summary>
+      <description>
+        This function is a default <function>init()</function> calling the init function
+        identified by the <parameter>name</parameter> argument. This way several Zorp
+        instances can use the same policy file.
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute maturity="stable">
+            <name>names</name>
+            <type></type>
+            <description>Names (instance name and also-as names) of this instance.</description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>virtual_name</name>
+            <type>string</type>
+            <description>
+              Virtual instance name of this process. If a Zorp instance is backed by multiple
+              Zorp processes using the same configuration each process has a unique virtual
+              instance name that is used for SZIG communication, PID file creation, etc.
+            </description>
+          </attribute>
+          <attribute>
+            <name>is_master</name>
+            <type>int</type>
+            <description>
+              TRUE if Zorp is running in master mode, FALSE for slave processes. Each Zorp instance
+              should have exactly one master process and an arbitrary number of slaves.
+            </description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </function>
+    """
+    import __main__
+    import SockAddr, KZorp, Matcher, Rule
+    import kzorp.netlink
+    import kzorp.kzorp_netlink
+    import errno
 
-	# miscelanneous initialization
-	if config.audit.encrypt_certificate_file:
-		try:
-			config.audit.encrypt_certificate = open(config.audit.encrypt_certificate_file, 'r').read()
-		except IOError:
-			log(None, CORE_ERROR, 1, "Error reading audit encryption certificate; file='%s'", (config.audit.encrypt_certificate_file))
+    # miscelanneous initialization
+    if config.audit.encrypt_certificate_file:
+        try:
+            config.audit.encrypt_certificate = open(config.audit.encrypt_certificate_file, 'r').read()
+        except IOError:
+            log(None, CORE_ERROR, 1, "Error reading audit encryption certificate; file='%s'", (config.audit.encrypt_certificate_file))
 
-        if config.audit.encrypt_certificate_list_file:
-                try:
-                        config.audit.encrypt_certificate_list = [ ]
-                        for list in config.audit.encrypt_certificate_list_file:
-                                newlist = [ ]
-                                for file in list:
-                                        try:
-                                                newlist.append( open(file, 'r').read() )
-                                        except IOError:
-                                                log(None, CORE_ERROR, 1, "Error reading audit encryption certificate; file='%s'", (file))
-                                config.audit.encrypt_certificate_list.append( newlist )
-                except TypeError:
-                        log(None, CORE_ERROR, 1, "Error iterating encryption certificate file list;")
-
-        if config.audit.encrypt_certificate_list == None and config.audit.encrypt_certificate:
-               config.audit.encrypt_certificate_list = [ [ config.audit.encrypt_certificate ] ]
-
-        if config.audit.sign_private_key_file:
-		try:
-			config.audit.sign_private_key = open(config.audit.sign_private_key_file, 'r').read()
-		except IOError:
-			log(None, CORE_ERROR, 1, "Error reading audit signature's private key; file='%s'", (config.audit.sign_private_key_file))
-
-        if config.audit.sign_certificate_file:
-		try:
-			config.audit.sign_certificate = open(config.audit.sign_certificate_file, 'r').read()
-		except IOError:
-			log(None, CORE_ERROR, 1, "Error reading audit signature's certificate; file='%s'", (config.audit.sign_certificate_file))
-
-        Globals.rules = Rule.RuleSet()
-
-        Globals.instance_name = names[0]
-        for i in names:
-                try:
-                        func = getattr(__main__, i)
-                except AttributeError:
-                        ## LOG ##
-                        # This message indicates that the initialization function of
-                        # the given instance was not found in the policy file.
-                        ##
-                        log(None, CORE_ERROR, 0, "Instance definition not found in policy; instance='%s'", (names,))
-                        return FALSE
-                func()
-
-        Globals.kzorp_responds_to_ping = False
-        if config.options.kzorp_enabled:
-            # ping kzorp to see if it's there
-            try:
-                    h = KZorp.openHandle()
-                    m = h.create_message(kznf.nfnetlink.NFNL_SUBSYS_KZORP, kznf.kznfnetlink.KZNL_MSG_GET_ZONE,
-                                         kznf.nfnetlink.NLM_F_REQUEST)
-                    m.set_nfmessage(kznf.kznfnetlink.create_get_zone_msg("__nonexistent_zone__"))
-                    result = h.talk(m, (0, 0), KZorp.netlinkmsg_handler)
-                    if result < 0 and result != -errno.ENOENT:
-                            log(None, CORE_ERROR, 0, "Error pinging KZorp, it is probably unavailable; result='%d'" % (result))
-                    else:
-                            Globals.kzorp_responds_to_ping = True
-            except:
-                    log(None, CORE_ERROR, 0, "Error pinging KZorp, it is probably unavailable; exc_value='%s'" % (sys.exc_value))
-
-            if Globals.kzorp_responds_to_ping:
+    if config.audit.encrypt_certificate_list_file:
+        try:
+            config.audit.encrypt_certificate_list = [ ]
+            for list in config.audit.encrypt_certificate_list_file:
+                newlist = [ ]
+                for file in list:
                     try:
-                            KZorp.downloadKZorpConfig(names[0], is_master)
-                    except:
-                            ## LOG ##
-                            # This message indicates that downloading the necessary information to the
-                            # kernel-level KZorp subsystem has failed.
-                            ##
-                            log(None, CORE_ERROR, 0, "Error downloading KZorp configuration, Python traceback follows; error='%s'" % (sys.exc_value))
-                            for s in traceback.format_tb(sys.exc_traceback):
-                                    for l in s.split("\n"):
-                                            if l:
-                                                    log(None, CORE_ERROR, 0, "Traceback: %s" % (l))
+                        newlist.append( open(file, 'r').read() )
+                    except IOError:
+                        log(None, CORE_ERROR, 1, "Error reading audit encryption certificate; file='%s'", (file))
+                config.audit.encrypt_certificate_list.append( newlist )
+        except TypeError:
+            log(None, CORE_ERROR, 1, "Error iterating encryption certificate file list;")
 
-                            # if kzorp did respond to the ping, the configuration is erroneous -- we die here so the user finds out
-                            return FALSE
+    if config.audit.encrypt_certificate_list == None and config.audit.encrypt_certificate:
+        config.audit.encrypt_certificate_list = [ [ config.audit.encrypt_certificate ] ]
 
-        return TRUE
+    if config.audit.sign_private_key_file:
+        try:
+            config.audit.sign_private_key = open(config.audit.sign_private_key_file, 'r').read()
+        except IOError:
+            log(None, CORE_ERROR, 1, "Error reading audit signature's private key; file='%s'", (config.audit.sign_private_key_file))
+
+    if config.audit.sign_certificate_file:
+        try:
+            config.audit.sign_certificate = open(config.audit.sign_certificate_file, 'r').read()
+        except IOError:
+            log(None, CORE_ERROR, 1, "Error reading audit signature's certificate; file='%s'", (config.audit.sign_certificate_file))
+
+    Globals.rules = Rule.RuleSet()
+
+    if config.options.kzorp_enabled:
+        # ping kzorp to see if it's there
+        try:
+            h = kzorp.kzorp_netlink.Handle()
+            Globals.kzorp_available = True
+        except:
+            Globals.kzorp_available = False
+            log(None, CORE_ERROR, 0, "Error pinging KZorp, it is probably unavailable; exc_value='%s'" % (sys.exc_value))
+
+    Globals.instance_name = names[0]
+    for i in names:
+        try:
+            func = getattr(__main__, i)
+        except AttributeError:
+            ## LOG ##
+            # This message indicates that the initialization function of
+            # the given instance was not found in the policy file.
+            ##
+            log(None, CORE_ERROR, 0, "Instance definition not found in policy; instance='%s'", (names,))
+            return FALSE
+        func()
+
+    Matcher.validateMatchers()
+
+    if Globals.kzorp_available:
+        try:
+            KZorp.downloadKZorpConfig(names[0], is_master)
+        except:
+            ## LOG ##
+            # This message indicates that downloading the necessary information to the
+            # kernel-level KZorp subsystem has failed.
+            ##
+            log(None, CORE_ERROR, 0, "Error downloading KZorp configuration, Python traceback follows; error='%s'" % (sys.exc_value))
+            for s in traceback.format_tb(sys.exc_traceback):
+                for l in s.split("\n"):
+                    if l:
+                        log(None, CORE_ERROR, 0, "Traceback: %s" % (l))
+
+            # if kzorp did respond to the ping, the configuration is erroneous -- we die here so the user finds out
+            return FALSE
+
+    return TRUE
 
 
 def deinit(names, virtual_name):
-	"""
-        <function internal="yes">
-        </function>
-	"""
-	## LOG ##
-	# This message reports that the given instance is stopping.
-	##
-        log(None, CORE_DEBUG, 6, "Deinitialization requested for instance; name='%s'", (names[0],))
-	for i in Globals.deinit_callbacks:
-		i()
+    """
+    <function internal="yes">
+    </function>
+    """
+    ## LOG ##
+    # This message reports that the given instance is stopping.
+    ##
+    log(None, CORE_DEBUG, 6, "Deinitialization requested for instance; name='%s'", (names[0],))
+    for i in Globals.deinit_callbacks:
+        i()
 
 def purge():
-        """
-        <function internal="yes">
-        </function>
-	"""
-        pass
+    """
+    <function internal="yes">
+    </function>
+    """
+    pass
 
 def cleanup(names, virtual_name, is_master):
-	"""
-        <function internal="yes">
-        </function>
-	"""
-	import KZorp
-	## LOG ##
-	# This message reports that the given instance is freeing its external
-        # resources (for example its kernel-level policy objects).
-	##
-	log(None, CORE_DEBUG, 6, "Cleaning up instance; name='%s'", (names,))
+    """
+    <function internal="yes">
+    </function>
+    """
+    import KZorp
+    ## LOG ##
+    # This message reports that the given instance is freeing its external
+    # resources (for example its kernel-level policy objects).
+    ##
+    log(None, CORE_DEBUG, 6, "Cleaning up instance; name='%s'", (names,))
 
-        if is_master and Globals.kzorp_responds_to_ping and config.options.kzorp_enabled:
-                try:
-                        KZorp.flushKZorpConfig(names[0])
-                except:
-                        ## LOG ##
-                        # This message indicates that flushing the instance-related information in the
-                        # kernel-level KZorp subsystem has failed.
-                        ##
-                        log(None, CORE_ERROR, 0, "Error flushing KZorp configuration; error='%s'" % (sys.exc_value))
-                        for s in traceback.format_tb(sys.exc_traceback):
-                                for l in s.split("\n"):
-                                        if l:
-                                                log(None, CORE_ERROR, 4, "Traceback: %s" % (l))
+    if is_master and Globals.kzorp_available and config.options.kzorp_enabled:
+        try:
+            KZorp.flushKZorpConfig(names[0])
+        except:
+            ## LOG ##
+            # This message indicates that flushing the instance-related information in the
+            # kernel-level KZorp subsystem has failed.
+            ##
+            log(None, CORE_ERROR, 0, "Error flushing KZorp configuration; error='%s'" % (sys.exc_value))
+            for s in traceback.format_tb(sys.exc_traceback):
+                for l in s.split("\n"):
+                    if l:
+                        log(None, CORE_ERROR, 4, "Traceback: %s" % (l))
 
 def notify(event, params):
-	"""<function internal="yes">
-        </function>
-        """
-        if Globals.notification_policy:
-                return Globals.notification_policy.notify(event, params)
+    """<function internal="yes">
+    </function>
+    """
+    if Globals.notification_policy:
+        return Globals.notification_policy.notify(event, params)
 
 
 
 ## NOLOG ##
-		
-def log(sessionid, logclass, verbosity, msg, args=None):
-	"""
-	<function maturity="stable">
-          <summary>
-            Function to send a message to the system log.
-          </summary>
-          <description>
-            <para>
-              This function can be used to send a message to the system log.
-            </para>
-          </description>
-          <metainfo>
-            <arguments>
-              <argument>
-               <name>sessionid</name>
-               <type><string/></type>
-               <description>The ID of the session the message belongs to.</description>
-              </argument>
-              <argument>
-                <name>logclass</name>
-                <type><string/></type>
-                <description>Hierarchical log class as described in the <emphasis>zorp(8)</emphasis> manual page</description>
-              </argument>
-              <argument>
-                <name>verbosity</name>
-                <type><integer/></type>
-                <description>Verbosity level of the message.</description>
-              </argument>
-              <argument>
-                <name>msg</name>
-                <type><string/></type>
-                <description>The message text.</description>
-              </argument>
-              <argument>
-                <name>args</name>
-                <type><string/></type>
-                <description>Optional printf-style argument tuple added to the message.</description>
-              </argument>
-            </arguments>
-          </metainfo>
-        </function>
-        """
-        pass
 
+def log(sessionid, logclass, verbosity, msg, args=None):
+    """
+    <function maturity="stable">
+      <summary>
+        Function to send a message to the system log.
+      </summary>
+      <description>
+        <para>
+          This function can be used to send a message to the system log.
+        </para>
+      </description>
+      <metainfo>
+        <arguments>
+          <argument>
+           <name>sessionid</name>
+           <type><string/></type>
+           <description>The ID of the session the message belongs to.</description>
+          </argument>
+          <argument>
+            <name>logclass</name>
+            <type><string/></type>
+            <description>Hierarchical log class as described in the <emphasis>zorp(8)</emphasis> manual page</description>
+          </argument>
+          <argument>
+            <name>verbosity</name>
+            <type><integer/></type>
+            <description>Verbosity level of the message.</description>
+          </argument>
+          <argument>
+            <name>msg</name>
+            <type><string/></type>
+            <description>The message text.</description>
+          </argument>
+          <argument>
+            <name>args</name>
+            <type><string/></type>
+            <description>Optional printf-style argument tuple added to the message.</description>
+          </argument>
+        </arguments>
+      </metainfo>
+    </function>
+    """
+    pass

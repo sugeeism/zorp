@@ -32,7 +32,7 @@
 #ifndef ZORP_LINEBALANCE_H_INCLUDED
 #define ZORP_LINEBALANCE_H_INCLUDED
 
-#include <glib/gtypes.h>
+#include <glib.h>
 
 /* NOTE: For the meaning of this defines please see
  * http://specwiki.balabit/ZorpLineBalance.

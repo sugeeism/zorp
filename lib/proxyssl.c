@@ -29,6 +29,7 @@
 #include <zorp/zorp.h>
 #include <zorp/proxy.h>
 #include <zorp/pyx509.h>
+#include <zorp/pyx509chain.h>
 #include <zorp/streamssl.h>
 #include <zorp/pydict.h>
 #include <zorp/pystruct.h>
@@ -201,36 +202,27 @@ z_proxy_ssl_handshake_get_error_str(ZProxySSLHandshake *self)
 void
 z_proxy_ssl_config_defaults(ZProxy *self)
 {
-  int i;
-
   self->ssl_opts.handshake_timeout = 30000;
   self->ssl_opts.handshake_seq = PROXY_SSL_HS_CLIENT_SERVER;
   self->ssl_opts.permit_invalid_certificates = FALSE;
   self->ssl_opts.permit_missing_crl = TRUE;
-  self->ssl_opts.verify_type[EP_SERVER] = PROXY_SSL_VERIFY_REQUIRED_TRUSTED;
-  self->ssl_opts.verify_type[EP_CLIENT] = PROXY_SSL_VERIFY_REQUIRED_TRUSTED;
-  self->ssl_opts.verify_depth[EP_SERVER] = 4;
-  self->ssl_opts.verify_depth[EP_CLIENT] = 4;
-  self->ssl_opts.verify_ca_directory[EP_CLIENT] = g_string_new("");
-  self->ssl_opts.verify_ca_directory[EP_SERVER] = g_string_new("");
-  self->ssl_opts.verify_crl_directory[EP_CLIENT] = g_string_new("");
-  self->ssl_opts.verify_crl_directory[EP_SERVER] = g_string_new("");
 
-  for (i = 0; i < EP_MAX; i++)
+  for (ZEndpoint side = 0; side < EP_MAX; side++)
     {
-      self->ssl_opts.local_ca_list[i] = sk_X509_new_null();
-      self->ssl_opts.local_crl_list[i] = sk_X509_CRL_new_null();
-      self->ssl_opts.handshake_hash[i] = g_hash_table_new(g_str_hash, g_str_equal);
+      self->ssl_opts.verify_type[side] = PROXY_SSL_VERIFY_REQUIRED_TRUSTED;
+      self->ssl_opts.verify_depth[side] = 4;
+      self->ssl_opts.verify_ca_directory[side] = g_string_new("");
+      self->ssl_opts.verify_crl_directory[side] = g_string_new("");
+      self->ssl_opts.local_ca_list[side] = sk_X509_new_null();
+      self->ssl_opts.local_crl_list[side] = sk_X509_CRL_new_null();
+      self->ssl_opts.handshake_hash[side] = g_hash_table_new(g_str_hash, g_str_equal);
+      self->ssl_opts.ssl_method[side] = g_string_new("SSLv23");
+      self->ssl_opts.ssl_cipher[side] = g_string_new("ALL:!aNULL:@STRENGTH");
+      self->ssl_opts.disable_proto_sslv2[side] = TRUE;
+      self->ssl_opts.local_privkey_passphrase[side] = g_string_new("");
     }
 
   self->ssl_opts.server_peer_ca_list = sk_X509_NAME_new_null();
-  self->ssl_opts.ssl_method[EP_CLIENT] = g_string_new("SSLv23");
-  self->ssl_opts.ssl_method[EP_SERVER] = g_string_new("SSLv23");
-  self->ssl_opts.ssl_cipher[EP_CLIENT] = g_string_new("ALL:!aNULL:@STRENGTH");
-  self->ssl_opts.ssl_cipher[EP_SERVER] = g_string_new("ALL:!aNULL:@STRENGTH");
-  self->ssl_opts.disable_proto_sslv2[EP_CLIENT] = self->ssl_opts.disable_proto_sslv2[EP_SERVER] = TRUE;
-  self->ssl_opts.local_privkey_passphrase[EP_CLIENT] = g_string_new("");
-  self->ssl_opts.local_privkey_passphrase[EP_SERVER] = g_string_new("");
   self->ssl_opts.server_check_subject = TRUE;
 
   self->ssl_opts.dict = z_policy_dict_new();
@@ -299,7 +291,7 @@ z_proxy_ssl_register_vars(ZProxy *self)
                          self->ssl_opts.local_privkey_passphrase[EP_CLIENT]);
   z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_certificate", Z_VF_RW | Z_VF_CFG_RW,
                          &self->ssl_opts.local_cert[EP_CLIENT],
-                         z_py_ssl_certificate_get, z_py_ssl_certificate_set, z_py_ssl_certificate_free,
+                         z_py_ssl_certificate_chain_get, z_py_ssl_certificate_chain_set, z_py_ssl_certificate_chain_free,
                          self, NULL,              /* user_data, user_data_free */
                          NULL,                    /* end of CUSTOM args */
                          NULL);
@@ -360,7 +352,7 @@ z_proxy_ssl_register_vars(ZProxy *self)
                          self->ssl_opts.local_privkey_passphrase[EP_SERVER]);
   z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_certificate", Z_VF_RW | Z_VF_CFG_RW,
                          &self->ssl_opts.local_cert[EP_SERVER],
-                         z_py_ssl_certificate_get, z_py_ssl_certificate_set, z_py_ssl_certificate_free,
+                         z_py_ssl_certificate_chain_get, z_py_ssl_certificate_chain_set, z_py_ssl_certificate_chain_free,
                          self, NULL,              /* user_data, user_data_free */
                          NULL,                    /* end of CUSTOM args */
                          NULL);
@@ -582,8 +574,34 @@ z_proxy_ssl_load_local_key(ZProxySSLHandshake *handshake)
 
   if (self->ssl_opts.local_privkey[ndx] && self->ssl_opts.local_cert[ndx])
     {
-      SSL_use_PrivateKey(ssl, self->ssl_opts.local_privkey[ndx]);
-      SSL_use_certificate(ssl, self->ssl_opts.local_cert[ndx]);
+      if (!SSL_use_certificate(ssl, z_certificate_chain_get_cert(self->ssl_opts.local_cert[ndx])))
+        {
+          z_proxy_log(self, CORE_ERROR, 3, "Unable to set certificate to use in the SSL session;");
+          z_proxy_return(self, FALSE);
+        }
+      if (!SSL_use_PrivateKey(ssl, self->ssl_opts.local_privkey[ndx]))
+        {
+          z_proxy_log(self, CORE_ERROR, 3, "Unable to set private key to use in the SSL session;");
+          z_proxy_return(self, FALSE);
+        }
+
+      gsize chain_len = z_certificate_chain_get_chain_length(self->ssl_opts.local_cert[ndx]);
+      if (chain_len)
+        {
+          for (gsize i = 0; i != chain_len; ++i)
+            {
+              X509 *cert = z_certificate_chain_get_cert_from_chain(self->ssl_opts.local_cert[ndx], i);
+
+              CRYPTO_add(&cert->references, 1, CRYPTO_LOCK_X509);
+              if (!SSL_CTX_add_extra_chain_cert(ssl->ctx, cert))
+                {
+                  X509_free(cert);
+                  z_proxy_log(self, CORE_ERROR, 3, "Failed to add the complete certificate chain "
+                              "to the SSL session; index='%" G_GSIZE_FORMAT "'", i);
+                  z_proxy_return(self, FALSE);
+                }
+            }
+        }
     }
   else if (ndx == EP_CLIENT)
     {
@@ -703,6 +721,11 @@ z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
   if (side == EP_SERVER)
     z_proxy_ssl_load_local_ca_list(handshake);
 
+  if (self->ssl_opts.verify_crl_directory[side]->len > 0)
+    {
+      X509_STORE_CTX_set_flags(ctx, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+    }
+
   verify_valid = X509_verify_cert(ctx);
   verify_error = X509_STORE_CTX_get_error(ctx);
 
@@ -713,15 +736,16 @@ z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
        * missing CRLs */
 
       /*LOG This message indicates that the CRL of a CA in the certificate
-        chain was not found during verification, but the certificate
-        is still being accepted due to the proxy configuration explicitly
-        allowing missing CRLs.
+        chain was not found during verification but the proxy configuration
+        explicitly allows missing CRLs.
        */
-      z_proxy_log(self, CORE_POLICY, 5, "Accepting certficate even though CRL was missing as directed by the policy");
-      verify_valid = TRUE;
-      verify_error = X509_V_OK;
-    }
+      z_proxy_log(self, CORE_POLICY, 5, "Trying verification without CRL check as directed by the policy");
 
+      /* disable CRL check and redo verify */
+      X509_VERIFY_PARAM_clear_flags(ctx->param, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+      verify_valid = X509_verify_cert(ctx);
+      verify_error = X509_STORE_CTX_get_error(ctx);
+    }
 
   z_policy_lock(self->thread);
   if (new_verify_callback)
@@ -827,8 +851,18 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
       /* Do not log an error if the issue was a missing CRL and the policy explicitly
        * permits missing CRLs.
        */
-      z_proxy_log(self, CORE_POLICY, 1, "Certificate verification failed; error='%s'",
-                  X509_verify_cert_error_string(verify_error));
+
+      int loglevel = 1;
+      int err = X509_STORE_CTX_get_error(ctx);
+      if (err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
+          (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_UNTRUSTED ||
+           self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_UNTRUSTED))
+        {
+          loglevel = 6;
+        }
+
+      z_proxy_log(self, CORE_POLICY, loglevel, "Certificate verification failed; error='%s', issuer='%s', subject='%s'",
+                  X509_verify_cert_error_string(verify_error), issuer_name, subject_name);
     }
 
   z_proxy_log(self, CORE_DEBUG, 6, "Verifying certificate; issuer='%s', subject='%s'", issuer_name, subject_name);
@@ -990,7 +1024,7 @@ z_proxy_ssl_client_cert_cb(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
 
   if (self->ssl_opts.local_cert[side] && self->ssl_opts.local_privkey[side])
     {
-      *cert = self->ssl_opts.local_cert[side];
+      *cert = z_certificate_chain_get_cert(self->ssl_opts.local_cert[side]);
       *pkey = self->ssl_opts.local_privkey[side];
 
       CRYPTO_add(&(*cert)->references, 1, CRYPTO_LOCK_X509);
@@ -1421,25 +1455,25 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
 
   SSL_CTX_set_cert_verify_callback(ctx, z_proxy_ssl_app_verify_cb, handshake);
 
-  if (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_TRUSTED)
+  if (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_TRUSTED ||
+      self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_UNTRUSTED)
     verify_mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-  else if (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_UNTRUSTED ||
-           self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_UNTRUSTED ||
+  else if (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_UNTRUSTED ||
            self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_TRUSTED)
     verify_mode = SSL_VERIFY_PEER;
 
   if (verify_mode)
     SSL_CTX_set_verify(ctx, verify_mode, z_proxy_ssl_verify_peer_cert_cb);
 
-  if (self->ssl_opts.verify_ca_directory[side] != NULL ||
-      self->ssl_opts.verify_crl_directory[side] != NULL)
+  if (self->ssl_opts.verify_ca_directory[side]->len > 0 ||
+      self->ssl_opts.verify_crl_directory[side]->len > 0)
     {
       X509_LOOKUP *lookup = X509_STORE_add_lookup(ctx->cert_store, X509_LOOKUP_hash_dir());
 
-      if (self->ssl_opts.verify_ca_directory[side] != NULL)
+      if (self->ssl_opts.verify_ca_directory[side]->len > 0)
         X509_LOOKUP_add_dir(lookup, self->ssl_opts.verify_ca_directory[side]->str, X509_FILETYPE_PEM);
 
-      if (self->ssl_opts.verify_crl_directory[side] != NULL)
+      if (self->ssl_opts.verify_crl_directory[side]->len > 0)
         {
           X509_LOOKUP_add_dir(lookup, self->ssl_opts.verify_crl_directory[side]->str, X509_FILETYPE_PEM);
           X509_STORE_set_flags(ctx->cert_store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
@@ -1453,10 +1487,6 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
   /* Give the SSL context to the handshake class after
      cleaning up the current one */
 
-  if (handshake->ssl_context)
-    SSL_CTX_free(handshake->ssl_context);
-  handshake->ssl_context = ctx;
-
   if (!tmpssl)
     {
       z_proxy_log(self, CORE_ERROR, 1, "Error allocating SSL struct; side='%s'", EP_STR(side));
@@ -1468,6 +1498,11 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
 
   ssl = handshake->session = z_ssl_session_new_ssl(tmpssl);
   SSL_free(tmpssl);
+
+  if (handshake->ssl_context)
+    SSL_CTX_free(handshake->ssl_context);
+  handshake->ssl_context = ctx;
+
   if (!ssl)
     {
       z_proxy_log(self, CORE_ERROR, 1, "Error creating SSL session; side='%s'", EP_STR(side));

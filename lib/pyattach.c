@@ -106,7 +106,6 @@ static PyMethodDef z_policy_attach_methods[] =
   { NULL,          NULL, 0, NULL }   /* sentinel*/
 };
 
-
 /**
  * z_policy_attach_getattr:
  * @o: this
@@ -279,13 +278,11 @@ z_policy_attach_free(ZPolicyAttach *self)
   z_leave();
 }
 
-
 PyMethodDef z_policy_attach_funcs[] =
 {
   { "Attach",  (PyCFunction) z_policy_attach_new_instance, METH_VARARGS | METH_KEYWORDS, NULL },
   { NULL,      NULL, 0, NULL }   /* sentinel*/
 };
-
 
 static PyTypeObject z_policy_attach_type =
 {
@@ -296,7 +293,6 @@ static PyTypeObject z_policy_attach_type =
   .tp_getattr = (getattrfunc) z_policy_attach_getattr,
   .tp_doc = "ZPolicyAttach class for Zorp"
 };
-
 
 /**
  * z_policy_attach_init:

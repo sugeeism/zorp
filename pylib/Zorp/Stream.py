@@ -40,126 +40,125 @@ G_IO_STATUS_EOF = 2
 G_IO_STATUS_AGAIN = 3
 
 class Stream(object):
-	"""
-        <class maturity="stable">
+    """
+    <class maturity="stable">
+      <summary>
+        Class encapsulating the file descriptor and related functions.
+      </summary>
+      <description>
+        <para>
+          This class encapsulates a full-duplex data tunnel, represented by
+          a UNIX file descriptor. Proxies communicate with its peers through
+          instances of this class. The <parameter>client_stream</parameter>
+          and <parameter>server_stream</parameter>
+          attributes of the <link
+          linkend="python.Session">Session</link> class contain a
+          Stream instance.
+        </para>
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute>
+            <name>fd</name>
+            <type><integer/></type>
+            <description>The file descriptor associated to the stream.</description>
+          </attribute>
+          <attribute>
+            <name>name</name>
+            <type><string/></type>
+            <description>The name of the stream.</description>
+          </attribute>
+          <attribute>
+            <name>bytes_recvd</name>
+            <type><integer/></type>
+            <description>The number of bytes received in the stream.</description>
+          </attribute>
+          <attribute>
+            <name>bytes_sent</name>
+            <type><integer/></type>
+            <description>The number of bytes sent in the stream.</description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
+
+    def __init__(self, fd, name):
+        """
+        <method maturity="stable">
           <summary>
-            Class encapsulating the file descriptor and related functions.
+            Constructor to initialize a stream.
           </summary>
           <description>
             <para>
-              This class encapsulates a full-duplex data tunnel, represented by
-              a UNIX file descriptor. Proxies communicate with its peers through
-              instances of this class. The <parameter>client_stream</parameter> 
-              and <parameter>server_stream</parameter>
-              attributes of the <link
-              linkend="python.Session">Session</link> class contain a
-              Stream instance.
+              This constructor initializes a Stream instance setting its
+              attributes according to arguments.
             </para>
           </description>
           <metainfo>
-            <attributes>
-              <attribute>
+            <arguments>
+              <argument>
                 <name>fd</name>
                 <type><integer/></type>
                 <description>The file descriptor associated to the stream.</description>
-              </attribute>
-              <attribute>
+              </argument>
+              <argument>
                 <name>name</name>
                 <type><string/></type>
                 <description>The name of the stream.</description>
-              </attribute>
-              <attribute>
-                <name>bytes_recvd</name>
-                <type><integer/></type>
-                <description>The number of bytes received in the stream.</description>
-              </attribute>
-              <attribute>
-                <name>bytes_sent</name>
-                <type><integer/></type>
-                <description>The number of bytes sent in the stream.</description>
-              </attribute>
-            </attributes>
+              </argument>
+            </arguments>
           </metainfo>
-        </class>
-	"""
-	
-	def __init__(self, fd, name):
-		"""
-                <method maturity="stable">
-                  <summary>
-                    Constructor to initialize a stream.
-                  </summary>
-                  <description>
-                    <para>
-                      This constructor initializes a Stream instance setting its
-                      attributes according to arguments.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments>
-                      <argument>
-                        <name>fd</name>
-                        <type><integer/></type>
-                        <description>The file descriptor associated to the stream.</description>
-                      </argument>
-                      <argument>
-                        <name>name</name>
-                        <type><string/></type>
-                        <description>The name of the stream.</description>
-                      </argument>
-                    </arguments>
-                  </metainfo>
-                </method>
-		"""
-		pass
+        </method>
+        """
+        pass
 
-	def read(self, count):
-		"""
-                <method maturity="stable" internal="yes">
-                  <summary>
-                    Method to read up to count bytes from the stream.
-                  </summary>
-                  <description>
-                    <para>
-                      This method reads up to count bytes from the stream
-                      and returns it as a <string/>.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments>
-                      <argument maturity="stable">
-                        <name>count</name>
-                        <type><integer/></type>
-                        <description>maximum number of bytes to read</description>
-                      </argument>
-                    </arguments>
-                  </metainfo>
-                </method>
-		"""
-		pass
-		
-	def write(self, buf):
-		"""
-                <method maturity="stable" internal="yes">
-                  <summary>
-                    Method to write the contents of a buffer to the stream.
-                  </summary>
-                  <description>
-                    <para>
-                      This method writes the contents of the given buffer to
-                      the stream.
-                    </para>
-                  </description>
-                  <metainfo>
-                    <arguments>
-                      <argument maturity="stable">
-                        <name>buf</name>
-                        <type><string/></type>
-                        <description>buffer to write</description>
-                      </argument>
-                    </arguments>
-                  </metainfo>
-                </method>
+    def read(self, count):
+        """
+        <method maturity="stable" internal="yes">
+          <summary>
+            Method to read up to count bytes from the stream.
+          </summary>
+          <description>
+            <para>
+              This method reads up to count bytes from the stream
+              and returns it as a <string/>.
+            </para>
+          </description>
+          <metainfo>
+            <arguments>
+              <argument maturity="stable">
+                <name>count</name>
+                <type><integer/></type>
+                <description>maximum number of bytes to read</description>
+              </argument>
+            </arguments>
+          </metainfo>
+        </method>
+        """
+        pass
 
-		"""
+    def write(self, buf):
+        """
+        <method maturity="stable" internal="yes">
+          <summary>
+            Method to write the contents of a buffer to the stream.
+          </summary>
+          <description>
+            <para>
+              This method writes the contents of the given buffer to
+              the stream.
+            </para>
+          </description>
+          <metainfo>
+            <arguments>
+              <argument maturity="stable">
+                <name>buf</name>
+                <type><string/></type>
+                <description>buffer to write</description>
+              </argument>
+            </arguments>
+          </metainfo>
+        </method>
 
+        """

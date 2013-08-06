@@ -282,6 +282,5 @@ main(void)
   if (check_thread_counters())
     return 1;
 
-
   return 0;
 }

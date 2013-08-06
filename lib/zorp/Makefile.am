@@ -17,8 +17,11 @@ ZORP_H = zorpconfig.h \
 	coredump.h notification.h linebalance.h \
 	pybalance.h pyaudit.h timestamp.h idsconn.h \
 	proxyssl.h proxysslhostiface.h proxycommon.h pyx509.h \
-	bllookup.h pyblacklist.h \
-	kzorp.h kzorp-kernel.h credentials.h
+	kzorp.h kzorp-kernel.h \
+	certchain.h pyx509chain.h \
+	session.h session_impl.h \
+	alerting.h sessionid.h \
+	bllookup.h credentials.h
 
 pkgincludedir=$(includedir)/zorp
 pkginclude_HEADERS = $(ZORP_H)

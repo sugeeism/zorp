@@ -17,12 +17,6 @@ STOP_CHECK_DELAY=0.1
 # The number of seconds to wait for a stopping Zorp instance
 STOP_CHECK_TIMEOUT=5
 
-# The minimal process limit
-PROCESS_LIMIT_MIN=256
-
-# The extra processes to allocate limit for.
-PROCESS_LIMIT_RESERVE=64
-
 # automatically append this string to each Zorp command line, this was
 # renamed in Zorp 3.0.3, but the original APPEND_ARGS option still works.
 ZORP_APPEND_ARGS=""
@@ -51,7 +45,6 @@ PIDFILE_DIR_MODE=0770
 # Deprecated options, these options should not be used anymore and trigger a
 # warning in zorpctl if they are used.
 
-#PROCESS_LIMIT_THRESHOLD
 #AUTO_RESTART_TIME_THRESHOLD
 #AUTO_RESTART_MAX_COUNT
 #START_CHECK_TIMEOUT

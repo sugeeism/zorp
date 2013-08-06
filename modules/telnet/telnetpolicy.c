@@ -23,9 +23,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author: Hidden
- * Auditor:
- * Last audited version:
- * Notes:
  *
  ***************************************************************************/
 
@@ -40,19 +37,20 @@
 #include <stdlib.h>
 
 #include "telnet.h"
+#include "telnetpatternmatch.h"
 
 #define TELNET_POLICY   "telnet.policy"
 #define TELNET_DEBUG    "telnet.debug"
 
 /**
  * telnet_hash_get_type:
- * @tuple: 
- * @filter_type: 
+ * @tuple:
+ * @filter_type:
  *
- * 
+ *
  *
  * Returns:
- * 
+ *
  */
 gboolean
 telnet_hash_get_type(ZPolicyObj *tuple, guint *filter_type)
@@ -75,34 +73,36 @@ telnet_hash_get_type(ZPolicyObj *tuple, guint *filter_type)
 
 /**
  * telnet_policy_option:
- * @self: 
+ * @self:
  *
- * 
+ *
  *
  * Returns:
- * 
+ *
  */
-guint
-telnet_policy_option(TelnetProxy *self)
+ZVerdict
+telnet_policy_option(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 command G_GNUC_UNUSED, guint8 option)
 {
-  guint         res;
-  ZPolicyObj    *pol_res;
-  ZPolicyObj    *tmp;
-  ZPolicyObj    *command_where = NULL;
-  guint         command_do;
-  gchar         lookup_str[10];
-  gchar         *keys[1];
-  gboolean      type_found;
+  ZVerdict res = ZV_ABORT;
+  ZPolicyObj *pol_res;
+  ZPolicyObj *tmp;
+  ZPolicyObj *command_where = NULL;
+  guint command_do;
+  gchar lookup_str[10];
+  gchar *keys[1];
+  gboolean type_found;
 
   z_proxy_enter(self);
-  z_proxy_log(self, TELNET_DEBUG, 8, "Policy option negotiation check; option='%d'", self->opneg_option[self->ep]);
-  g_snprintf(lookup_str, sizeof(lookup_str), "%d", self->opneg_option[self->ep]);
+
+  z_proxy_log(self, TELNET_DEBUG, 8, "Policy option negotiation check; option='%d'", option);
+
+  g_snprintf(lookup_str, sizeof(lookup_str), "%d", option);
   keys[0] = lookup_str;
   tmp = z_dim_hash_table_search(self->telnet_policy, 1, keys);
   if (!tmp)
     {
       z_proxy_log(self, TELNET_POLICY, 2, "Option not found in policy; option='%s'", lookup_str);
-      z_proxy_return(self, TELNET_CHECK_DROP);
+      z_proxy_return(self, ZV_DROP);
     }
 
   z_policy_lock(self->super.thread);
@@ -111,40 +111,40 @@ telnet_policy_option(TelnetProxy *self)
   if (!type_found )
     {
       z_proxy_log(self, TELNET_POLICY, 2, "Policy type invalid; option='%s'", lookup_str);
-      z_proxy_return(self, TELNET_CHECK_ABORT);
+      z_proxy_return(self, ZV_ABORT);
     }
 
   switch (command_do)
     {
-    case TELNET_OPTION_DROP:
+    case ZV_DROP:
       z_proxy_log(self, TELNET_POLICY, 3, "Policy denied option; option='%s'", lookup_str);
-      res = TELNET_CHECK_DROP;
+      res = ZV_DROP;
       break;
 
-    case TELNET_OPTION_ACCEPT:
+    case ZV_ACCEPT:
       z_proxy_log(self, TELNET_POLICY, 6, "Policy accepted option; option='%s'", lookup_str);
-      res = TELNET_CHECK_OK;
+      res = ZV_ACCEPT;
       break;
 
-    case TELNET_OPTION_POLICY:
+    case ZV_POLICY:
       z_policy_lock(self->super.thread);
       if (!z_policy_var_parse(tmp, "(iO)", &command_do, &command_where))
         {
           z_proxy_log(self, TELNET_POLICY, 2, "Cannot parse policy line; option='%s'", lookup_str);
-          res = TELNET_CHECK_ABORT;
+          res = ZV_ABORT;
         }
-      else 
+      else
         {
-          pol_res = z_policy_call_object(command_where, z_policy_var_build("(i)", &self->opneg_option[self->ep]), self->super.session_id);
+          pol_res = z_policy_call_object(command_where, z_policy_var_build("(i)", option), self->super.session_id);
           if (pol_res == NULL)
             {
               z_proxy_log(self, TELNET_POLICY, 2, "Error in policy calling; option='%s'", lookup_str);
-              res = TELNET_CHECK_ABORT;
+              res = ZV_ABORT;
             }
           else if (!z_policy_var_parse(pol_res, "i", &res))
             {
               z_proxy_log(self, TELNET_POLICY, 1, "Can't parse return verdict; option='%s'", lookup_str);
-              res = TELNET_CHECK_ABORT;
+              res = ZV_ABORT;
             }
           else
             {
@@ -152,24 +152,24 @@ telnet_policy_option(TelnetProxy *self)
                 {
                 case ZV_ACCEPT:
                   z_proxy_log(self, TELNET_POLICY, 6, "Policy function accepted option; option='%s'", lookup_str);
-                  res = TELNET_CHECK_OK;
+                  res = ZV_ACCEPT;
                   break;
 
                 case ZV_UNSPEC:
                 case ZV_DROP:
                   z_proxy_log(self, TELNET_POLICY, 3, "Policy function drop option; option='%s'", lookup_str);
-                  res = TELNET_CHECK_DROP;
+                  res = ZV_DROP;
                   break;
 
-                case TELNET_OPTION_REJECT:
+                case ZV_REJECT:
                   z_proxy_log(self, TELNET_POLICY, 3, "Policy function reject option; option='%s'", lookup_str);
-                  res = TELNET_CHECK_REJECT;
+                  res = ZV_REJECT;
                   break;
 
                 case ZV_ABORT:
                 default:
                   z_proxy_log(self, TELNET_POLICY, 1, "Policy function aborted session; option='%s'", lookup_str);
-                  res = TELNET_CHECK_ABORT;
+                  res = ZV_ABORT;
                   break;
                 }
             }
@@ -177,15 +177,15 @@ telnet_policy_option(TelnetProxy *self)
       z_policy_unlock(self->super.thread);
       break;
 
-    case TELNET_OPTION_REJECT:
+    case ZV_REJECT:
       z_proxy_log(self, TELNET_POLICY, 3, "Policy rejected option; option='%s'", lookup_str);
-      res = TELNET_CHECK_REJECT;
+      res = ZV_REJECT;
       break;
 
-    case TELNET_OPTION_ABORT:
+    case ZV_ABORT:
     default:
       z_proxy_log(self, TELNET_POLICY, 3, "Policy aborted session; option='%s'", lookup_str);
-      res = TELNET_CHECK_ABORT;
+      res = ZV_ABORT;
       break;
     }
   z_proxy_return(self, res);
@@ -193,20 +193,20 @@ telnet_policy_option(TelnetProxy *self)
 
 /**
  * telnet_policy_suboption:
- * @self: 
- * @command: 
- * @name: 
- * @value: 
+ * @self:
+ * @command:
+ * @name:
+ * @value:
  *
- * 
+ *
  *
  * Returns:
- * 
+ *
  */
-guint
-telnet_policy_suboption(TelnetProxy *self, guchar command, gchar *name, gchar *value)
+ZVerdict
+telnet_policy_suboption(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 option, guint8 subcommand, gchar *name, gchar *value)
 {
-  guint         res;
+  ZVerdict      res;
   ZPolicyObj    *pol_res;
   ZPolicyObj    *tmp;
   ZPolicyObj    *command_where = NULL;
@@ -217,72 +217,81 @@ telnet_policy_suboption(TelnetProxy *self, guchar command, gchar *name, gchar *v
 
   z_proxy_enter(self);
   z_proxy_log(self, TELNET_DEBUG, 8, "Policy suboption negotiation check;");
-  g_snprintf(lookup_str[0], sizeof(lookup_str[0]), "%d", self->opneg_option[self->ep]);
-  g_snprintf(lookup_str[1], sizeof(lookup_str[1]), "%d", command);
+
+  g_snprintf(lookup_str[0], sizeof(lookup_str[0]), "%d", option);
+  g_snprintf(lookup_str[1], sizeof(lookup_str[1]), "%d", subcommand);
+
   keys[0] = lookup_str[0];
   keys[1] = lookup_str[1];
+
   tmp = z_dim_hash_table_search(self->telnet_policy, 2, keys);
   if (!tmp)
     {
       z_proxy_log(self, TELNET_POLICY, 1, "Option not found in policy hash, dropping; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-      z_proxy_return(self, TELNET_CHECK_DROP);
+      z_proxy_return(self, ZV_DROP);
     }
 
   z_policy_lock(self->super.thread);
   type_found = telnet_hash_get_type(tmp, &command_do);
   z_policy_unlock(self->super.thread);
+
   if (!type_found)
     {
       z_proxy_log(self, TELNET_POLICY, 2, "Policy type invalid!");
-      z_proxy_return(self, TELNET_CHECK_ABORT);
+      z_proxy_return(self, ZV_ABORT);
     }
 
   switch (command_do)
     {
-    case TELNET_OPTION_DROP:
+    case ZV_DROP:
       z_proxy_log(self, TELNET_POLICY, 6, "Policy denied suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-      res = TELNET_CHECK_DROP;
+      res = ZV_DROP;
       break;
 
-    case TELNET_OPTION_ACCEPT:
+    case ZV_REJECT:
+      z_proxy_log(self, TELNET_POLICY, 6, "Policy rejected suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
+      res = ZV_DROP;
+      break;
+
+    case ZV_ACCEPT:
       z_proxy_log(self, TELNET_POLICY, 6, "Policy accepted suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-      res = TELNET_CHECK_OK;
+      res = ZV_ACCEPT;
       break;
 
-    case TELNET_OPTION_POLICY:
+    case ZV_POLICY:
       z_policy_lock(self->super.thread);
       if (!z_policy_var_parse(tmp, "(iO)", &command_do, &command_where))
         {
           z_proxy_log(self, TELNET_POLICY, 2, "Cannot parse policy line for option; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-          res = TELNET_CHECK_ABORT;
+          res = ZV_ABORT;
         }
-      else 
+      else
         {
           /* call Python method with appropriate parameters */
-          switch (self->opneg_option[self->ep])
+          switch (option)
             {
             case TELNET_OPTION_TERMINAL_TYPE:
             case TELNET_OPTION_TERMINAL_SPEED:
             case TELNET_OPTION_X_DISPLAY_LOCATION:
             case TELNET_OPTION_ENVIRONMENT:
             case TELNET_OPTION_NAWS:
-              pol_res = z_policy_call_object(command_where, z_policy_var_build("(iss)", &self->opneg_option[self->ep], name, value), self->super.session_id);
+              pol_res = z_policy_call_object(command_where, z_policy_var_build("(iss)", option, name, value), self->super.session_id);
               break;
 
             default:
-              pol_res = z_policy_call_object(command_where, z_policy_var_build("(i)", &self->opneg_option[self->ep]), self->super.session_id);
+              pol_res = z_policy_call_object(command_where, z_policy_var_build("(i)", option), self->super.session_id);
               break;
             }
 
           if (pol_res == NULL)
             {
               z_proxy_log(self, TELNET_POLICY, 2, "Error in policy calling; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-              res = TELNET_CHECK_ABORT;
+              res = ZV_ABORT;
             }
           else if (!z_policy_var_parse(pol_res, "i", &res))
             {
               z_proxy_log(self, TELNET_POLICY, 2, "Can't parse return verdict; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-              res = TELNET_CHECK_ABORT;
+              res = ZV_ABORT;
             }
           else
             {
@@ -290,20 +299,27 @@ telnet_policy_suboption(TelnetProxy *self, guchar command, gchar *name, gchar *v
                 {
                 case ZV_ACCEPT:
                   z_proxy_log(self, TELNET_POLICY, 6, "Policy function accepted suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-                  res = TELNET_CHECK_OK;
+                  res = ZV_ACCEPT;
                   break;
 
                 case ZV_UNSPEC:
-                case ZV_REJECT:
                 case ZV_DROP:
                   z_proxy_log(self, TELNET_POLICY, 3, "Policy function denied suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-                  res = TELNET_CHECK_DROP;
+                  res = ZV_DROP;
+                  break;
+
+                case ZV_REJECT:
+                  z_proxy_log(self, TELNET_POLICY, 3,
+                              "Policy function rejected suboption; command=`%s', option=`%s'",
+                              lookup_str[1],
+                              lookup_str[0]);
+                  res = ZV_REJECT;
                   break;
 
                 case ZV_ABORT:
                 default:
                   z_proxy_log(self, TELNET_POLICY, 3, "Policy function aborted suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-                  res = TELNET_CHECK_ABORT;
+                  res = ZV_ABORT;
                   break;
                 }
             }
@@ -311,12 +327,43 @@ telnet_policy_suboption(TelnetProxy *self, guchar command, gchar *name, gchar *v
       z_policy_unlock(self->super.thread);
       break;
 
-    case TELNET_OPTION_ABORT:
+    case ZV_ABORT:
     default:
       z_proxy_log(self, TELNET_POLICY, 3, "Policy aborted session; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
-      res = TELNET_CHECK_ABORT;
+      res = ZV_ABORT;
       break;
     }
   z_proxy_return(self, res);
+}
+
+gboolean
+telnet_policy_parse_authinfo(TelnetProxy *self, const gchar *env, GString *content)
+{
+  gboolean called = FALSE;
+  PyObject *result = NULL;
+  PyObject *args = NULL;
+  gboolean ret;
+
+  z_proxy_enter(self);
+
+  z_policy_lock(self->super.thread);
+
+  args = z_policy_var_build("ss", env, content->str);
+  result = z_policy_call(self->super.handler, "parseInbandAuth", args, &called, self->super.session_id);
+
+  if (!called)
+    {
+      z_policy_unlock(self->super.thread);
+      z_proxy_return(self, FALSE);
+    }
+
+  if (result == NULL || !z_policy_var_parse(result, "i", &ret))
+    ret = FALSE;
+
+  if (result)
+    z_policy_var_unref(result);
+  z_policy_unlock(self->super.thread);
+
+  z_proxy_return(self, ret);
 }
 

@@ -7,10 +7,10 @@ import sys, os
 srcdir = os.path.dirname(sys.path[0])
 
 setup(
-  package_dir = { 'kznf': os.path.join(srcdir, 'kznf/kznf') },
+  package_dir = { 'kzorp': os.path.join(srcdir, 'kzorp/kzorp') },
   name="python-kzorp",
   description="Kzorp bindings for python",
   author="Krisztián Kovács",
   author_email="hidden@balabit.hu",
-  packages=["kznf"]
+  packages=["kzorp"]
   )

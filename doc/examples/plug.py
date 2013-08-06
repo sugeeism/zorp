@@ -25,21 +25,20 @@
 from Zorp.Core import *
 from Zorp.Plug import PlugProxy
 
-InetZone('site-net', '192.168.1.0/24', 
-	 inbound_services=["*"], 
-	 outbound_services=["*"])
+InetZone('site-net', '192.168.1.0/24',
+         inbound_services=["*"],
+         outbound_services=["*"])
 
 InetZone('local', '127.0.0.0/8',
-	 inbound_services=["*"],
-	 outbound_services=["*"])
+         inbound_services=["*"],
+         outbound_services=["*"])
 
 InetZone('internet', '0.0.0.0/0',
-	 inbound_services=["*"],
-	 outbound_services=["*"])
+         inbound_services=["*"],
+         outbound_services=["*"])
 
 def zorp():
 
- 	Service("plug", PlugProxy,
-		router=DirectedRouter(SockAddrInet('127.0.0.1', 25)))
- 	Listener(SockAddrInet("0.0.0.0", 1999), "plug")
-
+    Service("plug", PlugProxy,
+            router=DirectedRouter(SockAddrInet('127.0.0.1', 25)))
+    Listener(SockAddrInet("0.0.0.0", 1999), "plug")

@@ -28,7 +28,7 @@
  * Notes:
  *
  ***************************************************************************/
- 
+
 #include <zorp/zorp.h>
 #include <zorp/streamline.h>
 #include <zorp/proxy.h>
@@ -46,7 +46,6 @@
 #define FINGER_POLICY    "finger.policy"
 #define FINGER_REQUEST   "finger.request"
 #define FINGER_VIOLATION "finger.violation"
-
 
 #define FINGER_REQ_UNSPEC ZV_UNSPEC
 #define FINGER_REQ_ACCEPT ZV_ACCEPT
@@ -73,12 +72,12 @@ typedef struct _FingerProxy
   GString *response_footer;
 } FingerProxy;
 
-extern ZClass FingerProxy__class;          
+extern ZClass FingerProxy__class;
 
 /**
  * finger_config_set_defaults:
  * @self: FingerProxy instance
- * 
+ *
  * Fills in our state with default values.
  **/
 static void
@@ -109,7 +108,7 @@ finger_register_vars(FingerProxy *self)
 {
   z_proxy_enter(self);
 #if 0
-  z_polict_dict_register(self->super.dict, 
+  z_polict_dict_register(self->super.dict,
                          Z_VT_INT, "timeout", Z_VF_READ | Z_VF_CFG_RW, &self->timeout, NULL,
                          Z_VT_INT, "max_line_length", Z_VF_READ | Z_VF_CFG_RW, &self->max_line_length, NULL,
                          Z_VT_INT, "max_username_length", Z_VF_READ | Z_VF_CFG_RW, &self->max_username_length, NULL,
@@ -120,48 +119,48 @@ finger_register_vars(FingerProxy *self)
   z_proxy_var_new(&self->super, "timeout",
                   Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_INT,
                   &self->timeout);
-                  
+
   z_proxy_var_new(&self->super, "max_line_length",
                   Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_INT,
                   &self->max_line_length);
-                  
+
   z_proxy_var_new(&self->super, "max_username_length",
                   Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_INT,
                   &self->max_username_length);
-                  
+
   z_proxy_var_new(&self->super, "max_hostname_length",
                   Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_INT,
                   &self->max_hostname_length);
-                  
+
   z_proxy_var_new(&self->super, "max_hop_count",
                   Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_INT,
                   &self->max_hop_count);
-                  
+
   z_proxy_var_new(&self->super, "request_detailed",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_TYPE_INT,
-                  &self->long_req);                  
+                  &self->long_req);
   z_proxy_var_new(&self->super, "long_request",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_TYPE_ALIAS,
                   "request_detailed");
-                  
+
   z_proxy_var_new(&self->super, "request_username",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_TYPE_STRING,
                   self->username);
   z_proxy_var_new(&self->super, "username",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_TYPE_ALIAS,
                   "request_username");
-                  
+
   z_proxy_var_new(&self->super, "request_hostnames",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_TYPE_STRING,
                   self->hostnames);
   z_proxy_var_new(&self->super, "hostnames",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_TYPE_ALIAS,
                   "request_hostnames");
-                  
+
   z_proxy_var_new(&self->super, "response_header",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_STRING,
                   self->response_header);
-                  
+
   z_proxy_var_new(&self->super, "response_footer",
                   Z_VAR_GET | Z_VAR_SET | Z_VAR_SET_CONFIG | Z_VAR_TYPE_STRING,
                   self->response_footer);
@@ -176,14 +175,14 @@ finger_register_vars(FingerProxy *self)
  * finger_init_client_stream:
  * @self: FingerProxy instance
  *
- * Initialize our client stream. We allocate a readline instance so 
+ * Initialize our client stream. We allocate a readline instance so
  * that we can fetch input line by line.
  **/
 static gboolean
 finger_init_client_stream(FingerProxy *self)
 {
   ZStream *tmpstream;
-  
+
   z_proxy_enter(self);
   self->super.endpoints[EP_CLIENT]->timeout = self->timeout;
   tmpstream = self->super.endpoints[EP_CLIENT];
@@ -203,7 +202,7 @@ static gboolean
 finger_init_server_stream(FingerProxy *self)
 {
   ZStream *tmpstream;
-  
+
   z_proxy_enter(self);
   if (!self->super.endpoints[EP_SERVER])
     z_proxy_return(self, FALSE);
@@ -229,7 +228,7 @@ finger_fetch_request(FingerProxy *self)
   gint res;
   gboolean fetch_user = TRUE;
   guint hostlen = 0;
-  
+
   z_proxy_enter(self);
   res = z_stream_line_get(self->super.endpoints[EP_CLIENT], &line, &line_length, NULL);
   if (res != G_IO_STATUS_NORMAL)
@@ -240,7 +239,7 @@ finger_fetch_request(FingerProxy *self)
       z_proxy_log(self, FINGER_ERROR, 1, "Error reading request;");
       z_proxy_return(self, FALSE);
     }
-  
+
   /*LOG
     This message is say about read finger request
    */
@@ -348,7 +347,7 @@ finger_send_request(FingerProxy *self)
 {
   gchar request[self->username->len + self->hostnames->len + 6];
   gsize bytes_written;
-  
+
   z_proxy_enter(self);
   if (self->long_req)
     {
@@ -392,7 +391,7 @@ finger_send_request(FingerProxy *self)
             g_snprintf(request, sizeof(request), "\r\n");
         }
     }
-  
+
   if (z_stream_write(self->super.endpoints[EP_SERVER],
                      request,
                      strlen(request),
@@ -421,7 +420,7 @@ finger_copy_response(FingerProxy *self)
 {
   gsize bytes_written;
   gint res = G_IO_STATUS_ERROR;
-  
+
   z_proxy_enter(self);
   if (self->response_header->len &&
       z_stream_write(self->super.endpoints[EP_CLIENT],
@@ -443,10 +442,10 @@ finger_copy_response(FingerProxy *self)
       gchar *line;
       gsize line_len;
       gchar *response;
-      
+
       if (!z_proxy_loop_iteration(&self->super))
         break;
-      
+
       res = z_stream_line_get(self->super.endpoints[EP_SERVER], &line, &line_len, NULL);
       if (res != G_IO_STATUS_NORMAL)
         /* EOF or read error */
@@ -500,7 +499,7 @@ finger_query_policy(FingerProxy *self)
   char *errmsg = "Policy violation, request denied.\r\n";
   gsize bytes_written;
   gint res;
-  
+
   z_proxy_enter(self);
   z_policy_lock(self->super.thread);
   res = z_policy_event(self->super.handler, "fingerRequest", z_policy_var_build("(ss)", self->username->str, self->hostnames->str), self->super.session_id);
@@ -520,7 +519,7 @@ finger_query_policy(FingerProxy *self)
                      &bytes_written,
                      NULL);
       /* fallthrough */
-      
+
     case FINGER_REQ_DROP:
       if (res == ZV_DROP)
         {
@@ -548,11 +547,10 @@ static gboolean
 finger_config(ZProxy *s)
 {
   FingerProxy *self = Z_CAST(s, FingerProxy);
-  finger_config_set_defaults(self);  
+  finger_config_set_defaults(self);
   finger_register_vars(self);
   return Z_SUPER(s, ZProxy)->config(s);
 }
-
 
 /**
  * finger_main:
@@ -564,7 +562,7 @@ static void
 finger_main(ZProxy *s)
 {
   FingerProxy *self = Z_CAST(s, FingerProxy);
- 
+
   z_proxy_enter(self);
   if (!finger_init_client_stream(self))
     z_proxy_return(self);
@@ -578,7 +576,7 @@ finger_main(ZProxy *s)
     {
       char *errmsg = "Finger protocol or disallowed protocol element, request denied.\r\n";
       gsize bytes_written;
-      
+
       z_stream_write(self->super.endpoints[EP_CLIENT],
                      errmsg,
                      strlen(errmsg),
@@ -586,7 +584,7 @@ finger_main(ZProxy *s)
                      NULL);
       z_proxy_return(self);
     }
-  
+
   /*LOG
     This debug message is about proxy state when finger
     fetched request and asking policy about it
@@ -594,7 +592,7 @@ finger_main(ZProxy *s)
   z_proxy_log(self, FINGER_DEBUG, 6, "asking policy;");
   if (!finger_query_policy(self))
     z_proxy_return(self);
-  
+
   /*LOG
     This debug message is about proxy state when finger
     start connect to server.
@@ -606,7 +604,7 @@ finger_main(ZProxy *s)
 
   if (!finger_init_server_stream(self))
     z_proxy_return(self);
-  
+
   /*LOG
     This debug message is about proxy state when finger
     start send the request to server.
@@ -614,7 +612,7 @@ finger_main(ZProxy *s)
   z_proxy_log(self, FINGER_DEBUG, 6, "sending request;");
   if (!finger_send_request(self))
     z_proxy_return(self);
-  
+
   /*LOG
     This debug message is about proxy state when finger
     start to copy server answer to client.
@@ -643,7 +641,7 @@ static ZProxy *
 finger_proxy_new(ZProxyParams *params)
 {
   FingerProxy  *self;
-  
+
   z_enter();
   self = Z_CAST(z_proxy_new(Z_CLASS(FingerProxy), params), FingerProxy);
   z_return((ZProxy *) self);
@@ -651,7 +649,7 @@ finger_proxy_new(ZProxyParams *params)
 
 ZProxyFuncs finger_proxy_funcs =
 {
-  { 
+  {
     Z_FUNCS_COUNT(ZProxy),
     NULL
   },
@@ -662,14 +660,19 @@ ZProxyFuncs finger_proxy_funcs =
 
 Z_CLASS_DEF(FingerProxy, ZProxy, finger_proxy_funcs);
 
+static ZProxyModuleFuncs finger_module_funcs =
+  {
+    .create_proxy = finger_proxy_new,
+  };
+
 /*+
 
   Module initialization function. Registers a new proxy type.
-  
+
   +*/
 gint
 zorp_module_init(void)
 {
-  z_registry_add("finger", ZR_PROXY, finger_proxy_new);
+  z_registry_add("finger", ZR_PROXY, &finger_module_funcs);
   return TRUE;
 }

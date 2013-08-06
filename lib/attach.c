@@ -41,7 +41,7 @@
 
 /*
  * Attach - establish outgoing connection
- * 
+ *
  */
 
 struct _ZAttach
@@ -75,16 +75,16 @@ z_attach_callback(ZStream *fdstream, GError *err G_GNUC_UNUSED, gpointer user_da
   ZAttach *self = (ZAttach *) user_data;
   gchar buf[256];
   ZConnection *conn;
-  
+
   z_session_enter(self->session_id);
 
   if (fdstream != NULL)
     {
       gint fd = z_stream_get_fd(fdstream);
-      
+
       conn = z_connection_new();
       if (z_getsockname(fd, &conn->local, 0) != G_IO_STATUS_NORMAL ||
-          z_getpeername(fd, &conn->remote, 0) != G_IO_STATUS_NORMAL)   
+          z_getpeername(fd, &conn->remote, 0) != G_IO_STATUS_NORMAL)
         {
           z_connection_destroy(conn, FALSE);
           z_stream_close(fdstream, NULL);
@@ -100,7 +100,7 @@ z_attach_callback(ZStream *fdstream, GError *err G_GNUC_UNUSED, gpointer user_da
     {
       conn = NULL;
     }
-  
+
   /*LOG
     This message reports that the connection was successfully established.
   */
@@ -115,7 +115,7 @@ z_attach_callback(ZStream *fdstream, GError *err G_GNUC_UNUSED, gpointer user_da
       self->conn = conn;
       self->connect_finished = TRUE;
     }
-  
+
   z_session_leave(self->session_id);
 }
 
@@ -132,7 +132,7 @@ static gboolean
 z_attach_setup_connector(ZAttach *self)
 {
   z_session_enter(self->session_id);
-  
+
   self->conn = NULL;
   if (self->proto == ZD_PROTO_TCP)
     {
@@ -142,7 +142,7 @@ z_attach_setup_connector(ZAttach *self)
     {
       self->connector = z_dgram_connector_new(self->session_id, self->bind_addr, self->remote, (self->params.loose ? ZSF_LOOSE_BIND : 0) | (self->params.random ? ZSF_RANDOM_BIND : 0) | ZSF_MARK_TPROXY, z_attach_callback, self, NULL);
     }
-  
+
   if (self->connector)
     {
       z_connector_set_timeout(self->connector, self->params.timeout < 0 ? -1 : (self->params.timeout + 999) / 1000);
@@ -168,9 +168,9 @@ z_attach_start(ZAttach *self, ZPoll *poll, ZSockAddr **local)
   gboolean res = FALSE;
   ZProxyGroup *proxy_group;
   GMainContext *context;
-  
+
   z_session_enter(self->session_id);
-  
+
   if (z_attach_setup_connector(self))
     {
       if (poll)
@@ -199,10 +199,10 @@ z_attach_start_block(ZAttach *self, ZConnection **conn)
 {
   ZProxyGroup *proxy_group;
   gboolean res = FALSE;
-  
+
   g_assert(self->callback == NULL);
   g_assert(self->connector == NULL);
-  
+
   *conn = NULL;
 
   if (self->proxy && self->proxy->flags & ZPF_NONBLOCKING)
@@ -223,7 +223,7 @@ z_attach_start_block(ZAttach *self, ZConnection **conn)
       if (z_attach_setup_connector(self))
         {
           ZStream *stream;
-          
+
           if (z_connector_start_block(self->connector, &self->local, &stream))
             {
               z_attach_callback(stream, NULL, self);
@@ -259,15 +259,15 @@ z_attach_cancel(ZAttach *self)
  */
 ZAttach *
 z_attach_new(ZProxy *proxy,
-             guint proto, ZSockAddr *bind_addr, ZSockAddr *remote, 
-             ZAttachParams *params, 
+             guint proto, ZSockAddr *bind_addr, ZSockAddr *remote,
+             ZAttachParams *params,
              ZAttachCallbackFunc callback, gpointer user_data, GDestroyNotify destroy_data)
 {
   ZAttach *self = g_new0(ZAttach, 1);
   gchar *session_id;
-  
+
   session_id = proxy ? proxy->session_id : NULL;
-  
+
   z_session_enter(session_id);
   g_strlcpy(self->session_id, session_id, sizeof(self->session_id));
   if (proxy)
@@ -313,5 +313,3 @@ z_attach_free(ZAttach *self)
       g_free(self);
     }
 }
-
-

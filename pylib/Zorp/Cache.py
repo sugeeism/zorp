@@ -40,226 +40,226 @@ from Zorp import *
 import time, threading
 
 class AbstractCache(object):
+    """
+    <class internal="yes" abstract="yes">
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    def __init__(self, name):
         """
-        <class internal="yes" abstract="yes">
-          <metainfo>
-            <attributes/>
-          </metainfo>
-        </class>
+        <method internal="yes">
+        </method>
         """
-        def __init__(self, name):
-                """
-                <method internal="yes">
-                </method>
-                """
-                self.name = name
+        self.name = name
 
-        def store(self, key, value):
-                """
-                <method internal="yes">
-                <description>
-                  <para>
-                    Stores a value in the cache identified by
-                    'key'. Deletes the item if value is None.
-                  </para>
-                </description>
-                </method>
-                """
-                pass
+    def store(self, key, value):
+        """
+        <method internal="yes">
+        <description>
+          <para>
+            Stores a value in the cache identified by
+            'key'. Deletes the item if value is None.
+          </para>
+        </description>
+        </method>
+        """
+        pass
 
-        def lookup(self, key):
-                """
-                <method internal="yes">
-                <description>
-                  <para>
-                    Looks up a value identified by 'key', returns None if not found.
-                  </para>
-                </description>
-                </method>
-                """
-                pass
+    def lookup(self, key):
+        """
+        <method internal="yes">
+        <description>
+          <para>
+            Looks up a value identified by 'key', returns None if not found.
+          </para>
+        </description>
+        </method>
+        """
+        pass
 
-        def clear(self):
-                """
-                <method internal="yes">
-                </method>
-                """
-                pass
+    def clear(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        pass
 
 class ShiftCache(AbstractCache):
+    """
+    <class internal="yes">
+    </class>
+    """
+    def __init__(self, name, shift_threshold):
         """
-        <class internal="yes">
-        </class>
+        <method internal="yes">
+        </method>
         """
-        def __init__(self, name, shift_threshold):
-                """
-                <method internal="yes">
-                </method>
-                """
-                super(ShiftCache, self).__init__(name)
-                self.cache = {}
-                self.old_cache = {}
-                self.shift_threshold = shift_threshold
+        super(ShiftCache, self).__init__(name)
+        self.cache = {}
+        self.old_cache = {}
+        self.shift_threshold = shift_threshold
 
-        def store(self, key, value):
-                """
-                <method internal="yes">
-                </method>
-                """
-                if len(self.cache) > self.shift_threshold:
-                        ## LOG ##
-                        # This message indicates that the cache size(threshold) is reached, and cache is shifted.
-                        # @see: Cache.ShiftCache
-                        ##
-                        log(None, CORE_MESSAGE, 3, "Cache over shift-threshold, shifting; cache='%s', threshold='%d'", (self.name, self.shift_threshold,))
-                        self.old_cache = self.cache
-                        self.cache = {}
-                if value:
-                        self.cache[key] = value
-                else:
-                        try:
-                                del self.cache[key]
-                        except KeyError:
-                                pass
+    def store(self, key, value):
+        """
+        <method internal="yes">
+        </method>
+        """
+        if len(self.cache) > self.shift_threshold:
+            ## LOG ##
+            # This message indicates that the cache size(threshold) is reached, and cache is shifted.
+            # @see: Cache.ShiftCache
+            ##
+            log(None, CORE_MESSAGE, 3, "Cache over shift-threshold, shifting; cache='%s', threshold='%d'", (self.name, self.shift_threshold,))
+            self.old_cache = self.cache
+            self.cache = {}
+        if value:
+            self.cache[key] = value
+        else:
+            try:
+                del self.cache[key]
+            except KeyError:
+                pass
 
-                try:
-                        del self.old_cache[key]
-                except KeyError:
-                        pass
+        try:
+            del self.old_cache[key]
+        except KeyError:
+            pass
 
-        def lookup(self, key):
-                """
-                <method internal="yes">
-                </method>
-                """
-                val = None
-                try:
-                        return self.cache[key]
-                except KeyError:
-                        pass
+    def lookup(self, key):
+        """
+        <method internal="yes">
+        </method>
+        """
+        val = None
+        try:
+            return self.cache[key]
+        except KeyError:
+            pass
 
-                try:
-                        val = self.old_cache[key]
-                        self.cache[key] = val
-                        del self.old_cache[key]
-                except KeyError:
-                        pass
-                return val
+        try:
+            val = self.old_cache[key]
+            self.cache[key] = val
+            del self.old_cache[key]
+        except KeyError:
+            pass
+        return val
 
-        def clear(self):
-                """
-                <method internal="yes">
-                </method>
-                """
-                self.cache = {}
-                self.old_cache = {}
+    def clear(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self.cache = {}
+        self.old_cache = {}
 
 
 class TimedCache(AbstractCache):
+    """
+    <class internal="yes">
+    </class>
+
+    """
+    def __init__(self, name, timeout, update_stamp=TRUE, cleanup_threshold=100):
         """
-        <class internal="yes">
-        </class>
-
+        <method internal="yes">
+        </method>
         """
-        def __init__(self, name, timeout, update_stamp=TRUE, cleanup_threshold=100):
-                """
-                <method internal="yes">
-                </method>
-                """
-                super(TimedCache, self).__init__(name)
-                self.timeout = timeout
-                self.update_stamp = update_stamp
-                self.cleanup_threshold = cleanup_threshold
-                self.cache = {}
+        super(TimedCache, self).__init__(name)
+        self.timeout = timeout
+        self.update_stamp = update_stamp
+        self.cleanup_threshold = cleanup_threshold
+        self.cache = {}
 
-        def cleanup(self):
-                """
-                <method internal="yes">
-                </method>
-                """
-                now = time.time()
-                for x in self.cache.keys():
-                        if now - self.cache[x][0] > self.timeout:
-                                del self.cache[x]
+    def cleanup(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        now = time.time()
+        for x in self.cache.keys():
+            if now - self.cache[x][0] > self.timeout:
+                del self.cache[x]
 
-        def lookup(self, key):
-                """
-                <method internal="yes">
-                </method>
-                """
-                if len(self.cache) > self.cleanup_threshold:
-                        self.cleanup()
-                if self.cache.has_key(key):
-                        entry = self.cache[key]
-                        if time.time() - entry[0] > self.timeout:
-                                del self.cache[key]
-                        else:
-                                if self.update_stamp:
-                                        entry[0] = time.time()
-                                return entry[1]
-                return None
+    def lookup(self, key):
+        """
+        <method internal="yes">
+        </method>
+        """
+        if len(self.cache) > self.cleanup_threshold:
+            self.cleanup()
+        if self.cache.has_key(key):
+            entry = self.cache[key]
+            if time.time() - entry[0] > self.timeout:
+                del self.cache[key]
+            else:
+                if self.update_stamp:
+                    entry[0] = time.time()
+                return entry[1]
+        return None
 
-        def store(self, key, value):
-                """
-                <method internal="yes">
-                </method>
-                """
-                if value:
-                        if not self.cache.has_key(key) or self.cache[key][1] != value:
-                                # only update if value is different
-                                self.cache[key] = [time.time(), value]
-                else:
-                        try:
-                                del self.cache[key]
-                        except KeyError:
-                                pass
+    def store(self, key, value):
+        """
+        <method internal="yes">
+        </method>
+        """
+        if value:
+            if not self.cache.has_key(key) or self.cache[key][1] != value:
+                # only update if value is different
+                self.cache[key] = [time.time(), value]
+        else:
+            try:
+                del self.cache[key]
+            except KeyError:
+                pass
 
-        def clear(self):
-                """
-                <method internal="yes">
-                </method>
-                """
-                self.cache = {}
+    def clear(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        self.cache = {}
 
 
 class LockedCache(AbstractCache):
+    """
+    <class internal="yes">
+    </class>
+    """
+    def __init__(self, child_cache):
+        self.child_cache = child_cache
+        self.lock = threading.Lock()
+
+    def store(self, key, value):
         """
-        <class internal="yes">
-        </class>
+        <method internal="yes">
+        </method>
         """
-        def __init__(self, child_cache):
-                self.child_cache = child_cache
-                self.lock = threading.Lock()
+        try:
+            self.lock.acquire()
+            return self.child_cache.store(key, value)
+        finally:
+            self.lock.release()
 
-        def store(self, key, value):
-                """
-                <method internal="yes">
-                </method>
-                """
-                try:
-                        self.lock.acquire()
-                        return self.child_cache.store(key, value)
-                finally:
-                        self.lock.release()
+    def lookup(self, key):
+        """
+        <method internal="yes">
+        </method>
+        """
+        try:
+            self.lock.acquire()
+            return self.child_cache.lookup(key)
+        finally:
+            self.lock.release()
 
-        def lookup(self, key):
-                """
-                <method internal="yes">
-                </method>
-                """
-                try:
-                        self.lock.acquire()
-                        return self.child_cache.lookup(key)
-                finally:
-                        self.lock.release()
-
-        def clear(self):
-                """
-                <method internal="yes">
-                </method>
-                """
-                try:
-                        self.lock.acquire()
-                        return self.child_cache.clear()
-                finally:
-                        self.lock.release()
+    def clear(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        try:
+            self.lock.acquire()
+            return self.child_cache.clear()
+        finally:
+            self.lock.release()

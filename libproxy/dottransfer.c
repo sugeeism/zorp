@@ -54,7 +54,7 @@ extern ZClass ZDotTransfer__class;
  * ZDotTransfer. It effectively reads lines from its input, and indicates EOF
  * when a '.' is encountered in line on its own.
  **/
-static GIOStatus 
+static GIOStatus
 z_dot_transfer_src_read(ZTransfer2 *s, ZStream *stream, gchar *buf, gsize count, gsize *bytes_read, GError **err)
 {
   ZDotTransfer *self = Z_CAST(s, ZDotTransfer);
@@ -130,7 +130,7 @@ z_dot_transfer_src_read(ZTransfer2 *s, ZStream *stream, gchar *buf, gsize count,
  * This function is called to flush the preamble right before the first byte to the
  * target stream would be written. Using a preamble makes it possible to conditionally
  * prefix the data stream with some protocol information, which is only needed when
- * our child proxy actually sent us something. 
+ * our child proxy actually sent us something.
  **/
 static GIOStatus
 z_dot_transfer_dst_write_preamble(ZDotTransfer *self, ZStream *stream, GError **err)
@@ -138,7 +138,7 @@ z_dot_transfer_dst_write_preamble(ZDotTransfer *self, ZStream *stream, GError **
   GIOStatus res = G_IO_STATUS_NORMAL;
   GError *local_error = NULL;
   gsize bw;
-  
+
   z_proxy_enter(self->super.owner);
   res = z_stream_write(stream, &self->preamble->str[self->preamble_ofs], self->preamble->len - self->preamble_ofs, &bw, &local_error);
   if (res == G_IO_STATUS_NORMAL)
@@ -149,7 +149,7 @@ z_dot_transfer_dst_write_preamble(ZDotTransfer *self, ZStream *stream, GError **
     }
   if (local_error)
     g_propagate_error(err, local_error);
-  
+
   z_proxy_leave(self->super.owner);
   return res;
 }
@@ -168,7 +168,7 @@ z_dot_transfer_dst_write_preamble(ZDotTransfer *self, ZStream *stream, GError **
  * '.' characters when encountered as the first character in a line as it
  * goes.
  **/
-static GIOStatus 
+static GIOStatus
 z_dot_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize count, gsize *bytes_written, GError **err)
 {
   ZDotTransfer *self = Z_CAST(s, ZDotTransfer);
@@ -178,7 +178,7 @@ z_dot_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize
 
   z_proxy_enter(self->super.owner);
   *bytes_written = 0;
-  
+
   switch (self->dst_write_state)
     {
     case DOT_DW_PREAMBLE:
@@ -208,7 +208,7 @@ z_dot_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize
               if (buf[i] == '.')
                 {
                   /* we need to escape this '.' */
-                                                                                                                                          
+
                   /* first, write buf up to this '.' */
                   res = z_stream_write(stream, buf + *bytes_written, i - *bytes_written, &bw, &local_error);
                   if (res == G_IO_STATUS_NORMAL && i == bw)
@@ -247,10 +247,10 @@ z_dot_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize
 
       break;
     }
-    
+
   if (local_error)
     g_propagate_error(err, local_error);
-  
+
   z_proxy_leave(self->super.owner);
   return res;
 }
@@ -264,22 +264,22 @@ z_dot_transfer_dst_write(ZTransfer2 *s, ZStream *stream, const gchar *buf, gsize
  * This function is registered as the virtual dst_shutdown() function for
  * ZTransfer2. It basically checks whether the transfer actually terminated the
  * data stream by CRLF, and terminates it that was not the case. This is required
- * by for example mail transfers when mail bodies must end in CRLF in order 
+ * by for example mail transfers when mail bodies must end in CRLF in order
  * to correctly interpret the closing '.'.
  **/
-static GIOStatus 
+static GIOStatus
 z_dot_transfer_dst_shutdown(ZTransfer2 *s, ZStream *stream, GError **err)
 {
   ZDotTransfer *self = Z_CAST(s, ZDotTransfer);
   GIOStatus res = G_IO_STATUS_NORMAL;
-  
+
   /* NOTE: this code ensures that our output to the server side is
    * terminated by a CRLF before the last '.' is written.
    */
   if (self->dst_write_state == DOT_DW_DATA && ((self->super.status & (ZT2S_FAILED+ZT2S_TIMEDOUT+ZT2S_ABORTED)) == 0))
     {
       gsize bw;
-      
+
       res = z_stream_write(stream, "\r\n", 2, &bw, err);
     }
   return res;
@@ -312,12 +312,12 @@ z_dot_transfer_new(ZClass *class,
                    GString *preamble)
 {
   ZDotTransfer *self;
-  
+
   z_proxy_enter(owner);
-  
+
   self = Z_CAST(z_transfer2_new(class,
                                owner, poll,
-                               client, server, 
+                               client, server,
                                buffer_size,
                                timeout,
                                ZT2F_COMPLETE_COPY | flags),
@@ -339,11 +339,10 @@ static void
 z_dot_transfer_free_method(ZObject *s)
 {
   ZDotTransfer *self = Z_CAST(s, ZDotTransfer);
-  
+
   g_string_free(self->preamble, TRUE);
   z_transfer2_free_method(s);
 }
-
 
 ZTransfer2Funcs z_dot_transfer_funcs =
 {

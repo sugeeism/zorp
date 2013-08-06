@@ -27,4 +27,7 @@
 #ifndef ZORP_NOTIFICATION_H_INCLUDED
 #define ZORP_NOTIFICATION_H_INCLUDED
 
+#include <zorp/proxy.h>
+
+static inline void z_notify_proxy_event(ZProxy *proxy G_GNUC_UNUSED, const gchar *event G_GNUC_UNUSED, ...) {}
 #endif

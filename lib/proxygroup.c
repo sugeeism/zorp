@@ -26,8 +26,9 @@
 
 #include <zorp/proxygroup.h>
 
-#include <zorp/thread.h>
 #include <zorp/poll.h>
+#include <zorp/szig.h>
+#include <zorp/thread.h>
 
 struct _ZProxyGroup
 {
@@ -46,12 +47,12 @@ static gpointer
 z_proxy_group_thread_func(gpointer s)
 {
   ZProxyGroup *self = (ZProxyGroup *) s;
-  
+
   z_enter();
   g_static_mutex_lock(&self->lock);
   self->poll = z_poll_new();
   g_static_mutex_unlock(&self->lock);
-  
+
   while (!self->orphaned || self->sessions > 0)
     {
       z_proxy_group_iteration(self);
@@ -60,7 +61,6 @@ z_proxy_group_thread_func(gpointer s)
   z_leave();
   return NULL;
 }
-
 
 static gboolean
 z_proxy_group_start_thread(ZProxyGroup *self)
@@ -72,7 +72,7 @@ z_proxy_group_start_thread(ZProxyGroup *self)
       self->nonblocking_start_queue = g_async_queue_new();
       self->thread_started = TRUE;
       g_static_mutex_unlock(&self->lock);
-      
+
       if (!z_thread_new("group", z_proxy_group_thread_func, z_proxy_group_ref(self)))
         {
           z_proxy_group_unref(self);
@@ -92,7 +92,7 @@ gboolean
 z_proxy_group_start_session(ZProxyGroup *self, ZProxy *proxy)
 {
   gboolean started;
-  
+
   z_enter();
   g_static_mutex_lock(&self->lock);
   if (self->sessions >= self->max_sessions)
@@ -101,10 +101,10 @@ z_proxy_group_start_session(ZProxyGroup *self, ZProxy *proxy)
       z_leave();
       return FALSE;
     }
-  
+
   self->sessions++;
   g_static_mutex_unlock(&self->lock);
-  
+
   if (proxy->flags & ZPF_NONBLOCKING)
     {
       if (!z_proxy_group_start_thread(self))
@@ -122,7 +122,7 @@ z_proxy_group_start_session(ZProxyGroup *self, ZProxy *proxy)
     }
   else
     {
-      
+
       Py_BEGIN_ALLOW_THREADS;
       started = z_proxy_threaded_start(proxy, self);
       Py_END_ALLOW_THREADS;
@@ -132,9 +132,9 @@ z_proxy_group_start_session(ZProxyGroup *self, ZProxy *proxy)
           z_leave();
           return FALSE;
         }
-        
+
       z_policy_thread_ready(proxy->thread);
-      
+
       z_leave();
       return TRUE;
     }
@@ -147,14 +147,14 @@ z_proxy_group_stop_session(ZProxyGroup *self, ZProxy *proxy)
   if (proxy->flags & ZPF_NONBLOCKING)
     {
       GList *l;
-      
+
       /* NOTE: nonblocking proxies run in the same thread, thus this
        * function is always called from the ZProxyGroup thread, no locking
        * is necessary */
-      
+
       /* FIXME: use a better list deletion algorithm (like embed a list
        * header to ZProxy and use an O(1) deletion */
-      
+
       l = g_list_find(self->nonblocking_proxies, proxy);
       if (l)
         {
@@ -166,7 +166,7 @@ z_proxy_group_stop_session(ZProxyGroup *self, ZProxy *proxy)
   self->sessions--;
   g_static_mutex_unlock(&self->lock);
   z_leave();
-  
+
 }
 
 GMainContext *
@@ -190,7 +190,7 @@ z_proxy_group_iteration(ZProxyGroup *self)
   GList *p;
   gboolean res = FALSE;
 
-  z_enter();  
+  z_enter();
   while ((proxy = g_async_queue_try_pop(self->nonblocking_start_queue)))
     {
       z_policy_thread_ready(proxy->thread);
@@ -201,6 +201,7 @@ z_proxy_group_iteration(ZProxyGroup *self)
         }
       else
         {
+          z_szig_value_add_thread_id(proxy);
           self->nonblocking_proxies = g_list_prepend(self->nonblocking_proxies, proxy);
         }
     }
@@ -213,7 +214,7 @@ z_proxy_group_iteration(ZProxyGroup *self)
     }
   if (!self->orphaned || self->sessions > 0)
     res = z_poll_iter_timeout(self->poll, -1);
-  
+
   z_leave();
   return res;
 }
@@ -242,13 +243,16 @@ ZProxyGroup *
 z_proxy_group_new(gint max_sessions)
 {
   ZProxyGroup *self = g_new0(ZProxyGroup, 1);
-  
+
+  g_static_mutex_init(&self->lock);
+
   z_refcount_set(&self->ref_cnt, 1);
+
   if (max_sessions)
     self->max_sessions = max_sessions;
   else
     self->max_sessions = 1;
-    
+
   return self;
 }
 
@@ -267,7 +271,7 @@ z_proxy_group_unref(ZProxyGroup *self)
       if (self->nonblocking_start_queue)
         {
           ZProxy *proxy;
-          
+
           while ((proxy = g_async_queue_try_pop(self->nonblocking_start_queue)))
             {
               z_proxy_unref(proxy);
@@ -282,6 +286,8 @@ z_proxy_group_unref(ZProxyGroup *self)
 
       if (self->poll)
         z_poll_unref(self->poll);
+
+      g_static_mutex_free(&self->lock);
 
       g_free(self);
     }

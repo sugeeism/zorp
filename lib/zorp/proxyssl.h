@@ -12,6 +12,7 @@
 
 #include <zorp/proxycommon.h>
 #include <zorp/ssl.h>
+#include <zorp/certchain.h>
 
 typedef enum
 {
@@ -54,7 +55,7 @@ typedef struct _ZProxySsl {
 
   EVP_PKEY *local_privkey[EP_MAX];
   X509 *peer_cert[EP_MAX];
-  X509 *local_cert[EP_MAX];
+  ZCertificateChain *local_cert[EP_MAX];
   STACK_OF(X509) *local_ca_list[EP_MAX];
   STACK_OF(X509_NAME) *server_peer_ca_list;
   STACK_OF(X509_CRL) *local_crl_list[EP_MAX];

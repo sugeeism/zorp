@@ -32,4 +32,3 @@
 void z_policy_attach_module_init(void);
 
 #endif
-

@@ -22,16 +22,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Author: Hidden
- * Auditor:
- * Last audited version:
- * Notes:
- *
  ***************************************************************************/
 
 #include "telnet.h"
+#include "telnetprotocol.h"
 #include "telnetpolicy.h"
+#include "telnetsuboption.h"
+#include "telnetstate.h"
+#include "telnettls.h"
 #include "telnetoption.h"
+#include "telnetpatternmatch.h"
 
 #include <zorp/thread.h>
 #include <zorp/registry.h>
@@ -39,8 +39,12 @@
 #include <zorp/policy.h>
 #include <zorp/io.h>
 #include <zorp/stream.h>
+#include <zorp/streambuf.h>
 #include <zorp/pystruct.h>
 #include <zorp/pyaudit.h>
+#include <zorp/poll.h>
+#include <zorp/packetbuf.h>
+#include <zorp/source.h>
 
 #include <ctype.h>
 #include <netinet/in.h>
@@ -49,51 +53,75 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-static TelnetOptions telnet_options_table[] =
-{
-  { TELNET_OPTION_TERMINAL_TYPE,      telnet_opt_terminal_type },
-  { TELNET_OPTION_TERMINAL_SPEED,     telnet_opt_terminal_speed },
-  { TELNET_OPTION_X_DISPLAY_LOCATION, telnet_opt_x_display },
-  { TELNET_OPTION_ENVIRONMENT,        telnet_opt_new_env },
-  { TELNET_OPTION_NAWS,               telnet_opt_naws },
-  { 0,                                NULL }
-};
+static TelnetSuboptions telnet_suboptions_table[] =
+  {
+    { TELNET_OPTION_TERMINAL_TYPE,      telnet_subopt_terminal_type },
+    { TELNET_OPTION_TERMINAL_SPEED,     telnet_subopt_terminal_speed },
+    { TELNET_OPTION_X_DISPLAY_LOCATION, telnet_subopt_x_display },
+    { TELNET_OPTION_ENVIRONMENT,        telnet_subopt_new_env },
+    { TELNET_OPTION_NAWS,               telnet_subopt_naws },
+    { TELNET_OPTION_STARTTLS,           telnet_tls_handle_suboption },
+    { 0,                                NULL }
+  };
+
+static TelnetOptions telnet_option_negotiation_table[] =
+  {
+    { TELNET_OPTION_STARTTLS,           telnet_tls_handle_option },
+    { 0,                                NULL }
+  };
 
 
 /**
  * telnet_set_defaults:
- * @self: 
+ * @self:
  *
- * 
+ *
  */
 static void
 telnet_set_defaults(TelnetProxy *self)
 {
-  int           i;
-
   z_proxy_enter(self);
   self->telnet_policy = z_dim_hash_table_new(1, 2, DIMHASH_WILDCARD, DIMHASH_WILDCARD);
-  for (i = 0; i < 256; i++)
-      self->telnet_options[i] = NULL;
+  for (int i = 0; i < 256; i++)
+    self->telnet_suboptions[i] = NULL;
+
+  for (int i = 0; i < 256; i++)
+    self->telnet_option_negotiation_handlers[i] = NULL;
 
   self->policy_name = g_string_new("");
   self->policy_value = g_string_new("");
   self->timeout = 600000;
+  self->transparent = TRUE;
+  self->gw_auth_required = FALSE;
+  self->server_stream_initialized = FALSE;
+  self->server_hostname = g_string_new("");
+  self->server_username = g_string_new("");
+  self->gw_username = g_string_new("");
+  self->gw_password = g_string_new("");
+  self->server_port = 23;
+  self->greeting = g_string_new("Welcome to Zorp!\r\n\r\n");
+  self->server_name_prompt = g_string_new("Server: ");
+  self->gw_username_prompt = g_string_new("Gateway user name: ");
+  self->gw_password_prompt = g_string_new("Gateway password: ");
   self->negotiation = g_hash_table_new(g_str_hash, g_str_equal);
   z_proxy_return(self);
 }
 
-
 /**
  * telnet_register_vars:
- * @self: 
+ * @self:
  *
- * 
+ *
  */
 static void
 telnet_register_vars(TelnetProxy *self)
 {
   z_proxy_enter(self);
+
+  z_proxy_var_new(&self->super, "auth",
+                  Z_VAR_TYPE_OBJECT | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  &self->auth);
+
   z_proxy_var_new(&self->super, "option",
                   Z_VAR_TYPE_DIMHASH | Z_VAR_GET | Z_VAR_GET_CONFIG,
                   self->telnet_policy);
@@ -101,6 +129,22 @@ telnet_register_vars(TelnetProxy *self)
   z_proxy_var_new(&self->super, "negotiation",
                   Z_VAR_TYPE_HASH | Z_VAR_GET | Z_VAR_GET_CONFIG,
                   self->negotiation);
+
+  z_proxy_var_new(&self->super, "client_tls_required",
+                  Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET | Z_VAR_SET_CONFIG,
+                  &self->tls_required[EP_CLIENT]);
+
+  z_proxy_var_new(&self->super, "server_tls_required",
+                  Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET | Z_VAR_SET_CONFIG,
+                  &self->tls_required[EP_SERVER]);
+
+  z_proxy_var_new(&self->super, "transparent_mode",
+                  Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  &self->transparent);
+
+  z_proxy_var_new(&self->super, "gw_auth",
+                  Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  &self->gw_auth_required);
 
   z_proxy_var_new(&self->super, "current_var_name",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
@@ -110,26 +154,58 @@ telnet_register_vars(TelnetProxy *self)
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
                   self->policy_value);
 
-  z_proxy_var_new(&self->super, "timeout", 
+  z_proxy_var_new(&self->super, "timeout",
                   Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET_CONFIG,
                   &self->timeout);
+
+  z_proxy_var_new(&self->super, "server_name_prompt",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  self->server_name_prompt);
+
+  z_proxy_var_new(&self->super, "gw_username_prompt",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  self->gw_username_prompt);
+
+  z_proxy_var_new(&self->super, "gw_password_prompt",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  self->gw_password_prompt);
+
+  z_proxy_var_new(&self->super, "greeting",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG,
+                  self->greeting);
+
+  z_proxy_var_new(&self->super, "server_username",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
+                  self->server_username);
+
+  z_proxy_var_new(&self->super, "gw_username",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
+                  self->gw_username);
+
+  z_proxy_var_new(&self->super, "server_hostname",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET,
+                  self->server_hostname);
+
+  z_proxy_var_new(&self->super, "server_port",
+                  Z_VAR_TYPE_INT | Z_VAR_GET | Z_VAR_SET,
+                  &self->server_port);
+
 
 
   z_proxy_return(self);
 }
 
-
 /**
  * telnet_config_init:
- * @self: 
+ * @self:
  *
- * 
+ *
  */
 static void
 telnet_config_init(TelnetProxy *self)
 {
   int i;
-  
+
   z_proxy_enter(self);
   for (i = 0; i < 256; i++)
     {
@@ -137,799 +213,234 @@ telnet_config_init(TelnetProxy *self)
       self->options[i][EP_SERVER] = 0;
     }
 
-  for (i = 0; telnet_options_table[i].option_check != NULL; i++)
-    self->telnet_options[telnet_options_table[i].option] = telnet_options_table[i].option_check;
+  for (i = 0; telnet_suboptions_table[i].suboption_check != NULL; i++)
+    self->telnet_suboptions[telnet_suboptions_table[i].suboption] = telnet_suboptions_table[i].suboption_check;
 
-  for (i = 0; i < EP_MAX; i++)
-    {
-      self->write_buffers[i].buf = g_new0(guchar, TELNET_BUFFER_SIZE + 1);
-      self->write_buffers[i].size = TELNET_BUFFER_SIZE + 1;
-      self->write_buffers[i].ofs = self->write_buffers[i].end = 0;
-    }
+  for (i = 0; telnet_option_negotiation_table[i].option_check != NULL; i++)
+    self->telnet_option_negotiation_handlers[telnet_option_negotiation_table[i].option] = telnet_option_negotiation_table[i].option_check;
+
   z_proxy_return(self);
 }
 
-
 /**
- * telnet_stream_read:
- * @self: 
- * @buf: 
- * @ep: 
+ * This function sends a packet to one of the endpoints.
  *
- * 
+ * @param[in]  self Telnet proxy instance
+ * @param[in]  ep Endpoint index
+ * @param[in]  pkt Packet to send (consumed)
  *
- * Returns:
- * 
- */
-static GIOStatus
-telnet_stream_read(TelnetProxy *self, ZIOBuffer *buf, guint ep)
+ * The function consumes the packet, so the caller must not unref it itself!
+ *
+ * @returns GIOStatus instance
+ **/
+GIOStatus
+telnet_write_packet(TelnetProxy *self, ZEndpoint ep, ZPktBuf *pkt)
 {
-  GIOStatus     res;
-  gsize         len;
+  GIOStatus res = G_IO_STATUS_ERROR;
 
   z_proxy_enter(self);
-  len = 0;
-  res = z_stream_read(self->super.endpoints[ep], buf->buf + buf->end, sizeof(buf->buf) - buf->end, &len, NULL);
-  buf->end += len;
-  switch (res)
+
+  if (self->super.ssl_opts.handshake_pending[ep]) /* do not send any data while SSL handshake is in progress. */
     {
-    case G_IO_STATUS_NORMAL:
-      z_proxy_return(self, res);
-    
-    case G_IO_STATUS_EOF:
-      z_proxy_return(self, res);
-    
-    case G_IO_STATUS_AGAIN:
-      z_proxy_return(self, res);
-    
-    default:
-    break;
-    }
-  z_proxy_return(self, G_IO_STATUS_ERROR);
-}
-
-
-/**
- * telnet_stream_write:
- * @self: 
- * @buf: 
- * @ep: 
- *
- * 
- *
- * Returns:
- * 
- */
-static GIOStatus
-telnet_stream_write(TelnetProxy *self, ZIOBufferDyn *buf, guint ep)
-{
-  GIOStatus     res;
-  gsize         bytes_written;
-
-  z_proxy_enter(self);
-  if (buf->ofs != buf->end)
-    {
-      res = z_stream_write(self->super.endpoints[ep], &buf->buf[buf->ofs], buf->end - buf->ofs, &bytes_written, NULL);
-      switch (res)
-        {
-        case G_IO_STATUS_NORMAL:
-          buf->ofs += bytes_written;
-          break;
-        
-        case G_IO_STATUS_AGAIN:
-          break;
-        
-        default:
-          z_proxy_return(self, G_IO_STATUS_ERROR);
-        }
-      
-      if (buf->ofs != buf->end)
-        {
-          self->super.endpoints[ep]->want_write = TRUE;
-          z_proxy_return(self, G_IO_STATUS_AGAIN);
-        }
-    }
-  z_proxy_return(self, G_IO_STATUS_NORMAL);
-}
-
-
-/**
- * telnet_copy_buf:
- * @to: 
- * @from: 
- * @bytes: 
- *
- * 
- *
- * Returns:
- * 
- */
-static gint
-telnet_copy_buf(ZIOBufferDyn *to, ZIOBuffer *from, guint bytes)
-{
-  guint         i;
-
-  z_enter();
-  if ((i = to->size - to->end) < bytes)
-    {
-      /* we must allocate more buffer space */
-      to->size += (1 + bytes / TELNET_BUFFER_SIZE) * TELNET_BUFFER_SIZE;
-      to->buf = g_realloc(to->buf, to->size);
-    }
-  for (i = 0; to->end < to->size && from->ofs < from->end && i < bytes; to->end++, from->ofs++, i++)
-      to->buf[to->end] = from->buf[from->ofs];
-  z_return(i == bytes);
-}
-
-
-/**
- * telnet_check_suboption:
- * @self: 
- * @ep: 
- *
- * 
- *
- * Returns:
- * 
- */
-static guint
-telnet_check_suboption(TelnetProxy *self, guint ep)
-{
-  guint                 res;
-  TelnetOptionFunction  check_func;
-  ZIOBuffer             *sbuf = &self->suboptions[ep];
-  gchar                 buf[TELNET_BUFFER_SIZE + 1];
-  guint                 i, j;
-
-  z_proxy_enter(self);
-  /* check if allowed in this session */
-  if (!(self->options[self->opneg_option[ep]][OTHER_EP(ep)] & (SENT_WILL | GOT_DO)) &&
-      !(self->options[self->opneg_option[ep]][ep] & (SENT_WILL | GOT_DO)))
-    {
-      z_proxy_log(self, TELNET_VIOLATION, 3, "Option not allowed in the session; option='%d'", self->opneg_option[ep]);
-      z_proxy_return(self, TELNET_CHECK_ABORT);
+      z_proxy_return(self, G_IO_STATUS_NORMAL);
     }
 
-  /* check if valid */
-  if ((check_func = self->telnet_options[self->opneg_option[ep]]) == NULL)
-    {
-      /* option has no suboption check function */
-      /* copy suboption negotiation buffer into policy_value */
-      for (j = 0, i = sbuf->ofs; i < sbuf->end; j++, i++)
-          buf[j] = sbuf->buf[i];
-      g_string_assign(self->policy_name, "");
-      g_string_assign(self->policy_value, buf);
-      /* call policy check */
-      res = telnet_policy_suboption(self, (guchar) buf[0], "", buf);
-    }
-  else
-    {
-      /* call check function, and check function calls policy */
-      res = check_func(self, ep);
-    }
+  /* need to keep pkt around to be able to write the audit record */
+  z_pktbuf_ref(pkt);
+
+  res = z_stream_write_packet(self->super.endpoints[ep], pkt, NULL);
+
+
+  z_pktbuf_unref(pkt);
+
   z_proxy_return(self, res);
 }
 
+GIOStatus
+telnet_send_suboption(TelnetProxy *self, ZEndpoint ep, ZPktBuf *suboption)
+{
+  ZPktBuf *out = z_pktbuf_new();
+
+  z_pktbuf_put_u8(out, TELNET_IAC);
+  z_pktbuf_put_u8(out, TELNET_CMD_SB);
+  telnet_protocol_escape_data(suboption);
+  z_pktbuf_put_u8s(out, z_pktbuf_length(suboption), z_pktbuf_data(suboption));
+  z_pktbuf_put_u8(out, TELNET_IAC);
+  z_pktbuf_put_u8(out, TELNET_CMD_SE);
+
+  return telnet_write_packet(self, ep, out);
+}
+
+GIOStatus
+telnet_send_command(TelnetProxy *self, ZEndpoint ep, guint8 command)
+{
+  ZPktBuf *out = z_pktbuf_new();
+
+  z_pktbuf_put_u8(out, TELNET_IAC);
+  z_pktbuf_put_u8(out, command);
+
+  return telnet_write_packet(self, ep, out);
+}
+
+GIOStatus
+telnet_send_opneg(TelnetProxy *self, ZEndpoint ep, guint8 command, guint8 option)
+{
+  ZPktBuf *out = z_pktbuf_new();
+
+  telnet_option_command_sent(self, ep, command, option);
+
+  z_pktbuf_put_u8(out, TELNET_IAC);
+  z_pktbuf_put_u8(out, command);
+  z_pktbuf_put_u8(out, option);
+
+  return telnet_write_packet(self, ep, out);
+}
 
 /**
- * telnet_process_opneg:
- * @self: 
- * @ep: 
+ * @brief Send binary data to an endpoint
  *
- * 
+ * @param self  Telnet proxy instance
+ * @param ep  Endpoint to send to
+ * @param data  Packet buffer containing the data to send (consumed!)
+ * @return  I/O status of the operation
  *
- * Returns:
- * 
+ * The function consumes the packet buffer!
  */
-static guint
-telnet_process_opneg(TelnetProxy *self, guint ep)
+GIOStatus
+telnet_send_data(TelnetProxy *self, ZEndpoint ep, ZPktBuf *data)
 {
-  guint         res;
+  telnet_protocol_escape_data(data);
+
+  return telnet_write_packet(self, ep, data);
+}
+
+static gboolean
+telnet_read(TelnetProxy *self, ZStream *stream, ZEndpoint ep)
+{
+  gboolean res = FALSE;
 
   z_proxy_enter(self);
-  /*
-   * ask policy if option is enabled
-   */
-  res = telnet_policy_option(self);
-  if (res == TELNET_CHECK_OK)
+
+  ZPktBuf *buf = z_pktbuf_new();
+  z_pktbuf_resize(buf, TELNET_BUFFER_SIZE);
+
+  gsize bytes_read = 0;
+  GIOStatus status = z_stream_read(stream, buf->data, buf->allocated, &bytes_read, NULL);
+
+  if (status == G_IO_STATUS_ERROR || status == G_IO_STATUS_EOF)
     {
-      switch (self->command[ep])   
-        {
-        case TELNET_CMD_WILL:
-          /* set flag which means this side has sent a WILL */
-          self->options[self->opneg_option[ep]][ep] |= SENT_WILL;
-          break;
-
-        case TELNET_CMD_WONT:
-          /* set flag which means this side has sent a WONT */
-          self->options[self->opneg_option[ep]][ep] &= ~GOT_DO;
-          break;
-
-        case TELNET_CMD_DO:
-          /* set the other side's flag, indicating that
-           * its WILL was accepted by the other side */
-          self->options[self->opneg_option[ep]][OTHER_EP(ep)] |= GOT_DO;
-          break;
-
-        case TELNET_CMD_DONT:
-          /* clear the other side's WILL flag, indicating that
-           * its WILL was refused */
-          self->options[self->opneg_option[ep]][OTHER_EP(ep)] &= ~SENT_WILL;
-          break;
-
-        default:
-          z_proxy_log(self, TELNET_VIOLATION, 2, "Unknown command; command='%d'", self->command[ep]);
-          break;
-        }
+      /* error already logged */
+      z_poll_quit(self->poll);
+      return FALSE;
     }
+  else if (status == G_IO_STATUS_AGAIN)
+    {
+      return TRUE;
+    }
+  buf->length += bytes_read;
+
+  telnet_protocol_process_data(&self->protocol[ep], buf);
+
+  z_pktbuf_unref(buf);
+
+  res = telnet_protocol_is_running(&self->protocol[ep]);
+
+  if (!res)
+    z_poll_quit(self->poll);
+
   z_proxy_return(self, res);
 }
 
-
-/**
- * telnet_process_command:
- * @self: 
- * @ep: 
- *
- * 
- *
- * Returns:
- * 
- */
-static guint
-telnet_process_command(TelnetProxy *self, guint ep)
-{
-  ZPolicyObj    *res = NULL;
-  guint         option_needed;
-  gchar         cmd_str[5];
-  guint         ret_status;
-
-  z_proxy_enter(self);
-  /* 
-   * allow commands defined in RFC 854
-   * these are important, and must be implemented
-   */
-  
-  /* NOTE: this triggers a warning in gcc as the second part of the
-   * condition is always TRUE as guchar is always less-or-equal than 255,
-   * this is true, but I leave the condition intact as in the possible case
-   * command is changed to int the condition might be perfectly valid
-   */
-  if (self->command[ep] >= 240)
-    z_proxy_return(self, TELNET_CHECK_OK);
-  /* 
-   * allow negotiated commands
-   * these were allowed during a negotiation
-   */
-  g_snprintf(cmd_str, sizeof(cmd_str), "%hhu", self->command[ep]);
-  z_policy_lock(self->super.thread);
-  res = g_hash_table_lookup(self->negotiation, cmd_str);
-  if (res != NULL)
-    {
-      if (!z_policy_var_parse(res, "i", &option_needed))
-        {
-          z_proxy_log(self, TELNET_POLICY, 2, "Value in negotiation table bad; command='%d'", self->command[ep]);
-          z_policy_unlock(self->super.thread);
-          z_proxy_return(self, TELNET_CHECK_REJECT); 
-        }
-      z_proxy_trace(self, "Changed needed negotiated option; command='%s', option='%d'", cmd_str, option_needed);
-    }
-  else
-    {
-      option_needed = self->command[ep];
-    }
-  z_policy_unlock(self->super.thread);
-  ret_status = TELNET_CHECK_REJECT;
-  if (option_needed == 255)
-    {
-      ret_status = TELNET_CHECK_OK;
-    }
-  else if (option_needed > 255)
-    {
-      z_proxy_log(self, TELNET_POLICY, 2, "Value in negotation table out of range; command='%d', value='%d'", self->command[ep], option_needed);
-    }
-  else
-    {
-      z_proxy_trace(self, "Option state check; option='%d', state='%d:%d'", option_needed, self->options[option_needed][ep], self->options[option_needed][OTHER_EP(ep)]);
-      if (self->options[option_needed][ep] & (SENT_WILL | GOT_DO))
-        ret_status = TELNET_CHECK_OK;
-    } /* reject everything else */
-  z_proxy_return(self, ret_status);
-} 
-
-
-/**
- * telnet_process_buf:
- * @self: 
- * @buf: 
- * @dbuf: 
- * @odbuf: 
- * @ep: 
- *
- * 
- *
- * Returns:
- * 
- */
 static gboolean
-telnet_process_buf(TelnetProxy *self, ZIOBuffer *buf, ZIOBufferDyn *dbuf, ZIOBufferDyn *odbuf, guint ep)
+telnet_client_read(ZStream *stream, GIOCondition cond G_GNUC_UNUSED, gpointer user_data)
 {
-  guint         ptr;
-  guint         res;
-  guchar        byte;
-  ZIOBuffer     *sbuf = &self->suboptions[ep];
-  ZIOBuffer     tbuf;
-
-  z_proxy_enter(self);
-  z_proxy_trace(self, "telnet_process_buf called side='%s'", WHICH_EP(ep));
-  dbuf->ofs = dbuf->end = 0;
-  ptr = buf->ofs;
-  while (ptr < buf->end)
-    {   
-      z_proxy_log(self, TELNET_DEBUG, 7, "Processing buffer; state='%d'", self->state[ep]);
-      switch (self->state[ep])
-        {
-        case TELNET_DATA:
-          while (ptr < buf->end && buf->buf[ptr] != TELNET_IAC)
-            ptr++;
-          /* if not in urgent mode, write out data */
-          res = telnet_copy_buf(dbuf, buf, ptr - buf->ofs);
-                                 
-          if (!res)
-            {
-              z_proxy_log(self, TELNET_ERROR, 3, "Output buffer full; side='%s'", WHICH_EP(OTHER_EP(ep)));
-              z_proxy_return(self, FALSE);
-            }
-          else if (ptr >= buf->end)
-              buf->ofs = ptr; /* set buffer offset pointer as if data was written */
-
-          if (ptr < buf->end)
-            {
-              self->state[ep] = TELNET_GOT_IAC;
-              ptr++;
-              if (ptr == buf->end)
-              {
-                  self->state[ep] = TELNET_DATA;
-              }
-            }
-          break;
-
-        case TELNET_GOT_IAC:
-          self->command[ep] = buf->buf[ptr++];
-          /* telnet option negotiation */
-          if (self->command[ep] == TELNET_CMD_WILL ||
-              self->command[ep] == TELNET_CMD_WONT ||
-              self->command[ep] == TELNET_CMD_DO ||
-              self->command[ep] == TELNET_CMD_DONT)
-            {
-              self->state[ep] = TELNET_GOT_OPNEG;
-            }
-          /* telnet suboption negotiation */
-          else if (self->command[ep] == TELNET_CMD_SB)
-            {
-              self->state[ep] = TELNET_GOT_SB;
-            }
-          /* telnet datamark */
-          else if (self->command[ep] == TELNET_CMD_DATAMARK)
-            {
-              self->state[ep] = TELNET_DATA;
-            }
-          /* invalid commands in this state, drop them */
-          else if (self->command[ep] == TELNET_CMD_SE)
-            {
-              self->state[ep] = TELNET_DATA;
-              z_proxy_log(self, TELNET_VIOLATION, 2, "Illegal command in stream; command='%d'", self->command[ep]);
-            }
-          /* else send it to the other side */
-          else
-            {
-              res = telnet_process_command(self, ep);
-              self->state[ep] = TELNET_DATA;
-              if (res == TELNET_CHECK_OK)
-                {
-                  res = telnet_copy_buf(dbuf, buf, ptr - buf->ofs);
-                  if (!res)
-                    {
-                      z_proxy_log(self, TELNET_ERROR, 3, "Output buffer full; side='%s'", WHICH_EP(OTHER_EP(ep)));
-                      z_proxy_return(self, FALSE);
-                    }
-                }
-              else
-                {
-                  buf->ofs = ptr;
-                  z_proxy_log(self, TELNET_VIOLATION, 2, "Illegal command; command='%d'", self->command[ep]);
-                }
-            }
-          z_proxy_log(self, TELNET_DEBUG, 6, "Processing command; state='TELNET_GOT_IAC', cmd='%d'", self->command[ep]);
-          break;
-
-        case TELNET_GOT_OPNEG:
-          /* get option number from buffer */
-          self->opneg_option[ep] = buf->buf[ptr++];
-          z_proxy_log(self, TELNET_DEBUG, 6, "Processing option negotiation; state='TELNET_GOT_OPNEG', option='%d'", self->opneg_option[ep]);
-
-          /* check if valid and allowed */
-          res = telnet_process_opneg(self, ep);
-          switch (res)
-            {
-            case TELNET_CHECK_OK:
-              res = telnet_copy_buf(dbuf, buf, ptr - buf->ofs);
-              if (!res)
-                {
-                  z_proxy_log(self, TELNET_ERROR, 3, "Output buffer full; side='%s'", WHICH_EP(OTHER_EP(ep)));
-                  z_proxy_return(self, FALSE);
-                }
-              break;
-
-            case TELNET_CHECK_REJECT:
-              /* create a temporary buffer */
-              tbuf.ofs = 0; tbuf.end = 3; 
-              tbuf.buf[0] = buf->buf[buf->ofs];
-              tbuf.buf[1] = buf->buf[buf->ofs + 1];
-              tbuf.buf[2] = buf->buf[buf->ofs + 2];
-              switch (buf->buf[buf->ofs + 1])
-                {
-                case TELNET_CMD_WILL:
-                  tbuf.buf[tbuf.ofs + 1] = TELNET_CMD_DONT;
-                  buf->buf[buf->ofs + 1] = TELNET_CMD_WONT;
-                  z_proxy_log(self, TELNET_DEBUG, 6, "WILL rejected;");
-                  break;
-
-                case TELNET_CMD_WONT:
-                  tbuf.buf[tbuf.ofs + 1] = TELNET_CMD_DONT;
-                  z_proxy_log(self, TELNET_DEBUG, 6, "WONT passed through;");
-                  break;
-
-                case TELNET_CMD_DO:
-                  tbuf.buf[tbuf.ofs + 1] = TELNET_CMD_WONT;
-                  buf->buf[buf->ofs + 1] = TELNET_CMD_DONT;
-                  z_proxy_log(self, TELNET_DEBUG, 6, "DO rejected;");
-                  break;
-
-                case TELNET_CMD_DONT:
-                  tbuf.buf[tbuf.ofs + 1] = TELNET_CMD_WONT;
-                  z_proxy_log(self, TELNET_DEBUG, 6, "DONT passed through;");
-                  break;
-                }
-              res = telnet_copy_buf(odbuf, &tbuf, tbuf.end);
-              if (res)
-                res = telnet_copy_buf(dbuf, buf, ptr - buf->ofs);
-              if (!res)
-                {
-                  z_proxy_log(self, TELNET_DEBUG, 6, "Output buffer full; side='%s'", WHICH_EP(ep));
-                  z_proxy_return(self, FALSE);
-                }
-              break;
-
-            case TELNET_CHECK_ABORT:
-              z_proxy_log(self, TELNET_POLICY, 2, "Session aborted during option negotiation;");
-              z_proxy_return(self, FALSE);
-
-            case TELNET_CHECK_DROP:
-            default:
-              z_proxy_log(self, TELNET_POLICY, 3, "Option negotiation sequence dropped;");
-              break;
-            }
-          /* next state */
-          self->state[ep] = TELNET_DATA;
-          break;
-
-        case TELNET_GOT_SB:
-          /* get option number from buffer */
-          self->opneg_option[ep] = buf->buf[ptr++];
-          z_proxy_log(self, TELNET_DEBUG, 6, "Processing suboptions; state='TELNET_GOT_SB', option='%d'", self->opneg_option[ep]);
-          /* initialize suboption buffer */
-          self->suboptions[ep].ofs = 0; self->suboptions[ep].end = 0;
-          self->state[ep] = TELNET_IN_SB;
-          break;
-
-        case TELNET_IN_SB:
-          /* while not end of buffer and no IAC found */
-          while (ptr < buf->end && buf->buf[ptr] != TELNET_IAC)
-            {
-              /* if the suboption buffer is already full */
-              if (sbuf->end == TELNET_SUBOPTION_SIZE)
-                {
-                  z_proxy_log(self, TELNET_DEBUG, 6, "Suboption buffer full; side='%s'", WHICH_EP(ep));
-                  z_proxy_return(self, FALSE);
-                }
-              /* copy byte to suboption buffer */
-              sbuf->buf[sbuf->end++] = buf->buf[ptr++];
-            }
-          /* if IAC found, next state is TELNET_GOT_SB_IAC */
-          if (ptr < buf->end)
-            {
-              self->state[ep] = TELNET_GOT_SB_IAC;
-              ptr++;
-            }
-          else
-            {
-              self->state[ep] = TELNET_DATA;
-            }
-          break;
-
-        case TELNET_GOT_SB_IAC:
-          /* if suboption negotiation end found */
-          if ((byte = buf->buf[ptr++]) == TELNET_CMD_SE)
-            {
-              res = telnet_check_suboption(self, ep);
-              if (res == TELNET_CHECK_OK)
-                {
-                  res = telnet_copy_buf(dbuf, buf, 3);
-                  if (res) telnet_copy_buf(dbuf, sbuf, sbuf->end - sbuf->ofs);
-                  buf->ofs = ptr - 2;
-                  if (res) telnet_copy_buf(dbuf, buf, 2);
-                  if (!res)
-                    {
-                      z_proxy_log(self, TELNET_VIOLATION, 6, "Output buffer full; side='%s'", WHICH_EP(OTHER_EP(ep)));
-                      z_proxy_leave(self);
-                      return FALSE;
-                    }
-                }
-              else
-                {
-                  z_proxy_log(self, TELNET_POLICY, 3, "Suboption denied by policy;");
-                }
-              /* data comes... */
-              buf->ofs = ptr;
-              self->state[ep] = TELNET_DATA;
-            }
-          /* otherwise it was just suboption data */
-          else 
-            {
-              /* check if there's room for two bytes in suboption  buffer */
-              if (sbuf->end + 2 > TELNET_SUBOPTION_SIZE)
-                {
-                  z_proxy_log(self, TELNET_ERROR, 3, "Suboption buffer full; side='%s'", WHICH_EP(ep));
-                  z_proxy_return(self, FALSE);
-                }
-              /* put two bytes in the buffer */
-              sbuf->buf[sbuf->end++] = TELNET_IAC;
-              sbuf->buf[sbuf->end++] = byte;
-              /* suboption negotiation data follows... */
-              self->state[ep] = TELNET_IN_SB;
-            }
-          break;
-
-        default:
-          z_proxy_log(self, TELNET_ERROR, 2, "Internal error, unknown state;");
-          z_proxy_return(self, FALSE);
-        }
-    }
-  z_proxy_return(self, TRUE);
-}
-
-
-/**
- * telnet_forward:
- * @self: 
- * @from: 
- * @to: 
- * @ep: 
- *
- * 
- *
- * Returns:
- * 
- */
-static gboolean
-telnet_forward(TelnetProxy *self, ZStream *from, ZStream *to, guint ep)
-{
-  ZIOBuffer       *buf = &self->read_buffers[ep];
-  ZIOBufferDyn    *dbuf = &self->write_buffers[OTHER_EP(ep)];
-  ZIOBufferDyn    *odbuf = &self->write_buffers[ep];
-  guint           maxiter = 5;
-  GIOStatus       res;
-  gboolean        rc;
-
-  z_proxy_enter(self);
-  from->want_read = FALSE;
-  /* write any pending data in output buffer */
-  to->want_write = FALSE;
-  res = telnet_stream_write(self, dbuf, OTHER_EP(ep));
-  if (res != G_IO_STATUS_NORMAL)
-    z_proxy_return(self, res == G_IO_STATUS_AGAIN);
-
-  /* read and write */
-  while (maxiter)
-    {
-      maxiter--;
-      if (buf->ofs != buf->end)
-        memmove(buf->buf, buf->buf + buf->ofs, buf->end - buf->ofs);
-      buf->end -= buf->ofs;
-      buf->ofs = 0;
-
-      res = telnet_stream_read(self, buf, ep);
-      if (res == G_IO_STATUS_NORMAL)
-        {
-          /* process buffer */
-          rc = telnet_process_buf(self, buf, dbuf, odbuf, ep);
-          if (!rc)
-            z_proxy_return(self, FALSE);
-          /* write output buffer */
-          if (!from->want_write)
-            {
-              res = telnet_stream_write(self, odbuf, ep);
-              if (res != G_IO_STATUS_NORMAL && res != G_IO_STATUS_AGAIN)
-                z_proxy_return(self, FALSE);
-            }
-          res = telnet_stream_write(self, dbuf, OTHER_EP(ep));
-          if (res == G_IO_STATUS_AGAIN)
-            break;
-          else if (res != G_IO_STATUS_NORMAL)
-            z_proxy_return(self, FALSE);
-        }
-      else if (res == G_IO_STATUS_AGAIN)
-        {
-          break;
-        }
-      else if (res == G_IO_STATUS_EOF)
-        {
-          z_proxy_log(self, TELNET_DEBUG, 6, "Connection closed by peer; side='%s'", WHICH_EP(ep));
-          z_proxy_return(self, FALSE);
-        }
-      else if (res == G_IO_STATUS_ERROR)
-        {
-          z_proxy_return(self, FALSE);
-        }
-    }
-
-  /* check if output buffer is empty */
-  if (dbuf->ofs == dbuf->end)
-    from->want_read = TRUE;
-  z_proxy_return(self, TRUE);
-}
-
-
-/**
- * telnet_client_read:
- * @stream: not used
- * @cond: not used
- * @user_data: 
- *
- * 
- *
- * Returns:
- * 
- */
-static gboolean
-telnet_client_read(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GNUC_UNUSED, gpointer user_data)
-{
-  TelnetProxy   *self = (TelnetProxy *) user_data;
+  TelnetProxy   *self = Z_CAST(user_data, TelnetProxy);
   gboolean      res;
 
   z_proxy_enter(self);
-  self->ep = EP_CLIENT;
-  res = telnet_forward(self,
-                       self->super.endpoints[EP_CLIENT],
-                       self->super.endpoints[EP_SERVER],
-                       EP_CLIENT);
-  if (!res)
-    z_poll_quit(self->poll);
+
+  res = telnet_read(self, stream, EP_CLIENT);
+
   z_proxy_return(self, res);
 }
 
-
-/**
- * telnet_server_read:
- * @stream: not used
- * @cond: not used
- * @user_data: 
- *
- * 
- *
- * Returns:
- * 
- */
 static gboolean
 telnet_server_read(ZStream *stream G_GNUC_UNUSED, GIOCondition cond G_GNUC_UNUSED, gpointer user_data)
 {
-  TelnetProxy   *self = (TelnetProxy *) user_data;
+  TelnetProxy   *self = Z_CAST(user_data, TelnetProxy);
   gboolean      res;
 
   z_proxy_enter(self);
-  self->ep = EP_SERVER;
-  res = telnet_forward(self,
-                       self->super.endpoints[EP_SERVER],
-                       self->super.endpoints[EP_CLIENT],
-                       EP_SERVER);
-  if (!res)
-    z_poll_quit(self->poll);
+
+  res = telnet_read(self, stream, EP_SERVER);
+
   z_proxy_return(self, res);
 }
 
-/**
- * telnet_init_streams:
- * @self: 
- *
- * 
- *
- * Returns:
- * 
- */
+static void
+telnet_init_stream(TelnetProxy *self, ZEndpoint ep, ZStreamCallback cb, gpointer user_data, GDestroyNotify data_notify)
+{
+  ZStream *stream = self->super.endpoints[ep] =
+    z_stream_push(self->super.endpoints[ep], z_stream_buf_new(NULL, 256 * 1024, Z_SBF_IMMED_FLUSH));
+
+  /* FIXME: provide a wrapper for this */
+  int fd = z_stream_get_fd(stream);
+  int one = 1;
+  setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+
+  z_stream_set_callback(stream, G_IO_IN, cb, user_data, data_notify);
+  z_stream_set_timeout(stream, -2);
+
+  z_poll_add_stream(self->poll, stream);
+  z_stream_set_cond(stream, G_IO_IN, TRUE);
+}
+
 static gboolean
-telnet_init_streams(TelnetProxy *self)
+telnet_init_client_stream(TelnetProxy *self)
+{
+  z_proxy_enter(self);
+
+  telnet_init_stream(self, EP_CLIENT, telnet_client_read, self, NULL);
+
+  z_proxy_return(self, TRUE);
+}
+
+static gboolean
+telnet_init_server_stream(TelnetProxy *self)
 {
   gboolean ret = TRUE;
-  int fd;
-  int one = 1;
 
   z_proxy_enter(self);
-  if (!self->super.endpoints[EP_CLIENT] ||
-      !self->super.endpoints[EP_SERVER] ||
-      !self->poll)
-    {
-      ret = FALSE;
-      goto exit;
-    }
 
-  self->read_buffers[EP_SERVER].ofs = self->read_buffers[EP_SERVER].end = 0;
-  self->write_buffers[EP_SERVER].ofs = self->write_buffers[EP_SERVER].end = 0;
-  self->read_buffers[EP_CLIENT].ofs = self->read_buffers[EP_CLIENT].end = 0;
-  self->write_buffers[EP_CLIENT].ofs = self->write_buffers[EP_CLIENT].end = 0;
+  telnet_init_stream(self, EP_SERVER, telnet_server_read, self, NULL);
 
-  z_stream_set_nonblock(self->super.endpoints[EP_CLIENT], TRUE);
-  z_stream_set_callback(self->super.endpoints[EP_CLIENT],
-                        G_IO_IN,
-                        telnet_client_read,
-                        self,
-                        NULL);
-  z_stream_set_callback(self->super.endpoints[EP_CLIENT],
-                        G_IO_OUT,
-                        telnet_server_read,
-                        self,
-                        NULL);
-  z_stream_set_cond(self->super.endpoints[EP_CLIENT],
-                    G_IO_IN,
-                    TRUE);
-  self->super.endpoints[EP_CLIENT]->timeout = -2;
+  self->server_stream_initialized = TRUE;
 
-  fd = z_stream_get_fd (self->super.endpoints[EP_CLIENT]);
-  setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 
-  z_stream_set_nonblock(self->super.endpoints[EP_SERVER], TRUE);
-  z_stream_set_callback(self->super.endpoints[EP_SERVER],
-                        G_IO_IN,
-                        telnet_server_read,
-                        self,
-                        NULL);
-
-  z_stream_set_callback(self->super.endpoints[EP_SERVER],
-                        G_IO_OUT,
-                        telnet_client_read,
-                        self,
-                        NULL);
-  z_stream_set_cond(self->super.endpoints[EP_SERVER],
-                    G_IO_IN,
-                    TRUE);
-  self->super.endpoints[EP_SERVER]->timeout = -2;
-
-  fd = z_stream_get_fd (self->super.endpoints[EP_SERVER]);
-  setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
-
-  z_poll_add_stream(self->poll, self->super.endpoints[EP_CLIENT]);
-  z_poll_add_stream(self->poll, self->super.endpoints[EP_SERVER]);
-  
-
- exit:
   z_proxy_return(self, ret);
 }
 
 static void
 telnet_deinit_streams(TelnetProxy *self)
 {
-  z_poll_remove_stream(self->poll, self->super.endpoints[EP_SERVER]);
+  if (self->server_stream_initialized)
+    {
+      z_poll_remove_stream(self->poll, self->super.endpoints[EP_SERVER]);
+      z_stream_buf_flush(self->super.endpoints[EP_SERVER]);
+    }
+
   z_poll_remove_stream(self->poll, self->super.endpoints[EP_CLIENT]);
+  z_stream_buf_flush(self->super.endpoints[EP_CLIENT]);
 }
 
 /**
  * telnet_config:
- * @s: 
+ * @s:
  *
- * 
+ *
  *
  * Returns:
- * 
+ *
  */
 static gboolean
 telnet_config(ZProxy *s)
@@ -938,119 +449,373 @@ telnet_config(ZProxy *s)
   gboolean      success = FALSE;
 
   z_proxy_enter(self);
+
   self->poll = z_poll_new();
+
   telnet_set_defaults(self);
   telnet_register_vars(self);
+
+  telnet_state_register_callbacks(self, EP_CLIENT);
+  telnet_state_register_callbacks(self, EP_SERVER);
+
   if (Z_SUPER(self, ZProxy)->config(s))
     {
       telnet_config_init(self);
       success = TRUE;
     }
+
   z_proxy_return(self, success);
 }
 
+/**
+ * telnet_user_string_to_pktbuf:
+ * @brief Convert a user string to ZPktBuf, while converting \n to \r\n
+ * @param msg User string to be converted
+ * @return ZPktBuf containing the \r\n-ified input string
+ */
+ZPktBuf*
+telnet_user_string_to_pktbuf(GString *msg)
+{
+  ZPktBuf *ret = z_pktbuf_new();
+
+  for (gsize i = 0; i < msg->len; ++i)
+    {
+      if (msg->str[i] == '\n')
+        z_pktbuf_put_c8(ret, '\r');
+
+      z_pktbuf_put_c8(ret, msg->str[i]);
+    }
+
+  return ret;
+}
+
+
+static const char *
+telnet_state_str(TelnetState state)
+{
+  const char *state_strings[] = {
+      "WAIT_OPNEG",
+      "WAIT_ENVIRONMENT",
+      "PROMPT_USER",
+      "PROMPT_PASSWORD",
+      "PROMPT_SERVER",
+      "RELAYING",
+      "QUIT"
+  };
+
+  switch (state)
+    {
+    case TELNET_STATE_WAIT_OPNEG: return state_strings[state];
+    case TELNET_STATE_WAIT_ENVIRONMENT: return state_strings[state];
+    case TELNET_STATE_PROMPT_USER: return state_strings[state];
+    case TELNET_STATE_PROMPT_PASSWORD: return state_strings[state];
+    case TELNET_STATE_PROMPT_SERVER: return state_strings[state];
+    case TELNET_STATE_RELAYING: return state_strings[state];
+    case TELNET_STATE_QUIT: return state_strings[state];
+    }
+  g_assert_not_reached();
+}
+
+/**
+ * @brief Transition the main proxy state machine to a new state
+ * @param self TelnetProxy instance
+ * @param new_state new state to move to
+ *
+ * This function makes sure that we can log all transitions and later do extra
+ * processing upon transitions, too.
+ *
+ */
+void
+telnet_change_state(TelnetProxy *self, TelnetState new_state)
+{
+  z_proxy_enter(self);
+
+  z_proxy_log(self, TELNET_DEBUG, 6, "Telnet state machine transition; old='%s', new='%s'",
+              telnet_state_str(self->state), telnet_state_str(new_state));
+  self->state = new_state;
+
+
+  z_proxy_leave(self);
+}
+
+void
+telnet_change_state_to_connected(TelnetProxy *self)
+{
+  telnet_change_state(self, TELNET_STATE_RELAYING);
+}
+
+static inline gboolean
+proxy_is_running(TelnetProxy *self)
+{
+  return self->state != TELNET_STATE_QUIT;
+}
+
+void
+telnet_event_connect_server(TelnetProxy *self)
+{
+  z_proxy_enter(self);
+
+  const gchar *server_hostname = self->transparent ? NULL : self->server_hostname->str;
+  const gint server_port = self->transparent ? 0 : self->server_port;
+
+  if (!z_proxy_connect_server(&self->super, server_hostname, server_port) ||
+      !telnet_init_server_stream(self))
+    {
+      ZPktBuf *pkt = z_pktbuf_new();
+
+      if (server_hostname != NULL)
+        {
+          gchar _numbuf[6];
+          g_snprintf(_numbuf, sizeof(_numbuf), "%u", server_port);
+          z_pktbuf_put_string(pkt, "\r\nConnection to server '");
+          z_pktbuf_put_string(pkt, server_hostname);
+          z_pktbuf_put_string(pkt, ":");
+          z_pktbuf_put_string(pkt, _numbuf);
+          z_pktbuf_put_string(pkt, "' failed.\r\n\r\n");
+        }
+      else
+        {
+          z_pktbuf_put_string(pkt, "\r\nConnection to server failed.\r\n\r\n");
+        }
+
+      telnet_send_data(self, EP_CLIENT, pkt);
+
+      telnet_change_state(self, TELNET_STATE_QUIT);
+    }
+  else
+    {
+      ZPktBuf *pkt = z_pktbuf_new();
+
+      if (server_hostname != NULL)
+        {
+          gchar _numbuf[6];
+          g_snprintf(_numbuf, sizeof(_numbuf), "%u", self->server_port);
+          z_pktbuf_put_string(pkt, "\r\nConnected to server '");
+          z_pktbuf_put_string(pkt, self->server_hostname->str);
+          z_pktbuf_put_string(pkt, ":");
+          z_pktbuf_put_string(pkt, _numbuf);
+          z_pktbuf_put_string(pkt, "'\r\n\r\n");
+        }
+      else
+        {
+          z_pktbuf_put_string(pkt, "\r\nConnected to server.\r\n\r\n");
+        }
+
+      if (telnet_send_data(self, EP_CLIENT, pkt) != G_IO_STATUS_NORMAL)
+        {
+          telnet_change_state(self, TELNET_STATE_QUIT);
+          z_proxy_leave(self);
+        }
+      else
+        telnet_change_state_to_connected(self);
+
+      /* start TLS on server side as neccessary. */
+      if (!telnet_tls_is_negotiation_complete_on_side(self, EP_SERVER) &&
+          !telnet_tls_start_negotiate_on_side(self, EP_SERVER))
+        {
+          z_proxy_log(self, TELNET_ERROR, 3, "TLS negotiation error;");
+          telnet_change_state(self, TELNET_STATE_QUIT);
+        }
+    }
+
+  z_proxy_leave(self);
+}
+
+static gboolean
+telnet_check_valid_config(TelnetProxy *self)
+{
+  z_proxy_enter(self);
+
+  if (self->gw_auth_required && !self->auth)
+    {
+      z_proxy_log(self, TELNET_ERROR, 1, "Gateway authentication cannot be enabled without an authentication policy;");
+      z_proxy_return(self, FALSE);
+    }
+
+  z_proxy_return(self, TRUE);
+}
+
+static void
+telnet_stream_update_flow_control(TelnetProxy *self, ZEndpoint ep)
+{
+  ZStream *other_stream = self->super.endpoints[EP_OTHER(ep)];
+
+  z_stream_set_cond(self->super.endpoints[EP_CLIENT],
+                    G_IO_IN,
+                    !other_stream || z_stream_buf_space_avail(other_stream));
+}
 
 /**
  * telnet_main:
- * @s: 
+ * @s:
  *
- * 
+ *
  */
 static void
 telnet_main(ZProxy *s)
 {
-  TelnetProxy   *self = Z_CAST(s, TelnetProxy);
+  TelnetProxy *self = Z_CAST(s, TelnetProxy);
 
   z_proxy_enter(self);
 
-  if (!z_proxy_connect_server(&self->super, NULL, 0) ||
-      !telnet_init_streams(self))
+  if (!telnet_check_valid_config(self) || !telnet_init_client_stream(self))
     {
       z_proxy_leave(self);
       return;
     }
 
-  self->state[EP_CLIENT] = TELNET_DATA;
-  self->state[EP_SERVER] = TELNET_DATA;
-
-  while (z_poll_iter_timeout(self->poll, self->timeout))
+  if (telnet_proxy_is_transparent(self))
     {
-      if (!z_proxy_loop_iteration(s))
-        break;
+      /* No inband routing and no gateway authentication: connect right away to the server */
+      if (!z_proxy_connect_server(&self->super, NULL, 0) ||
+          !telnet_init_server_stream(self))
+        {
+          telnet_change_state(self, TELNET_STATE_QUIT);
+        }
+      else
+        {
+          telnet_change_state_to_connected(self);
+          /* start TLS as neccessary. */
+          if (!telnet_tls_is_negotiation_complete(self) &&
+              !telnet_tls_start_negotiate(self))
+            {
+              z_proxy_log(self, TELNET_ERROR, 3, "TLS negotiation error;");
+              telnet_change_state(self, TELNET_STATE_QUIT);
+            }
+        }
     }
+  else
+    {
+      /* start option negotiation with client */
+      telnet_event_start_opneg(self);
+    }
+
+  z_proxy_log(self, TELNET_DEBUG, 6, "Entering main loop;");
+
+  while (proxy_is_running(self))
+    {
+      if (!z_proxy_loop_iteration(s) ||
+          !z_poll_iter_timeout(self->poll, self->timeout) ||
+          !telnet_protocol_is_running(&self->protocol[EP_CLIENT]) ||
+          !telnet_protocol_is_running(&self->protocol[EP_SERVER]))
+        {
+          telnet_change_state(self, TELNET_STATE_QUIT);
+          break;
+        }
+
+      switch (self->state)
+        {
+        case TELNET_STATE_WAIT_OPNEG:
+          telnet_state_nt_wait_opneg(self);
+          break;
+
+        case TELNET_STATE_WAIT_ENVIRONMENT:
+          telnet_state_nt_wait_environment(self);
+          break;
+
+        case TELNET_STATE_PROMPT_USER:
+          telnet_state_nt_prompt_user(self);
+          break;
+
+        case TELNET_STATE_PROMPT_PASSWORD:
+          telnet_state_nt_prompt_password(self);
+          break;
+
+        case TELNET_STATE_PROMPT_SERVER:
+          telnet_state_nt_prompt_server(self);
+          break;
+
+        case TELNET_STATE_RELAYING:
+          break;
+
+        case TELNET_STATE_QUIT:
+          break;
+        };
+
+      telnet_stream_update_flow_control(self, EP_CLIENT);
+      telnet_stream_update_flow_control(self, EP_SERVER);
+    }
+
+  z_proxy_log(self, TELNET_DEBUG, 6, "Leaving main loop;");
 
   telnet_deinit_streams(self);
   z_proxy_leave(self);
 }
 
-
 /**
  * telnet_proxy_free:
- * @s: 
+ * @s:
  *
- * 
+ *
  */
 static void
 telnet_proxy_free(ZObject *s)
 {
-  gint          i;
-  TelnetProxy   *self = Z_CAST(s, TelnetProxy);
+  TelnetProxy *self = Z_CAST(s, TelnetProxy);
 
   z_enter();
-  for (i = 0; i < EP_MAX; i++)
-    g_free(self->write_buffers[i].buf);
+
+  telnet_lineedit_destroy(&self->line_editor);
+  telnet_protocol_destroy(&self->protocol[EP_CLIENT]);
+  telnet_protocol_destroy(&self->protocol[EP_SERVER]);
+
+  g_string_free(self->gw_password, TRUE);
+
   z_poll_unref(self->poll);
   self->poll = NULL;
+
   z_proxy_free_method(s);
   z_return();
 }
 
-
 /**
  * telnet_proxy_new:
- * @params: 
+ * @params:
  *
- * 
+ *
  *
  * Returns:
- * 
+ *
  */
 static ZProxy *
 telnet_proxy_new(ZProxyParams *params)
 {
-  TelnetProxy   *self;
+  TelnetProxy *self;
 
   z_enter();
   self = Z_CAST(z_proxy_new(Z_CLASS(TelnetProxy), params), TelnetProxy);
+
   z_return((ZProxy *) self);
 }
-
 
 static void telnet_proxy_free(ZObject *s);
 
 ZProxyFuncs telnet_proxy_funcs =
-{
-  { 
-    Z_FUNCS_COUNT(ZProxy),
-    telnet_proxy_free,
-  },
-  .config = telnet_config,
-  .main = telnet_main,
-};
+  {
+    {
+      Z_FUNCS_COUNT(ZProxy),
+      telnet_proxy_free,
+    },
+    .config = telnet_config,
+    .main = telnet_main,
+  };
 
 Z_CLASS_DEF(TelnetProxy, ZProxy, telnet_proxy_funcs);
+
+static ZProxyModuleFuncs telnet_module_funcs =
+  {
+    .create_proxy = telnet_proxy_new,
+  };
 
 /**
  * zorp_module_init:
  *
- * 
- *
  * Returns:
- * 
+ *
  */
 gint
 zorp_module_init(void)
 {
-  z_registry_add("telnet", ZR_PROXY, telnet_proxy_new);
+  z_registry_add("telnet", ZR_PROXY, &telnet_module_funcs);
   return TRUE;
 }

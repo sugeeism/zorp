@@ -45,4 +45,3 @@ guint pop3_policy_response_hash_do(Pop3Proxy *self);
 gboolean pop3_policy_stack_hash_do(Pop3Proxy *self, ZStackedProxy **stacked);
 
 #endif
-

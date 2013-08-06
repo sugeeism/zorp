@@ -31,14 +31,14 @@
   </description>
 </module>
 """
-  
+
 import new
 import socket
 
 from Zorp import *
 import Zorp
 from Zone import Zone, InetZone
-from Service import Service, PFService
+from Service import Service, PFService, DenyService, DenyIPv4, DenyIPv6
 from SockAddr import SockAddrInet, SockAddrInetHostname, SockAddrInetRange, SockAddrInet6, SockAddrUnix
 
 from Router import TransparentRouter, DirectedRouter, InbandRouter
@@ -57,6 +57,6 @@ from Encryption import EncryptionPolicy, TLSEncryption
 
 # conntrack support
 try:
-	from Receiver import Receiver, ZoneReceiver, CSZoneReceiver
+    from Receiver import Receiver, ZoneReceiver, CSZoneReceiver
 except:
-	pass
+    pass

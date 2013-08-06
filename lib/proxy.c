@@ -46,6 +46,7 @@
 #include <zorp/pysockaddr.h>
 #include <zorp/pyproxy.h>
 #include <zorp/pydispatch.h>
+#include <zorp/szig.h>
 #include <zorp/notification.h>
 #include <zorp/audit.h>
 #include <zorp/pyaudit.h>
@@ -64,13 +65,13 @@
  * z_stacked_proxy_destroy.
  *
  * When the child proxy starts up it adds a reference to its parent still in
- * the parent proxy's thread using z_proxy_add_child() in z_proxy_new(). 
+ * the parent proxy's thread using z_proxy_add_child() in z_proxy_new().
  * This adds a reference from child to parent through its parent_proxy
  * field, and from parent to child through its child_proxies list. This is a
  * circular reference.
  *
  * 1) The child proxy exits first
- * 
+ *
  *    When the child proxy exits it calls z_proxy_destroy() which in turn
  *    calls z_proxy_set_parent(NULL) which drops the reference to its
  *    parent. The circular reference is now resolved. The parent will detect
@@ -86,12 +87,12 @@
  *    valid as ZTransfer or proxy specific transfer code calls
  *    z_stacked_proxy_destroy(), thus the only remaining reference to the
  *    child proxy instance is through child_proxies.
- *    
+ *
  *    When the parent proxy exits, it calls z_proxy_destroy() which in turn
  *    frees every item on its child_proxies list.
  *
  *  3) The parent and child proxies exit at the same time
- * 
+ *
  *    In this case the exit is not synchronized by the EOF the parent reads
  *    from the child. Thus z_stacked_proxy_destroy() and z_proxy_destroy()
  *    might race on the following (possibly shared) data accesses:
@@ -110,7 +111,7 @@
  * this rule happens when the child proxy starts up and adds itself to its
  * parent's child_proxies list. The synchronization here is also simple as
  * this happens in the parent proxy's thread, thus no locks are necessary.
- * 
+ *
  * Interface list locking
  *
  * The interface list is manipulated from two threads simoultaneously:
@@ -120,13 +121,13 @@
  * A race might occur when the list is being deleted and the child wants to
  * communicate with the parent (for example: parent exits at the same time
  * the child wants to call set_verdict). This is resolved by using a
- * GStaticMutex in ZProxy called interfaces_lock. It is assumed that the
+ * mutex in ZProxy called interfaces_lock. It is assumed that the
  * ZProxyIface class does not touch the interfaces_lock in its destructor as
  * in that case a deadlock might occur.
  */
 
 /*
- * This hashtable contains the ZProxy instances indexed by their session_id. 
+ * This hashtable contains the ZProxy instances indexed by their session_id.
  * It is used by the SZIG code to look be able to communicate with actual
  * proxies.
  */
@@ -221,7 +222,7 @@ z_proxy_unregister(ZProxy *self)
   if (list != list_new)
     {
       g_hash_table_remove(proxy_hash, session_id);
-      
+
       if (list_new)
         g_hash_table_insert(proxy_hash, session_id, list_new);
       else
@@ -235,7 +236,6 @@ z_proxy_unregister(ZProxy *self)
   G_UNLOCK(proxy_hash_mutex);
 }
 
-
 /**
  * z_proxy_stop_req_cb:
  * @self: proxy instance
@@ -247,7 +247,7 @@ static void
 z_proxy_stop_req_cb(gpointer s, gpointer user_data G_GNUC_UNUSED)
 {
   ZProxy *self = (ZProxy *)s;
-  
+
   self->flags |= ZPF_STOP_REQUEST;
   z_proxy_wakeup(self);
 }
@@ -268,7 +268,7 @@ z_proxy_stop_request(const gchar *session_id)
   gboolean verdict = FALSE;
 
   G_LOCK(proxy_hash_mutex);
-  
+
   list = g_hash_table_lookup(proxy_hash, session_id);
 
   if (list)
@@ -280,9 +280,6 @@ z_proxy_stop_request(const gchar *session_id)
 
   return verdict;
 }
-
-
-
 
 
 /**
@@ -297,7 +294,7 @@ static void
 z_proxy_hash_unref_proxy(gpointer key G_GNUC_UNUSED, gpointer value, gpointer user_data G_GNUC_UNUSED)
 {
   GList *list = value, *l;
-  
+
   for (l = list; l; l = l->next)
     z_proxy_unref((ZProxy *) l->data);
 
@@ -352,7 +349,7 @@ z_proxy_policy_call_event(ZProxy *self, gchar *event, gchar *old_event_name)
   /*LOG
     This message reports that Zorp is about to call the proxy's %event() event.
    */
-  z_proxy_log(self, CORE_DEBUG, 7, "calling %s() event;", event);
+  z_proxy_log(self, CORE_DEBUG, 7, "calling event; %s()", event);
   res = z_policy_call(self->handler, event, NULL, &called, self->session_id);
   if (!called && old_event_name)
     {
@@ -360,7 +357,7 @@ z_proxy_policy_call_event(ZProxy *self, gchar *event, gchar *old_event_name)
 
       z_policy_var_unref(res);
       res = z_policy_call(self->handler, old_event_name, NULL, &called, self->session_id);
-      
+
       if (!obsolete_name_logged && called)
         {
           obsolete_name_logged = TRUE;
@@ -392,9 +389,9 @@ static gboolean
 z_proxy_policy_call(ZProxy *self, gchar *event, gchar *old_event_name)
 {
   gchar event_string[512];
-  
+
   z_proxy_enter(self);
-  
+
   z_policy_thread_acquire(self->thread);
 
   g_snprintf(event_string, sizeof(event_string), "__pre_%s__", event);
@@ -430,7 +427,7 @@ gboolean
 z_proxy_policy_config(ZProxy *self)
 {
   z_proxy_enter(self);
-  
+
   z_proxy_set_state(self, ZPS_CONFIG);
 
   z_policy_struct_set_is_config(self->ssl_opts.ssl_struct, TRUE);
@@ -440,7 +437,7 @@ z_proxy_policy_config(ZProxy *self)
       z_proxy_leave(self);
       return FALSE;
     }
-  
+
 #if 0
   // FIXME: readd variable dump
   z_policy_thread_acquire(self->thread);
@@ -486,7 +483,7 @@ z_proxy_policy_startup(ZProxy *self)
  * Acquires the thread associated with this TProxy instance and calls
  * the __pre_shutdown__, shutdown and __post_shutdown events.
  **/
-void 
+void
 z_proxy_policy_shutdown(ZProxy *self)
 {
   z_proxy_enter(self);
@@ -504,14 +501,14 @@ z_proxy_policy_shutdown(ZProxy *self)
  * Acquires the thread associated with this TProxy instance and calls
  * the __destroy__ event.
  **/
-void 
+void
 z_proxy_policy_destroy(ZProxy *self)
 {
   ZPolicyObj *res;
   gboolean called;
 
   /* NOTE: this function is also called when thread creation failed, in which case we are unable to call our Python functions */
-  
+
   z_proxy_enter(self);
   if (z_proxy_get_state(self) > ZPS_THREAD_STARTED)
     {
@@ -544,7 +541,7 @@ void
 z_proxy_set_priority(ZProxy *self, GThreadPriority pri)
 {
   GList *l;
-  
+
   if (self->proxy_pri != pri)
     {
       if ((self->flags & ZPF_NONBLOCKING) == 0 && self->proxy_thread)
@@ -565,7 +562,6 @@ static void
 z_proxy_propagate_channel_props(ZProxy *self G_GNUC_UNUSED)
 {
 }
-
 
 
 static gboolean
@@ -613,7 +609,7 @@ z_proxy_set_server_address(ZProxy *self, const gchar *host, gint port)
  * @self: proxy instance
  * @host: host to connect to, used as a hint by the policy layer but may as well be ignored
  * @port: port in host to connect to
- * 
+ *
  * Send a connectServer event to the associated policy object.  Returns TRUE
  * if the server-side connection is established, otherwise the
  * connection to the client should be closed.
@@ -624,7 +620,7 @@ z_proxy_connect_server(ZProxy *self, const gchar *host, gint port)
   ZPolicyObj *res;
   gint rc;
   gboolean called;
-  
+
   z_proxy_enter(self);
 
   /* It might be possible that we already connected to the server: if
@@ -705,10 +701,10 @@ z_proxy_user_authenticated(ZProxy *self, const gchar *entity, gchar const **grou
   ZPolicyObj *groups_tuple;
   gboolean called;
   gboolean rc = TRUE;
-  
+
   z_proxy_enter(self);
   z_policy_thread_acquire(self->thread);
-  
+
   if (groups)
     {
       groups_tuple = z_policy_convert_strv_to_list(groups);
@@ -752,9 +748,6 @@ z_proxy_user_authenticated(ZProxy *self, const gchar *entity, gchar const **grou
 }
 
 
-
-
-
 /**
  * @param self proxy instance
  * @param protocol the protocol number (ZD_PROTO_*) is returned here
@@ -766,12 +759,12 @@ z_proxy_user_authenticated(ZProxy *self, const gchar *entity, gchar const **grou
  *
  * This function is used to query the addresses used to connecting the proxy
  * to the client and server. The utilized application protocol is also
- * returned and the listener address which accepted the connection. 
+ * returned and the listener address which accepted the connection.
  *
  * NOTE: this function assumes that a Python thread state is acquired.
  **/
 gboolean
-z_proxy_get_addresses_locked(ZProxy *self, 
+z_proxy_get_addresses_locked(ZProxy *self,
                              guint *protocol,
                              ZSockAddr **client_address, ZSockAddr **client_local,
                              ZSockAddr **server_address, ZSockAddr **server_local,
@@ -784,7 +777,7 @@ z_proxy_get_addresses_locked(ZProxy *self,
   if (protocol)
     {
       ZPolicyObj *pyproto;
-      
+
       pyproto = z_session_getattr(self->handler, "protocol");
       if (PyInt_Check(pyproto))
         *protocol = PyInt_AsLong(pyproto);
@@ -848,7 +841,7 @@ z_proxy_get_addresses_locked(ZProxy *self,
  * NOTE: this function acquires the thread state associated with @self.
  **/
 gboolean
-z_proxy_get_addresses(ZProxy *self, 
+z_proxy_get_addresses(ZProxy *self,
                       guint *protocol,
                       ZSockAddr **client_address, ZSockAddr **client_local,
                       ZSockAddr **server_address, ZSockAddr **server_local,
@@ -868,7 +861,7 @@ z_proxy_get_addresses(ZProxy *self,
  *
  * This function is called to change the reference to the parent proxy.
  * A value of NULL specifies to drop the reference, anything else
- * removes the earlier reference and assigns a new one. See the 
+ * removes the earlier reference and assigns a new one. See the
  * comment on locking at the beginning of this file for more details.
  **/
 gboolean
@@ -876,7 +869,7 @@ z_proxy_set_parent(ZProxy *self, ZProxy *parent)
 {
   ZProxy *old_parent;
 
-  z_proxy_enter(self);  
+  z_proxy_enter(self);
   if (parent)
     {
       /* establish parent link */
@@ -949,8 +942,7 @@ z_proxy_del_child(ZProxy *self, ZProxy *child_proxy)
   return TRUE;
 }
 
-
-void 
+void
 z_proxy_set_group(ZProxy *self, ZProxyGroup *group)
 {
   self->group = z_proxy_group_ref(group);
@@ -985,7 +977,7 @@ z_proxy_add_iface(ZProxy *self, ZProxyIface *iface)
  * @iface: exported interface to delete
  *
  * This function deletes the interface specified in @iface from the set of
- * supported interfaces. 
+ * supported interfaces.
  *
  * NOTE: the locking implemented here assumes that the destructor for
  * z_proxy_iface will not touch interfaces lock again.
@@ -999,7 +991,7 @@ z_proxy_del_iface(ZProxy *self, ZProxyIface *iface)
   z_object_unref(&iface->super);
 }
 
-/** 
+/**
  * z_proxy_find_iface:
  * @self: ZProxy instance
  * @compat: search for an interface compatible with this class
@@ -1011,10 +1003,10 @@ ZProxyIface *
 z_proxy_find_iface(ZProxy *self, ZClass *compat)
 {
   GList *p;
-  
+
   if (!self)
     return NULL;
-    
+
   if (!z_object_is_subclass(Z_CLASS(ZProxyIface), compat))
     {
       /*LOG
@@ -1028,7 +1020,7 @@ z_proxy_find_iface(ZProxy *self, ZClass *compat)
     {
       ZObject *obj;
       ZProxyIface *iface;
-      
+
       obj = (ZObject *) p->data;
       if (z_object_is_compatible(obj, compat))
         {
@@ -1049,8 +1041,8 @@ z_proxy_var_register_va(ZProxy *s, ZPolicyDict *dict, const gchar *name, guint f
   switch (type)
     {
     case Z_VAR_TYPE_INT:
-      z_policy_dict_register(dict, 
-                             Z_VT_INT, name, flags, va_arg(args, gint *), NULL, 
+      z_policy_dict_register(dict,
+                             Z_VT_INT, name, flags, va_arg(args, gint *), NULL,
                              NULL);
       break;
     case Z_VAR_TYPE_INT64:
@@ -1059,41 +1051,41 @@ z_proxy_var_register_va(ZProxy *s, ZPolicyDict *dict, const gchar *name, guint f
                              NULL);
       break;
     case Z_VAR_TYPE_STRING:
-      z_policy_dict_register(dict, 
-                             Z_VT_STRING, name, flags | Z_VF_CONSUME, va_arg(args, GString *), NULL, 
+      z_policy_dict_register(dict,
+                             Z_VT_STRING, name, flags | Z_VF_CONSUME, va_arg(args, GString *), NULL,
                              NULL);
       break;
     case Z_VAR_TYPE_OBJECT:
-      z_policy_dict_register(dict, 
-                             Z_VT_OBJECT, name, flags | Z_VF_CONSUME, va_arg(args, ZPolicyObj **), NULL, 
+      z_policy_dict_register(dict,
+                             Z_VT_OBJECT, name, flags | Z_VF_CONSUME, va_arg(args, ZPolicyObj **), NULL,
                              NULL);
       break;
     case Z_VAR_TYPE_ALIAS:
-      z_policy_dict_register(dict, 
-                             Z_VT_ALIAS, name, flags, va_arg(args, gchar *), NULL, 
+      z_policy_dict_register(dict,
+                             Z_VT_ALIAS, name, flags, va_arg(args, gchar *), NULL,
                              NULL);
       break;
     case Z_VAR_TYPE_OBSOLETE:
-      z_policy_dict_register(dict, 
-                             Z_VT_ALIAS, name, flags | Z_VF_OBSOLETE, va_arg(args, gchar *), NULL, 
+      z_policy_dict_register(dict,
+                             Z_VT_ALIAS, name, flags | Z_VF_OBSOLETE, va_arg(args, gchar *), NULL,
                              NULL);
       break;
     case Z_VAR_TYPE_METHOD:
       {
         gpointer user_data = va_arg(args, gpointer);
         gpointer method = va_arg(args, gpointer);
-        z_policy_dict_register(dict, 
+        z_policy_dict_register(dict,
                                Z_VT_METHOD, name, flags, method, user_data, NULL, NULL,
                                NULL);
         break;
       }
     case Z_VAR_TYPE_HASH:
-      z_policy_dict_register(dict, 
+      z_policy_dict_register(dict,
                              Z_VT_HASH, name, flags | Z_VF_CONSUME, va_arg(args, GHashTable *), NULL,
                              NULL);
       break;
     case Z_VAR_TYPE_DIMHASH:
-      z_policy_dict_register(dict, 
+      z_policy_dict_register(dict,
                              Z_VT_DIMHASH, name, flags | Z_VF_CONSUME, va_arg(args, gpointer), NULL,
                              NULL);
       break;
@@ -1103,13 +1095,13 @@ z_proxy_var_register_va(ZProxy *s, ZPolicyDict *dict, const gchar *name, guint f
         gpointer get_value = va_arg(args, gpointer);
         gpointer set_value = va_arg(args, gpointer);
         gpointer free_value = va_arg(args, gpointer);
-        
-        z_policy_dict_register(dict, 
-                               Z_VT_CUSTOM, name, flags, 
+
+        z_policy_dict_register(dict,
+                               Z_VT_CUSTOM, name, flags,
                                  value, get_value, set_value, free_value,
                                  s, NULL,                // user_data, user_data_free
                                  NULL,                   // end of CUSTOM args
-                               NULL); 
+                               NULL);
         break;
       }
     default:
@@ -1128,7 +1120,6 @@ z_proxy_var_new(ZProxy *self, const gchar *name, guint flags, ...)
   z_proxy_var_register_va(self, self->dict, name, flags, args);
   va_end(args);
 }
-
 
 /**
  * FIXME: we may want to add functions to manipulate self->endpoints and
@@ -1171,7 +1162,7 @@ z_proxy_query_stream(ZProxy *self, gchar *name, gpointer value G_GNUC_UNUSED)
           res = z_policy_none;
         }
     }
-  else if (((ZPolicyStream *) res)->stream != self->endpoints[side]) 
+  else if (((ZPolicyStream *) res)->stream != self->endpoints[side])
     {
       /* the cache is out of sync */
       z_stream_unref(((ZPolicyStream *)res)->stream);
@@ -1202,7 +1193,7 @@ z_proxy_config_method(ZProxy *self)
   z_policy_dict_register(self->dict, Z_VT_INT8, "server_remote_tos", Z_VF_RW, &self->channel_props[EP_SERVER].tos[EP_DIR_IN], NULL);
   z_policy_dict_register(self->dict, Z_VT_INT8, "server_local_tos", Z_VF_RW, &self->channel_props[EP_SERVER].tos[EP_DIR_OUT], NULL);
 
-  z_proxy_var_new(self, "language", 
+  z_proxy_var_new(self, "language",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_GET_CONFIG,
                   self->language);
   z_proxy_var_new(self, "client_stream",
@@ -1211,6 +1202,9 @@ z_proxy_config_method(ZProxy *self)
   z_proxy_var_new(self, "server_stream",
                   Z_VAR_TYPE_CUSTOM | Z_VAR_GET,
                   NULL, z_proxy_query_stream, NULL, NULL);
+  z_proxy_var_new(self, "alerting_config",
+                  Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_GET_CONFIG,
+                  self->alerting_config);
 
   z_proxy_ssl_register_vars(self);
 
@@ -1302,18 +1296,18 @@ z_proxy_destroy_method(ZProxy *self)
       ifaces = ifaces->next;
       g_list_free_1(p);
     }
-  
+
   z_proxy_unregister(self);
 
   thread = self->thread;
   if (z_proxy_get_state(self) > ZPS_THREAD_STARTED)
-    {  
+    {
       for (i = EP_CLIENT; i <= EP_SERVER; i++)
         {
           z_policy_thread_acquire(thread);
           z_policy_var_unref(self->py_endpoints[i]);
           z_policy_thread_release(thread);
-          
+
           if (self->endpoints[i])
             {
               z_stream_shutdown(self->endpoints[i], SHUT_RDWR, NULL);
@@ -1322,7 +1316,7 @@ z_proxy_destroy_method(ZProxy *self)
               self->endpoints[i] = NULL;
             }
         }
-      
+
       z_policy_thread_acquire(thread);
       self->thread = NULL;
 
@@ -1335,7 +1329,7 @@ z_proxy_destroy_method(ZProxy *self)
 
       handler = self->handler;
       self->handler = NULL;
-      z_policy_var_unref(handler);  
+      z_policy_var_unref(handler);
 
       z_policy_thread_release(thread);
     }
@@ -1344,7 +1338,7 @@ z_proxy_destroy_method(ZProxy *self)
       self->thread = NULL;
     }
   z_policy_thread_destroy(thread);
-  
+
   z_proxy_leave(self);
 }
 
@@ -1366,6 +1360,7 @@ z_proxy_run(ZProxy *self)
       z_proxy_ssl_init_stream(self, EP_CLIENT))
     {
       z_proxy_propagate_channel_props(self);
+      z_szig_value_add_thread_id(self);
       z_proxy_main(self);
     }
   z_proxy_shutdown(self);
@@ -1376,7 +1371,7 @@ z_proxy_run(ZProxy *self)
 /**
  * z_proxy_thread_func:
  * @s: ZProxy instance as a general pointer
- * 
+ *
  * This is the default thread function for proxies. The thread is started
  * in z_proxy_start().
  **/
@@ -1384,7 +1379,7 @@ static gpointer
 z_proxy_thread_func(gpointer s)
 {
   ZProxy *self = Z_CAST(s, ZProxy);
-  
+
   self->proxy_thread = z_thread_self();
   z_proxy_set_state(self, ZPS_THREAD_STARTED);
   z_proxy_run(self);
@@ -1422,7 +1417,7 @@ gboolean
 z_proxy_nonblocking_start(ZProxy *self, ZProxyGroup *proxy_group)
 {
   gboolean success;
-  
+
   z_proxy_set_group(self, proxy_group);
   success = z_proxy_config(self) &&
             z_proxy_startup(self) &&
@@ -1434,7 +1429,7 @@ void
 z_proxy_nonblocking_stop(ZProxy *self)
 {
   z_proxy_nonblocking_deinit(self);
-  
+
   z_proxy_shutdown(self);
   z_proxy_destroy(self);
   z_proxy_group_stop_session(self->group, self);
@@ -1467,7 +1462,7 @@ z_proxy_wakeup_method(ZProxy *self)
  *
  * This function is to be called by proxies in their main loop. Whenever
  * this function returns FALSE the proxy should finish its processing and exit.
- * 
+ *
  * It currently calls propagate_channel_props and checks the ZPF_STOP_REQUEST flag.
  *
  * Returns: TRUE if the proxy can continue, FALSE if it has to be stopped
@@ -1492,13 +1487,14 @@ z_proxy_loop_iteration(ZProxy *s)
     }
 }
 
+
 /**
  * z_proxy_new:
  * @proxy_class: proxy class to instantiate
  * @params: ZProxyParams containing ZProxy parameters
  *
  * This function is to be called from proxy constructors to initialize
- * common fields in the ZProxy struct. 
+ * common fields in the ZProxy struct.
  *
  * NOTE: unlike in previous versions, z_proxy_new is called with the Python
  * interpreter unlocked, thus it must grab the interpreter lock to create
@@ -1511,10 +1507,10 @@ z_proxy_new(ZClass *proxy_class, ZProxyParams *params)
   ZProxy *self;
   ZProxyIface *iface;
   ZPolicyThread *policy_thread;
-  
+
   z_enter();
   self = Z_NEW_COMPAT(proxy_class, ZProxy);
-  
+
   if (params->client)
     {
       self->endpoints[EP_CLIENT] = params->client;
@@ -1523,14 +1519,17 @@ z_proxy_new(ZClass *proxy_class, ZProxyParams *params)
 
   g_strlcpy(self->session_id, params->session_id, sizeof(self->session_id));
   self->language = g_string_new("en");
-  
-  
+  self->alerting_config = g_string_new("{}");
+
+
   self->dict = z_policy_dict_new();
-  
+
+  g_static_mutex_init(&self->interfaces_lock);
+
   iface = (ZProxyIface *) z_proxy_basic_iface_new(Z_CLASS(ZProxyBasicIface), self);
   z_proxy_add_iface(self, iface);
   z_object_unref(&iface->super);
-  
+
   z_python_lock();
   z_policy_dict_wrap(self->dict, params->handler);
   self->handler = params->handler;
@@ -1546,7 +1545,6 @@ z_proxy_new(ZClass *proxy_class, ZProxyParams *params)
   z_return(self);
 }
 
-
 /**
  * z_proxy_free_method:
  * @self: proxy instance
@@ -1559,10 +1557,11 @@ void
 z_proxy_free_method(ZObject *s)
 {
   ZProxy *self = Z_CAST(s, ZProxy);
-  
+
   z_enter();
   z_proxy_log(self, CORE_DEBUG, 7, "Freeing ZProxy instance;");
   z_proxy_group_unref(self->group);
+  g_static_mutex_free(&self->interfaces_lock);
   z_object_free_method(s);
   z_leave();
 }
@@ -1580,7 +1579,7 @@ static ZProxyFuncs z_proxy_funcs =
   .destroy = z_proxy_destroy_method,
   .nonblocking_init = NULL,
   .nonblocking_deinit = NULL,
-  .wakeup = z_proxy_wakeup_method
+  .wakeup = z_proxy_wakeup_method,
 };
 
 Z_CLASS_DEF(ZProxy, ZObject, z_proxy_funcs);
@@ -1594,13 +1593,13 @@ Z_CLASS_DEF(ZProxy, ZObject, z_proxy_funcs);
  *
  * Constructor for ZProxyIface objects and derivates. A ZProxyIface
  * class encapsulates a function interface which permits inter-proxy
- * communication. 
+ * communication.
  **/
 ZProxyIface *
 z_proxy_iface_new(ZClass *class, ZProxy *proxy)
 {
   ZProxyIface *self;
-  
+
   self = Z_NEW_COMPAT(class, ZProxyIface);
   self->owner = z_proxy_ref(proxy);
   return self;
@@ -1616,7 +1615,7 @@ void
 z_proxy_iface_free_method(ZObject *s)
 {
   ZProxyIface *self = Z_CAST(s, ZProxyIface);
-  
+
   z_proxy_unref(self->owner);
   self->owner = NULL;
   z_object_free_method(s);
@@ -1629,7 +1628,6 @@ ZObjectFuncs z_proxy_iface_funcs =
 };
 
 Z_CLASS_DEF(ZProxyIface, ZObject, z_proxy_iface_funcs);
-
 
 /* ZProxyBasicIface */
 
@@ -1677,7 +1675,7 @@ ZProxyBasicIface *
 z_proxy_basic_iface_new(ZClass *class, ZProxy *proxy)
 {
   ZProxyBasicIface *self;
-  
+
   self = (ZProxyBasicIface *) z_proxy_iface_new(class, proxy);
   return self;
 }

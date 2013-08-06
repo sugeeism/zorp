@@ -27,7 +27,7 @@ from Zorp.Core import *
 from Zorp.AnyPy import AnyPyProxy
 
 InetZone('site-net', '192.168.1.0/24',
-         inbound_services=["*"], 
+         inbound_services=["*"],
          outbound_services=["*"])
 
 InetZone('local', '127.0.0.0/8',
@@ -35,26 +35,25 @@ InetZone('local', '127.0.0.0/8',
          outbound_services=["*"])
 
 InetZone('internet', '0.0.0.0/0',
-         inbound_services=["*"], 
+         inbound_services=["*"],
          outbound_services=["*"])
-                                                      
+
 
 class MyFinger(AnyPyProxy):
-	def proxyThread(self):
-		# establish connection
-		self.connectServer('', 0)
-		client = self.session.client_stream
-		server = self.session.server_stream
-		user = client.read(128)
-		server.write(user)
-		response = server.read(132)
-		while response:
-			client.write(response)
-			response = server.read(132)
-	
+    def proxyThread(self):
+        # establish connection
+        self.connectServer('', 0)
+        client = self.session.client_stream
+        server = self.session.server_stream
+        user = client.read(128)
+        server.write(user)
+        response = server.read(132)
+        while response:
+            client.write(response)
+            response = server.read(132)
+
 def zorp():
 
- 	Service("finger", MyFinger,
-		router=DirectedChainer(SockAddrInet('127.0.0.1', 79)))
-	Listener(SockAddrInet('127.0.0.1', 7979), "finger")
-
+    Service("finger", MyFinger,
+            router=DirectedChainer(SockAddrInet('127.0.0.1', 79)))
+    Listener(SockAddrInet('127.0.0.1', 7979), "finger")

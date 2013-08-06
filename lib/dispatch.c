@@ -48,7 +48,7 @@
  * These elements contain callback functions that will be notified when a new
  * connection is established to the chain's input point.
  */
- 
+
 #define MAX_DISPATCH_BIND_STRING 128
 
 /* our SockAddr based hash contains elements of this type */
@@ -173,7 +173,7 @@ z_dispatch_bind_equal(ZDispatchBind *key1, ZDispatchBind *key2)
 {
   if (key1->type != key2->type || key1->protocol != key2->protocol)
     return FALSE;
-  
+
   switch (key1->type)
     {
     case ZD_BIND_SOCKADDR:
@@ -187,7 +187,6 @@ z_dispatch_bind_equal(ZDispatchBind *key1, ZDispatchBind *key2)
     }
 }
 
-
 /**
  * z_dispatch_bind_hash:
  * @key The key to generate a hash value from
@@ -197,7 +196,7 @@ z_dispatch_bind_equal(ZDispatchBind *key1, ZDispatchBind *key2)
  * Returns:
  * The hash value
  */
-static guint 
+static guint
 z_dispatch_bind_hash(ZDispatchBind *key)
 {
   switch (key->type)
@@ -230,7 +229,7 @@ z_dispatch_bind_format(ZDispatchBind *self, gchar *buf, gsize buflen)
 {
   gchar sabuf[MAX_SOCKADDR_STRING];
   gchar ipbuf[16];
-  
+
   switch (self->type)
     {
     case ZD_BIND_SOCKADDR:
@@ -320,7 +319,7 @@ z_dispatch_bind_new_iface(guint protocol, const gchar *iface, gint family, const
   g_strlcpy(self->iface.iface, iface, sizeof(self->iface.iface));
   self->iface.family = family;
   self->iface.port = port;
-  
+
   switch (family)
     {
     case AF_INET:
@@ -355,13 +354,12 @@ z_dispatch_bind_new_iface_group(guint protocol, guint32 group, gint family, guin
   self->iface_group.group = group;
   self->iface_group.family = family;
   self->iface_group.port = port;
-  
+
   return self;
 }
 
-
 /**
- * z_dispatch_bind_ref: 
+ * z_dispatch_bind_ref:
  * @self: this
  *
  * Add a reference to @self:
@@ -374,7 +372,7 @@ z_dispatch_bind_ref(ZDispatchBind *self)
 }
 
 /**
- * z_dispatch_bind_unref: 
+ * z_dispatch_bind_unref:
  * @self: this
  *
  * Decrement reference count for @self and free if that reaches zero.
@@ -387,9 +385,9 @@ z_dispatch_bind_unref(ZDispatchBind *self)
     {
       if (self->type == ZD_BIND_SOCKADDR)
         z_sockaddr_unref(self->sa.addr);
-      
+
       g_free(self);
-      
+
     }
 }
 
@@ -417,10 +415,8 @@ z_dispatch_chain_unlock(ZDispatchChain *self)
   g_static_rec_mutex_unlock(&self->lock);
 }
 
-
 static inline ZDispatchChain *z_dispatch_chain_ref(ZDispatchChain *self);
 static inline void z_dispatch_chain_unref(ZDispatchChain *self);
-
 
 /**
  * z_dispatch_chain_thread:
@@ -430,7 +426,7 @@ static inline void z_dispatch_chain_unref(ZDispatchChain *self);
  * accept_queue and processes them by calling z_dispatch_connection.
  * When the popped connection is the special value Z_DISPATCH_THREAD_EXIT_MAGIC,
  * exits the processing loop and finishes the thread.
- * 
+ *
  * Returns: NULL
  */
 static gpointer
@@ -440,8 +436,8 @@ z_dispatch_chain_thread(gpointer st)
   ZConnection *conn;
   glong acceptq_sum;
   gint count;
-  
-  /* g_thread_set_priority(g_thread_self(), G_THREAD_PRIORITY_HIGH); */ 
+
+  /* g_thread_set_priority(g_thread_self(), G_THREAD_PRIORITY_HIGH); */
   /*LOG
    This message reports that a new dispatcher thread is starting. This is used if threaded
    dispatching is enabled.
@@ -476,7 +472,6 @@ z_dispatch_chain_thread(gpointer st)
   return NULL;
 }
 
-
 /**
  * z_dispatch_chain_new:
  * @protocol Protocol identifier (ZD_PROTO_*)
@@ -494,7 +489,7 @@ z_dispatch_chain_new(const gchar *session_id, ZDispatchBind *key, ZDispatchParam
 {
   ZDispatchChain *self = g_new0(ZDispatchChain, 1);
   gchar thread_name[256], buf[256];
-  
+
   z_enter();
   self->session_id = strdup(session_id);
   self->ref_cnt = 1;
@@ -541,7 +536,6 @@ z_dispatch_chain_ref(ZDispatchChain *self)
   return self;
 }
 
-
 /**
  * z_dispatch_chain_unref:
  * @self this
@@ -552,7 +546,7 @@ z_dispatch_chain_ref(ZDispatchChain *self)
 static inline void
 z_dispatch_chain_unref(ZDispatchChain *self)
 {
-  z_dispatch_chain_lock(self);  
+  z_dispatch_chain_lock(self);
   if (z_decref(&self->ref_cnt) == 0)
     {
       z_dispatch_chain_unlock(self);
@@ -586,13 +580,12 @@ z_dispatch_entry_free(ZDispatchEntry *entry)
   g_free(entry);
 }
 
-
 /**
  * z_dispatch_entry_compare_prio:
  * @a 1st entry
  * @b 2nd entry
  *
- * Compares the two entries by their priority, used for ordered inserting 
+ * Compares the two entries by their priority, used for ordered inserting
  * into the list by g_list_insert_sorted.
  *
  * Returns:
@@ -620,13 +613,13 @@ z_dispatch_entry_compare_prio(ZDispatchEntry *a, ZDispatchEntry *b)
  * chain items by passing it to their callbacks (for example to
  * z_py_zorp_dispatch_accept, which passes it to Dispatcher.accepted).
  */
-static void 
+static void
 z_dispatch_connection(ZDispatchChain *chain, ZConnection *conn)
 {
   GList *p;
   ZDispatchEntry *entry;
   gchar buf[256];
-  
+
   z_enter();
   z_dispatch_chain_lock(chain);
   /* the list is ordered by priority */
@@ -644,14 +637,15 @@ z_dispatch_connection(ZDispatchChain *chain, ZConnection *conn)
         }
     }
   z_dispatch_chain_unlock(chain);
-  
+
   /* nobody needed this connection, destroy it */
   /*LOG
     This message indicates that a new connection was accepted, but no
-    Listenet/Receiver/Proxy was interested in it.
+    Listener/Receiver/Proxy was interested in it.
    */
   z_log(NULL, CORE_ERROR, 3, "Nobody was interested in this connection; %s", z_connection_format(conn, buf, sizeof(buf)));
-  z_connection_destroy(conn, TRUE);
+  if (conn)
+    z_connection_destroy(conn, TRUE);
   z_return();
 }
 
@@ -665,10 +659,10 @@ z_dispatch_connection(ZDispatchChain *chain, ZConnection *conn)
  * Internal callback, called when a new incoming connection is established.
  * Creates and initialises a new ZConnection, and dispatches it to the chain
  * either synchronously by z_dispatch_connection or asynchronously by pushing
- * it to the chain's accept queue. 
+ * it to the chain's accept queue.
  *
  * Note: this function runs in the main thread.
- * 
+ *
  * Returns: TRUE
  */
 static gboolean
@@ -676,14 +670,14 @@ z_dispatch_accept(ZStream *fdstream, ZSockAddr *client, ZSockAddr *dest, gpointe
 {
   ZConnection *conn = NULL;
   ZDispatchChain *chain = (ZDispatchChain *) user_data;
-    
+
   z_enter();
   if (fdstream == NULL)
     {
       z_dispatch_connection(chain, NULL);
       z_return(TRUE);
     }
-    
+
   if (chain->params.common.transparent)
     {
       ZSockAddr *listen_addr = NULL;
@@ -702,7 +696,7 @@ z_dispatch_accept(ZStream *fdstream, ZSockAddr *client, ZSockAddr *dest, gpointe
           /* NOTE: we are running in the main thread just like the
            * code that manipulates chain->listeners, thus we don't need to
            * lock here. This is even true for threaded listeners as
-           * z_dispatch_accept runs in the main thread in that case too. 
+           * z_dispatch_accept runs in the main thread in that case too.
            */
 
           for (p = chain->listeners; p; p = p->next)
@@ -729,10 +723,10 @@ z_dispatch_accept(ZStream *fdstream, ZSockAddr *client, ZSockAddr *dest, gpointe
             non-transparent or deny direct access to it and set up the
             appropriate TPROXY rule.
 
-            @see: Listener 
+            @see: Listener
             @see: Receiver
           */
-          z_log(chain->session_id, CORE_ERROR, 1, "Transparent listener connected directly, dropping connection; local='%s', client_local='%s'", 
+          z_log(chain->session_id, CORE_ERROR, 1, "Transparent listener connected directly, dropping connection; local='%s', client_local='%s'",
                 z_sockaddr_format(listen_addr, buf1, sizeof(buf1)),
                 z_sockaddr_format(dest, buf2, sizeof(buf2)));
           z_stream_close(fdstream, NULL);
@@ -742,7 +736,7 @@ z_dispatch_accept(ZStream *fdstream, ZSockAddr *client, ZSockAddr *dest, gpointe
           z_return(TRUE);
         }
     }
-      
+
   conn = z_connection_new();
   conn->remote = client;
   conn->dest = dest;
@@ -750,12 +744,12 @@ z_dispatch_accept(ZStream *fdstream, ZSockAddr *client, ZSockAddr *dest, gpointe
   conn->dispatch_bind = z_dispatch_bind_ref(chain->registered_key);
   conn->protocol = chain->registered_key->protocol;
   conn->stream = fdstream;
-    
+
   if (chain->threaded)
     g_async_queue_push(chain->accept_queue, conn);
   else
     z_dispatch_connection(chain, conn);
-    
+
   z_return(TRUE);
 }
 
@@ -763,7 +757,7 @@ static ZListener *
 z_dispatch_new_listener(ZDispatchChain *chain, ZSockAddr *local)
 {
   ZListener *listener = NULL;
-  guint32 sock_flags = (chain->params.common.mark_tproxy ? ZSF_MARK_TPROXY : 0) | 
+  guint32 sock_flags = (chain->params.common.mark_tproxy ? ZSF_MARK_TPROXY : 0) |
                             (chain->params.common.transparent ? ZSF_TRANSPARENT : 0);
 
   if (chain->registered_key->protocol == ZD_PROTO_TCP)
@@ -782,7 +776,7 @@ static gboolean
 z_dispatch_iface_addr_matches(gint family, void *addr, ZDispatchBind *db)
 {
   gboolean match = FALSE;
-  
+
   if (db->type == ZD_BIND_IFACE)
     {
       switch (family)
@@ -800,7 +794,7 @@ z_dispatch_iface_addr_matches(gint family, void *addr, ZDispatchBind *db)
     {
       match = TRUE;
     }
-    
+
   return match;
 }
 
@@ -964,8 +958,8 @@ z_dispatch_bind_iface_group_change(guint32 group, ZIfChangeType change, const gc
  * @session_id Session identifier
  * @chain this
  *
- * Starts listening/receiving for a chain. 
- * 
+ * Starts listening/receiving for a chain.
+ *
  * Returns:
  * TRUE on success
  */
@@ -974,7 +968,7 @@ z_dispatch_bind_listener(ZDispatchChain *chain, ZDispatchBind **bound_key)
 {
   gboolean rc = TRUE;
   ZListener *listener;
-  
+
   z_enter();
   *bound_key = NULL;
   switch (chain->registered_key->type)
@@ -1036,11 +1030,10 @@ z_dispatch_bind_listener(ZDispatchChain *chain, ZDispatchBind **bound_key)
       *bound_key = z_dispatch_bind_ref(chain->registered_key);
       break;
     }
-    
+
   z_leave();
   return rc;
 }
-
 
 /**
  * z_dispatch_unbind_listener:
@@ -1081,7 +1074,6 @@ z_dispatch_unbind_listener(ZDispatchChain *chain)
   z_return();
 }
 
-
 /**
  * z_dispatch_register:
  * @session_id Session identifier
@@ -1104,8 +1096,8 @@ z_dispatch_unbind_listener(ZDispatchChain *chain)
 ZDispatchEntry *
 z_dispatch_register(gchar *session_id,
                     ZDispatchBind *key,
-                    ZSockAddr **bound_addr, 
-                    gint prio, 
+                    ZSockAddr **bound_addr,
+                    gint prio,
                     ZDispatchParams *params,
                     ZDispatchCallbackFunc cb, gpointer user_data, GDestroyNotify data_destroy)
 {
@@ -1113,7 +1105,7 @@ z_dispatch_register(gchar *session_id,
   ZDispatchEntry *entry = NULL;
   ZDispatchBind *bound_key;
 
-  z_session_enter(session_id);  
+  z_session_enter(session_id);
 
   G_LOCK(dispatch_lock);
 
@@ -1142,28 +1134,28 @@ z_dispatch_register(gchar *session_id,
       if (key->protocol == ZD_PROTO_TCP && chain->params.tcp.accept_one)
         {
           gchar buf[MAX_DISPATCH_BIND_STRING];
-           
+
           /*LOG
             This message indicates that a Listener/Receiver/Proxy was unable
             bind to a specified address, because another instance is already
             listening there and specified that only one connection could be
             accepted.
            */
-          z_log(session_id, CORE_ERROR, 1, 
-                  "Error registering dispatch, previous entry specified accept_one; dispatch='%s'", 
+          z_log(session_id, CORE_ERROR, 1,
+                  "Error registering dispatch, previous entry specified accept_one; dispatch='%s'",
                   z_dispatch_bind_format(key, buf, sizeof(buf)));
           goto error;
         }
-        
+
       /* we have a fully specified key, which was already registered, bound_key == key */
-      
+
       bound_key = z_dispatch_bind_ref(key);
       z_dispatch_chain_ref(chain);
     }
-  
+
   if (bound_addr)
     *bound_addr = z_sockaddr_ref(chain->bound_addr);
-  
+
   entry = g_new0(ZDispatchEntry, 1);
   entry->chain_key = bound_key;
   entry->session_id = g_strdup(session_id);
@@ -1177,7 +1169,7 @@ z_dispatch_register(gchar *session_id,
 
  error:
   G_UNLOCK(dispatch_lock);
-  
+
   z_session_leave(session_id);
   return entry;
 }
@@ -1197,7 +1189,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
   gchar buf[MAX_DISPATCH_BIND_STRING];
   gboolean found, unbind;
   gpointer orig_key, orig_chain;
-  
+
   z_enter();
   G_LOCK(dispatch_lock);
   found = g_hash_table_lookup_extended(dispatch_table, entry->chain_key, &orig_key, &orig_chain);
@@ -1206,7 +1198,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
   if (found && chain)
     {
       GList *p;
-      
+
       z_dispatch_chain_lock(chain);
       p = g_list_find(chain->elements, entry);
       if (p)
@@ -1221,7 +1213,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
 	    unbind from the specified address, but have not registered
 	    itself to that address.
 	   */
-          z_log(NULL, CORE_ERROR, 1, "Internal error, dispatch entry not found (chain exists); dispatch='%s', entry='%p'", 
+          z_log(NULL, CORE_ERROR, 1, "Internal error, dispatch entry not found (chain exists); dispatch='%s', entry='%p'",
                 z_dispatch_bind_format(entry->chain_key, buf, sizeof(buf)), entry);
         }
 
@@ -1248,8 +1240,8 @@ z_dispatch_unregister(ZDispatchEntry *entry)
 	unbind from the specified address, but Zorp does not bind to that
 	address.
        */
-      z_log(NULL, CORE_ERROR, 1, 
-            "Internal error, dispatch entry not found (no chain); dispatch='%s', entry='%p'", 
+      z_log(NULL, CORE_ERROR, 1,
+            "Internal error, dispatch entry not found (no chain); dispatch='%s', entry='%p'",
             z_dispatch_bind_format(entry->chain_key, buf, sizeof(buf)), entry);
     }
   G_UNLOCK(dispatch_lock);
@@ -1268,7 +1260,6 @@ z_dispatch_init(void)
 {
   dispatch_table = g_hash_table_new((GHashFunc) z_dispatch_bind_hash, (GEqualFunc) z_dispatch_bind_equal);
 }
-
 
 /**
  * z_dispatch_destroy:

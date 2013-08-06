@@ -23,18 +23,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Author: Hidden
- * Auditor:
- * Last audited version:
- * Notes:
- ***************************************************************************/
+ */
 
-#ifndef ZORP_MODULES_TELNETPOLICY_H_INCLUDED
-#define ZORP_MODULES_TELNETPOLICY_H_INCLUDED
+#ifndef ZORP_MODULES_TELNET_TELNETPOLICY_H_INCLUDED
+#define ZORP_MODULES_TELNET_TELNETPOLICY_H_INCLUDED
 
 #include "telnet.h"
+#include "telnetpatternmatch.h"
 
-guint telnet_policy_option(TelnetProxy *self);
-guint telnet_policy_suboption(TelnetProxy *self, guchar command, gchar *name, gchar* value);
+ZVerdict telnet_policy_option(TelnetProxy *self, ZEndpoint ep, guint8 command, guint8 option);
+ZVerdict telnet_policy_suboption(TelnetProxy *self, ZEndpoint ep, guint8 option, guint8 subcommand, gchar *name, gchar* value);
+gboolean telnet_policy_parse_authinfo(TelnetProxy *self, const gchar *env, GString *content);
 
 #endif
-

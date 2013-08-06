@@ -22,14 +22,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * 
+ *
  * Author: SZALAY Attila <sasa@balabit.hu>
- * Auditor: 
- * Last audited version: 
+ * Auditor:
+ * Last audited version:
  * Notes:
- *   
+ *
  ***************************************************************************/
-            
 
 #include <zorp/proxy/errorloader.h>
 #include <zorp/log.h>
@@ -42,15 +41,15 @@ void
 z_error_append_escaped(GString *content, const gchar *append, guint32 flags)
 {
   const gchar *p;
-  
+
   g_assert((flags & (Z_EF_ESCAPE_NONE + Z_EF_ESCAPE_HTML)) != 0);
-  
+
   if (flags & Z_EF_ESCAPE_NONE)
     {
       g_string_append(content, append);
       return;
     }
-    
+
   for (p = append; *p; p++)
     {
       if (flags & Z_EF_ESCAPE_HTML)
@@ -99,7 +98,7 @@ z_error_loader_format_file(gchar *filepath, gchar *additional_info, guint32 flag
         {
           contents[count] = 0;
           src = contents;
-          while (*src)   
+          while (*src)
             {
               if (*src == '@')
                 {
@@ -136,20 +135,20 @@ z_error_loader_format_file(gchar *filepath, gchar *additional_info, guint32 flag
                   else
                     {
                       gint i = 0;
-                      
+
                       if (infos)
                         {
                           gint left = strlen(src + 1);
-                          
+
                           for (i = 0; infos[i].variable != NULL; i++)
                             {
                               gint var_length = strlen(infos[i].variable);
-                              
+
                               if (left > var_length && strncmp(src + 1, infos[i].variable, strlen(infos[i].variable)) == 0 &&
                                          src[var_length + 1] == '@')
                                 {
                                   gchar *info;
-                                  
+
                                   info = infos[i].resolve(infos[i].variable, user_data);
                                   if (info)
                                     {
@@ -180,14 +179,14 @@ z_error_loader_format_file(gchar *filepath, gchar *additional_info, guint32 flag
           count = read(fd, contents, sizeof(contents) - 1);
         }
       close(fd);
-      
+
       if (count < 0)
         {
           g_string_free(new_contents, TRUE);
           new_contents = NULL;
         }
     }
-  
+
  exit:
   if (new_contents)
     ret = g_string_free(new_contents, FALSE);
