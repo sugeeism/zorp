@@ -266,7 +266,12 @@ in a roundrobin fashion.</para>
         if session.isServerPermitted() == ZV_ACCEPT:
             #remote.options = session.client_address.options
             try:
-                conn = Attach(session.proxy, protocol, local, remote, tos=session.proxy.server_local_tos, local_loose=session.target_local_loose, timeout=self.timeout_connect, local_random=session.target_local_random)
+                conn = Attach(session.proxy, protocol, local, remote,
+                              tos=session.proxy.server_local_tos,
+                              local_loose=session.target_local_loose,
+                              timeout=self.timeout_connect,
+                              local_random=session.target_local_random,
+                              server_socket_mark=session.proxy.server_socket_mark)
                 session.server_stream = conn.start()
                 session.server_local = conn.local
             except IOError:
@@ -312,11 +317,14 @@ in a roundrobin fashion.</para>
         """
         if session.service.snat_policy:
             local = session.service.snat_policy.performTranslation(session, (target_local, target_remote), NAT_SNAT)
+
+            if not local and session.service.router.forge_addr:
+                local = target_local
         else:
             local = target_local
 
         if session.service.dnat_policy:
-            remote = session.service.dnat_policy.performTranslation(session, (target_local, target_remote), NAT_DNAT)
+            remote = session.service.dnat_policy.performTranslation(session, (target_local, target_remote), NAT_DNAT) or target_remote
         else:
             remote = target_remote
 

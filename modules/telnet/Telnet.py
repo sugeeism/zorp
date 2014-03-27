@@ -24,7 +24,6 @@
 ## Notes:
 ##
 ############################################################################
-
 """<module maturity="stable">
   <summary>
     Proxy for the Telnet protocol.
@@ -907,7 +906,6 @@ TELNET_SB_INFO  = "2"
 
 TELNET_POLICY   = "telnet.policy"
 
-
 class ParseInbandAuthError(Exception):
     """<class internal="yes"/>"""
     pass
@@ -1116,7 +1114,7 @@ class AbstractTelnetProxy(Proxy):
         }
 
         def parseServer(self, content, state):
-
+            """<method internal="yes"/>"""
             colon_count = content.count(':')
             if not content:
                 #Empty content is not acceptable, so make it fail
@@ -1138,7 +1136,7 @@ class AbstractTelnetProxy(Proxy):
                 raise ParseInbandAuthError, "SERVER environment variable must be in the form of server[:port]"
 
         def parseUser(self, content, state):
-
+            """<method internal="yes"/>"""
             at_count = content.count('@')
             colon_count = content.count(':')
             if not content:

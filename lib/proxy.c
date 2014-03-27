@@ -1192,6 +1192,7 @@ z_proxy_config_method(ZProxy *self)
   z_policy_dict_register(self->dict, Z_VT_INT8, "client_local_tos", Z_VF_RW, &self->channel_props[EP_CLIENT].tos[EP_DIR_OUT], NULL);
   z_policy_dict_register(self->dict, Z_VT_INT8, "server_remote_tos", Z_VF_RW, &self->channel_props[EP_SERVER].tos[EP_DIR_IN], NULL);
   z_policy_dict_register(self->dict, Z_VT_INT8, "server_local_tos", Z_VF_RW, &self->channel_props[EP_SERVER].tos[EP_DIR_OUT], NULL);
+  z_policy_dict_register(self->dict, Z_VT_INT, "server_socket_mark", Z_VF_RW | Z_VF_CFG_RW, &self->server_socket_mark, NULL);
 
   z_proxy_var_new(self, "language",
                   Z_VAR_TYPE_STRING | Z_VAR_GET | Z_VAR_SET_CONFIG | Z_VAR_GET_CONFIG,
@@ -1518,6 +1519,7 @@ z_proxy_new(ZClass *proxy_class, ZProxyParams *params)
     }
 
   g_strlcpy(self->session_id, params->session_id, sizeof(self->session_id));
+  self->server_socket_mark = 0;
   self->language = g_string_new("en");
   self->alerting_config = g_string_new("{}");
 

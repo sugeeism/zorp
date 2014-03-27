@@ -469,8 +469,14 @@ class RuleDispatcher(BaseDispatch):
         """<method internal="yes">
         </method>
         """
+        def deinit():
+          cls._singletonRuleDispatcher = None
+
         if not hasattr(cls, "_singletonRuleDispatcher"):
             cls._singletonRuleDispatcher = RuleDispatcher()
+
+            #This is need to break the circular reference on RuleDispatcher
+            Globals.deinit_callbacks.append(deinit)
 
 class Dispatcher(BaseDispatch):
     """

@@ -322,18 +322,21 @@ Proxy-agent: My-Proxy/1.1</synopsis>
       <section>
         <title>Request types</title>
         <para>
-          Zorp differentiates between two request types: server requests and proxy request. Server
-          requests are sent by browsers directly communicating with HTTP
-          servers. These requests include an URL relative to the server
-          root (e.g.: /index.html), and a 'Host' header indicating which
-          virtual server to use.
-        </para>
-        <para>
-          Proxy requests are used when the browser
-          communicates with an HTTP proxy. These requests include a fully
-          specified URL (e.g.: http://www.example.com/index.html).
-        </para>
-        <para>
+          Zorp differentiates between two request types: server requests and proxy request.</para>
+          <itemizedlist>
+            <listitem>
+                <para>Server requests are sent by browsers directly communicating with HTTP
+                  servers. These requests include an URL relative to the server
+                  root (e.g.: /index.html), and a 'Host' header indicating which
+                  virtual server to use.</para>
+            </listitem>
+            <listitem>
+                <para>Proxy requests are used when the browser
+                  communicates with an HTTP proxy. These requests include a fully
+                  specified URL (e.g.: http://www.example.com/index.html).</para>
+            </listitem>
+          </itemizedlist>
+        <para>Zorp determines the type of the incoming request from the request URL, even if the Proxy-connection header exist.
           As there is no clear distinction between the two request types,
           the type of the request cannot always be accurately detected automatically, though all
           common cases are covered.
@@ -342,21 +345,23 @@ Proxy-agent: My-Proxy/1.1</synopsis>
           Requests are handled differently in transparent and
           non-transparent modes.
         </para>
-        <para>
-          A transparent HTTP proxy (<parameter>transparent_mode</parameter> attribute is TRUE) is
-          meant to be installed in front of a network where clients do not
-          know about the presence of the firewall. In this case the proxy
-          expects to see server type requests only. If clients communicate
-          with a real HTTP proxy through the firewall, proxy type requests
-          must be explicitly enabled using the <parameter>permit_proxy_requests</parameter>
-          attribute, or transparent mode has to be used.
-        </para>
-        <para>
-          The use of non-transparent HTTP proxies (<parameter>transparent_mode</parameter>
-          attribute is FALSE) must be configured in web browsers behind
-          the firewall. In this case Zorp expects proxy requests only, and
-          emits server requests (assuming <parameter>parent_proxy</parameter> is not set).
-        </para>
+        <itemizedlist>
+            <listitem>
+                <para>A transparent HTTP proxy (<parameter>transparent_mode</parameter> attribute is TRUE) is
+                      meant to be installed in front of a network where clients do not
+                      know about the presence of the firewall. In this case the proxy
+                      expects to see server type requests only. If clients communicate
+                      with a real HTTP proxy through the firewall, proxy type requests
+                      must be explicitly enabled using the <parameter>permit_proxy_requests</parameter>
+                      attribute, or transparent mode has to be used.</para>
+            </listitem>
+            <listitem>
+                <para>The use of non-transparent HTTP proxies (<parameter>transparent_mode</parameter>
+                      attribute is FALSE) must be configured in web browsers behind
+                      the firewall. In this case Zorp expects proxy requests only, and
+                      emits server requests (assuming <parameter>parent_proxy</parameter> is not set).</para>
+            </listitem>
+          </itemizedlist>
       </section>
       <section>
         <title>Using parent proxies</title>
@@ -1271,27 +1276,6 @@ class AbstractHttpProxy(Proxy):
             if this option is enabled for servers. It is recommended to turn this
             option off for protecting servers and only enable it when
             Zorp is used in front of users.
-          </description>
-        </attribute>
-        <attribute>
-          <name>permit_both_connection_headers</name>
-          <type>
-            <boolean/>
-          </type>
-          <default>FALSE</default>
-          <conftime>
-            <read/>
-            <write/>
-          </conftime>
-          <runtime>
-            <read/>
-          </runtime>
-          <description>
-            Some clients send both a Connection and a Proxy-Connection
-            header, which are used by Zorp to automatically detect what
-            kind of connection Zorp receives. This situation is
-            forbidden in Zorp by default but can be enabled by setting
-            this attribute to TRUE.
           </description>
         </attribute>
         <attribute>

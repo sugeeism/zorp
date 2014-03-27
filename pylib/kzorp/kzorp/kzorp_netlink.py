@@ -79,7 +79,13 @@ KZNL_ATTR_N_DIMENSION_DST_IFACE         = 46
 KZNL_ATTR_N_DIMENSION_DST_IFGROUP       = 47
 KZNL_ATTR_N_DIMENSION_REQID             = 48
 KZNL_ATTR_QUERY_PARAMS_REQID            = 49
-KZNL_ATTR_MAX                           = 50
+KZNL_ATTR_N_DIMENSION_PROTO_TYPE        = 50
+KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE     = 51
+KZNL_ATTR_QUERY_PARAMS_SRC_PORT         = 52
+KZNL_ATTR_QUERY_PARAMS_DST_PORT         = 53
+KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE       = 54
+KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE    = 55
+KZNL_ATTR_MAX                           = 56
 
 # list of attributes in an N dimension rule
 N_DIMENSION_ATTRS = [
@@ -97,6 +103,8 @@ N_DIMENSION_ATTRS = [
   KZNL_ATTR_N_DIMENSION_DST_IFACE,
   KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
   KZNL_ATTR_N_DIMENSION_REQID,
+  KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
+  KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
 ]
 
 # name of global instance
@@ -373,6 +381,8 @@ def parse_rule_entry_attrs(attr):
                 value = parse_inet_subnet_attr(attr[dim_type], get_family_from_attr(attr[dim_type]))
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFGROUP or \
                  dim_type == KZNL_ATTR_N_DIMENSION_DST_IFGROUP or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_TYPE or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE or \
                  dim_type == KZNL_ATTR_N_DIMENSION_REQID:
                 value = struct.unpack('>I',  data[:4])[0]
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFACE    or \
@@ -393,9 +403,8 @@ def create_service_params_attr(type, svc_type, svc_flags):
 def parse_service_params_attr(attr):
     return struct.unpack('>IB', attr.get_data()[:5])
 
-def create_query_params_attr(type, proto, sport, dport, iface):
-    data = struct.pack('>HH', sport, dport)
-    data = "".join((data, iface, "\0" * (16 - len(iface)), struct.pack('>B', proto)))
+def create_query_params_attr(type, proto, iface):
+    data = "".join((iface, "\0" * (16 - len(iface)), struct.pack('>B', proto)))
     return NetlinkAttribute(type, data = data)
 
 def create_deny_setting_attr(type, setting):
@@ -903,6 +912,8 @@ class KZorpAddRuleEntryMessage(GenericNetlinkMessage):
                 self.append_attribute(create_inet_subnet_attr(dim_type, socket.AF_INET6, value[0], value[1]))
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFGROUP or \
                  dim_type == KZNL_ATTR_N_DIMENSION_DST_IFGROUP or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_TYPE or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE or \
                  dim_type == KZNL_ATTR_N_DIMENSION_REQID:
                 self.append_attribute(NetlinkAttribute.create_be32(dim_type, value))
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFACE    or \
@@ -922,7 +933,7 @@ class KZorpAddRuleEntryMessage(GenericNetlinkMessage):
         return KZorpAddRuleEntryMessage(dpt_name, rule_id, entry_values)
 
     def aggregate_rule_entries(self, rule_entries):
-        dpt_protocols = {6: "TCP", 17: "UDP"}
+        dpt_protocols = {1: "ICMP", 6: "TCP", 17: "UDP"}
 
         for dim_type, value in self.entry_values.items():
             if not dim_type in rule_entries:
@@ -957,8 +968,19 @@ class KZorpGetDispatcherMessage(GenericNetlinkMessage):
 class KZorpQueryMessage(GenericNetlinkMessage):
     command = KZNL_MSG_QUERY
 
-    def __init__(self, proto, family, saddr, sport, daddr, dport, iface, reqid = None):
+    def __init__(self, proto, family, saddr, daddr, iface,
+                 sport = None, dport = None,
+                 proto_type = None, proto_subtype = None,
+                 reqid = None):
         super(KZorpQueryMessage, self).__init__(self.command, version = 1)
+
+        if (proto == socket.IPPROTO_TCP or proto == socket.IPPROTO_UDP) and \
+           (sport == None or dport == None):
+            raise NetlinkAttributeException, "no source or destination port given while protocol is TCP or UDP"
+
+        if (proto == socket.IPPROTO_ICMP or proto == socket.IPPROTO_ICMPV6) and \
+           (proto_type == None or proto_subtype == None):
+            raise NetlinkAttributeException, "no type or code given while protocol is ICMP"
 
         self.proto = proto
         self.family = family
@@ -968,15 +990,25 @@ class KZorpQueryMessage(GenericNetlinkMessage):
         self.dport = dport
         self.iface = iface
         self.reqid = reqid
+        self.proto_type = proto_type
+        self.proto_subtype = proto_subtype
 
         self._build_payload()
 
     def _build_payload(self):
         self.append_attribute(create_inet_addr_attr(KZNL_ATTR_QUERY_PARAMS_SRC_IP, self.family, self.saddr))
         self.append_attribute(create_inet_addr_attr(KZNL_ATTR_QUERY_PARAMS_DST_IP, self.family, self.daddr))
-        if self.reqid:
+        if self.reqid is not None:
             self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_QUERY_PARAMS_REQID, self.reqid))
-        self.append_attribute(create_query_params_attr(KZNL_ATTR_QUERY_PARAMS, self.proto, self.sport, self.dport, self.iface))
+        if self.sport is not None:
+            self.append_attribute(NetlinkAttributePort(KZNL_ATTR_QUERY_PARAMS_SRC_PORT, self.sport))
+        if self.dport is not None:
+            self.append_attribute(NetlinkAttributePort(KZNL_ATTR_QUERY_PARAMS_DST_PORT, self.dport))
+        if self.proto_type is not None:
+            self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE, self.proto_type))
+        if self.proto_subtype is not None:
+            self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE, self.proto_subtype))
+        self.append_attribute(create_query_params_attr(KZNL_ATTR_QUERY_PARAMS, self.proto, self.iface))
 
 class KZorpQueryReplyMessage(GenericNetlinkMessage):
     command = KZNL_MSG_QUERY_REPLY
@@ -1049,6 +1081,14 @@ class NetlinkAttributeProto(NetlinkAttribute):
             raise NetlinkAttributeException, "not supported protocol; proto='%d'" % proto
 
         NetlinkAttribute.__init__(self, type, data=struct.pack('>B', proto))
+
+class NetlinkAttributeProtoType(NetlinkAttribute):
+    def __init__(self, type, proto_type):
+        NetlinkAttribute.__init__(self, type, data=struct.pack('>H', proto_type))
+
+class NetlinkAttributeProtoSubtype(NetlinkAttribute):
+    def __init__(self, type, proto_subtype):
+        NetlinkAttribute.__init__(self, type, data=struct.pack('>H', proto_subtype))
 
 class KZorpAddBindMessage(GenericNetlinkMessage):
     command = KZNL_MSG_ADD_BIND

@@ -36,11 +36,11 @@ class TestGeneralNAT(unittest.TestCase):
         NATPolicy('test', GeneralNAT(
                         [(InetDomain('0.0.0.0/32'), InetDomain('10.0.0.0/8'), InetDomain('20.0.0.0/8')),
                         ]))
-        self.checkDNAT("test", (None, SockAddrInet('9.255.255.255', 8888)), SockAddrInet('9.255.255.255', 8888))
+        self.checkDNAT("test", (None, SockAddrInet('9.255.255.255', 8888)), None)
         self.checkDNAT("test", (None, SockAddrInet('10.0.0.0', 8888)), SockAddrInet('20.0.0.0', 8888))
         self.checkDNAT("test", (None, SockAddrInet('10.0.0.1', 8888)), SockAddrInet('20.0.0.1', 8888))
         self.checkDNAT("test", (None, SockAddrInet('10.255.255.255', 8888)), SockAddrInet('20.255.255.255', 8888))
-        self.checkDNAT("test", (None, SockAddrInet('11.0.0.0', 8888)), SockAddrInet('11.0.0.0', 8888))
+        self.checkDNAT("test", (None, SockAddrInet('11.0.0.0', 8888)), None)
 
     def test_ipv6_dnat(self):
         """Test if DNAT works for IPv6 addresses"""
@@ -48,7 +48,7 @@ class TestGeneralNAT(unittest.TestCase):
                         [(Inet6Subnet('::/128'), Inet6Subnet('1200::/8'), Inet6Subnet('2300::/8'))
                         ]))
         self.checkDNAT("test", (None, SockAddrInet6('1234::', 8888)), SockAddrInet6('2334::', 8888))
-        self.checkDNAT("test", (None, SockAddrInet6('1300::', 8888)), SockAddrInet6('1300::', 8888))
+        self.checkDNAT("test", (None, SockAddrInet6('1300::', 8888)), None)
 
     def test_multiple_ranges_dnat(self):
         """Test if DNAT works with multiple ranges."""

@@ -1,4 +1,5 @@
 LIBS=@MODULETESTS_LIBS@
+CPPFLAGS = @MODULES_CPPFLAGS@
 
 check_PROGRAMS = http_parse_url http_canon_url
 
