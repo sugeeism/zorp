@@ -1,9 +1,36 @@
+/***************************************************************************
+ *
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
+ *
+ * Note that this permission is granted for only version 2 of the GPL.
+ *
+ * As an additional exemption you are allowed to compile & link against the
+ * OpenSSL libraries as published by the OpenSSL project. See the file
+ * COPYING for details.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ ***************************************************************************/
+
 #ifndef ZORP_CONNECTION_H_INCLUDED
 #define ZORP_CONNECTION_H_INCLUDED
 
 #include <zorp/zorp.h>
 #include <zorp/stream.h>
 #include <zorp/sockaddr.h>
+
+struct ZDispatchBind;
 
 enum
 {
@@ -19,7 +46,7 @@ typedef struct _ZConnection
   ZSockAddr *remote; /* the peer's address */
   ZSockAddr *local;  /* the explicit local address (no wildcard port spec) */
   ZSockAddr *dest;   /* the original destination of the client */
-  struct _ZDispatchBind *dispatch_bind;
+  ZDispatchBind *dispatch_bind;
 } ZConnection;
 
 ZConnection *z_connection_new(void);
