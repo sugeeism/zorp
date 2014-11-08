@@ -63,7 +63,6 @@ import types
 
 from random import choice, randint, SystemRandom
 
-import kzorp.messages
 import socket
 
 NAT_SNAT = 0
@@ -410,6 +409,7 @@ class GeneralNAT(AbstractNAT):
         </method>
         """
         def subnetToKZorpTuple(subnet):
+            import kzorp.messages
             return (kzorp.messages.KZ_SVC_NAT_MAP_IPS, socket.ntohl(subnet.network()), socket.ntohl(subnet.broadcast()), 0, 0)
 
         result = []

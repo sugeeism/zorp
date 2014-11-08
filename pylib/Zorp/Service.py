@@ -91,8 +91,6 @@ from Util import enum
 
 import types, thread, time, socket
 
-import kzorp.messages
-
 Z_SESSION_LIMIT_NOT_REACHED        = 0
 Z_SESSION_LIMIT_GRACEFULLY_REACHED = 1
 Z_SESSION_LIMIT_REACHED            = 2
@@ -781,6 +779,7 @@ Rule(src_zone='office',
         """<method internal="yes">
         </method>
         """
+        import kzorp.messages
         return [kzorp.messages.KZorpAddProxyServiceMessage(self.name), ];
 
 
@@ -875,6 +874,7 @@ Rule(dst_port=5555,
         </method>
         """
         def addNATMappings(messages, nat_type, nat_policy):
+            import kzorp.messages
             if nat_type == NAT_SNAT:
                 msg_class = kzorp.messages.KZorpAddServiceSourceNATMappingMessage
             else:
@@ -884,6 +884,7 @@ Rule(dst_port=5555,
                 for src_tuple, dst_tuple, map_tuple in nat_mappings:
                     messages.append(msg_class(self.name, src_tuple, map_tuple, dst_tuple))
 
+        import kzorp.messages
         flags = kzorp.messages.KZF_SVC_LOGGING
         if isinstance(self.router, TransparentRouter):
             flags = flags | kzorp.messages.KZF_SVC_TRANSPARENT
@@ -1043,5 +1044,6 @@ class DenyService(AbstractService):
         """
         <method maturity="stable" internal="yes"></method>
         """
+        import kzorp.messages
         return [kzorp.messages.KZorpAddDenyServiceMessage(self.name, \
                 self.logging, 0, self.ipv4_setting, self.ipv6_setting), ]

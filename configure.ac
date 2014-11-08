@@ -16,7 +16,7 @@ dnl ***************************************************************************
 dnl Definitions
 
 PACKAGE=zorp-pro
-BROCHURE_VERSION="5"
+BROCHURE_VERSION="6"
 VERSION=`cat $srcdir/VERSION`
 ZORP_PRODUCT_NAME="Zorp Professional"
 ZORP_LICENSE_VERSION="5.0"
@@ -25,10 +25,10 @@ dnl ***************************************************************************
 dnl Dependencies
 
 GLIB_MIN_VERSION="2.32.0"
-ZORPLL_MIN_VERSION="5.0.0.0"
-ZORPLIC_MIN_VERSION="5.0.0.0"
-ZORPMISC_MIN_VERSION="5.0.0.0"
-OPENSSL_MIN_VERSION="1.0.0"
+ZORPLL_MIN_VERSION="6.0.0.0"
+ZORPLIC_MIN_VERSION="6.0.0.0"
+ZORPMISC_MIN_VERSION="6.0.0.0"
+OPENSSL_MIN_VERSION="1.0.1"
 PYTHON_MIN_VERSION="2.7"
 PYTHON_MAX_VERSION="2.8"
 
@@ -305,7 +305,6 @@ AC_SUBST(ZORP_OS)
 AC_SUBST(ZORP_MUNIN_CONF_DIR)
 AC_SUBST(ZORP_NAGIOS_CONF_DIR)
 AC_SUBST(ZORP_PYTHON_DIR)
-AC_SUBST(KZORP_PYTHON_DIR)
 AC_SUBST(ZORPCTL_PYTHON_DIR)
 AC_SUBST(ZORP_SUDOERSD_CONF_DIR)
 
@@ -324,7 +323,6 @@ zorpeval()
 ZORP_MUNIN_DIR="${prefix}/share/munin/plugins"
 ZORP_NAGIOS_DIR="${prefix}/lib/nagios/plugins"
 ZORP_PYTHON_DIR="${pythondir}/Zorp"
-KZORP_PYTHON_DIR="${pythondir}/kzorp"
 ZORPCTL_PYTHON_DIR="${pythondir}/zorpctl"
 
 zorp_sysconfdir="`zorpeval $sysconfdir`"
@@ -525,10 +523,8 @@ nagios_plugins/Makefile
 pylib/Makefile
 pylib/Zorp/Config.py
 pylib/Zorp/Makefile
-pylib/kzorp/Makefile
 scripts/Makefile
 tests/Makefile
-tests/kzorp/Makefile
 tests/python/runtest.sh
 tests/python/Makefile
 tests/tools/Makefile

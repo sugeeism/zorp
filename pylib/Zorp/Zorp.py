@@ -359,9 +359,7 @@ def init(names, virtual_name, is_master):
     </function>
     """
     import __main__
-    import SockAddr, KZorp, Matcher, Rule
-    import kzorp.netlink
-    import kzorp.communication
+    import SockAddr, Matcher, Rule
     import errno
 
     # miscelanneous initialization
@@ -403,6 +401,7 @@ def init(names, virtual_name, is_master):
     Globals.rules = Rule.RuleSet()
 
     if config.options.kzorp_enabled:
+        import kzorp.communication
         # ping kzorp to see if it's there
         try:
             h = kzorp.communication.Handle()
@@ -427,6 +426,7 @@ def init(names, virtual_name, is_master):
     Matcher.validateMatchers()
 
     if Globals.kzorp_available:
+        import KZorp
         try:
             KZorp.downloadKZorpConfig(names[0], is_master)
         except:
@@ -470,7 +470,7 @@ def cleanup(names, virtual_name, is_master):
     <function internal="yes">
     </function>
     """
-    import KZorp
+
     ## LOG ##
     # This message reports that the given instance is freeing its external
     # resources (for example its kernel-level policy objects).
@@ -478,6 +478,7 @@ def cleanup(names, virtual_name, is_master):
     log(None, CORE_DEBUG, 6, "Cleaning up instance; name='%s'", (names,))
 
     if is_master and Globals.kzorp_available and config.options.kzorp_enabled:
+        import KZorp
         try:
             KZorp.flushKZorpConfig(names[0])
         except:

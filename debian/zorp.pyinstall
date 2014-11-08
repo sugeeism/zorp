@@ -25,7 +25,6 @@ pylib/Zorp/Stack.py Zorp
 pylib/Zorp/Stream.py Zorp
 pylib/Zorp/Util.py Zorp
 pylib/Zorp/Zorp.py Zorp
-pylib/Zorp/KZorp.py Zorp
 zorpctl/Instances.py zorpctl
 zorpctl/PluginAlgorithms.py zorpctl
 zorpctl/ProcessAlgorithms.py zorpctl

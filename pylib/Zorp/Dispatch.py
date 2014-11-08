@@ -113,7 +113,6 @@ from traceback import print_exc
 import Zorp, SockAddr
 import collections, sys
 
-import kzorp.messages as kzorp
 import socket
 
 listen_hook = None
@@ -451,6 +450,7 @@ class RuleDispatcher(BaseDispatch):
         """<method internal="yes">
         </method>
         """
+        import kzorp.messages as kzorp
         messages = []
 
         messages.append(kzorp.KZorpAddDispatcherMessage(self.session_id, Globals.rules.length))
@@ -464,6 +464,7 @@ class RuleDispatcher(BaseDispatch):
         """<method internal="yes">
         </method>
         """
+        import kzorp.messages as kzorp
         messages = []
         for bind in self.bindto:
             messages.append(kzorp.KZorpAddBindMessage(bind.sa.family, Globals.instance_name,

@@ -85,7 +85,6 @@ from Util import makeSequence
 from Util import parseIfaceGroupAliases
 from Subnet import Subnet
 from Zone import Zone
-import kzorp.messages as kzorp
 import Globals
 import Dispatch
 
@@ -209,23 +208,24 @@ class Rule(object):
         </metainfo>
     </class>
     """
-    valid_dimensions = { 'reqid'         : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
-                         'iface'         : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
-                         'ifgroup'       : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
-                         'proto'         : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
-                         'proto_type'    : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
-                         'proto_subtype' : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
-                         'src_port'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
-                         'dst_port'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
-                         'src_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
-                         'src_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
-                         'src_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
-                         'dst_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
-                         'dst_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
-                         'dst_iface'     : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
-                         'dst_ifgroup'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
-                         'dst_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE,
-                       }
+    valid_dim_names = set([
+                         'reqid'         ,
+                         'iface'         ,
+                         'ifgroup'       ,
+                         'proto'         ,
+                         'proto_type'    ,
+                         'proto_subtype' ,
+                         'src_port'      ,
+                         'dst_port'      ,
+                         'src_subnet'    ,
+                         'src_subnet6'   ,
+                         'src_zone'      ,
+                         'dst_subnet'    ,
+                         'dst_subnet6'   ,
+                         'dst_iface'     ,
+                         'dst_ifgroup'   ,
+                         'dst_zone'      ,
+                         ])
 
     dimension_aliases = {
                           'src_iface'    : 'iface',
@@ -438,7 +438,7 @@ class Rule(object):
             # store values specified
             self._dimensions = {}
             for key, value in parameters.items():
-                if key not in self.valid_dimensions:
+                if key not in self.valid_dim_names:
                     if key in self.dimension_aliases:
                         key = self.dimension_aliases[key]
                     else:
@@ -490,13 +490,32 @@ class Rule(object):
         <method internal="yes">
         </method>
         """
+        import kzorp.messages as kzorp
+        dim_name_to_attr_type = { 'reqid'         : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
+                                  'iface'         : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
+                                  'ifgroup'       : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
+                                  'proto'         : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
+                                  'proto_type'    : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
+                                  'proto_subtype' : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
+                                  'src_port'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
+                                  'dst_port'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
+                                  'src_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
+                                  'src_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
+                                  'src_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
+                                  'dst_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
+                                  'dst_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
+                                  'dst_iface'     : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
+                                  'dst_ifgroup'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
+                                  'dst_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE,
+                                }
+
         messages = []
 
         # determine maximum dimension length
 
         kzorp_dimensions = {}
         for (key, value) in self._dimensions.items():
-            kzorp_dimensions[self.valid_dimensions[key]] = value
+            kzorp_dimensions[dim_name_to_attr_type[key]] = value
 
         kzorp_dimension_sizes = dict(map(lambda (key, value): (key, len(value)), kzorp_dimensions.items()))
         max_dimension_length = max(kzorp_dimension_sizes.values()) if len(kzorp_dimension_sizes) > 0 else 0

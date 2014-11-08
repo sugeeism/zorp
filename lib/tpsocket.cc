@@ -66,12 +66,43 @@ z_do_tp40_bind(gint fd, struct sockaddr *sa, socklen_t salen, guint32 sock_flags
   z_return(res);
 }
 
+static gint
+z_do_tp40_listen(int fd, gint backlog, guint32 sock_flags)
+{
+  static const guint32 val = Z_TP_LISTEN_SOCKET_MARK;
+  gint res;
+
+  z_enter();
+  if (sock_flags & ZSF_TRANSPARENT)
+    {
+      /*
+       * Adding mark to the client side socket (only) make passible to
+       * distinguish the client and server side socket in IPTables since
+       * they cannot be differenciate from each other by source/destination
+       * address/port pair if they are forged.
+       */
+      if (setsockopt(fd, SOL_SOCKET, SO_MARK, &val, sizeof(val)) < 0)
+        {
+          z_log(NULL, CORE_DEBUG, 6, "Failed to add socket mark; mark='%x', errno='%s'", val, strerror(errno));
+          /*
+           * Should not return error because during the proxy tests Zorp runs
+           * without CAP_NET_ADMIN, so error EPERM will be return by setsockopt.
+           * z_return(-1);
+           */
+        }
+
+    }
+
+  res = z_do_ll_listen(fd, backlog, sock_flags);
+  z_return(res);
+}
+
 static ZSocketFuncs z_tp40_socket_funcs =
 {
   z_do_tp40_bind,
   z_do_ll_accept,
   z_do_ll_connect,
-  z_do_ll_listen,
+  z_do_tp40_listen,
   z_do_ll_getsockname,
   z_do_ll_getpeername,
   z_do_ll_getdestname
