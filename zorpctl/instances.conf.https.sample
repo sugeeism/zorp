@@ -1,7 +1,6 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2001 BalaBit IT Ltd, Budapest, Hungary
-## All rights reserved.
+## Copyright (c) 2014 BalaBit IT Ltd, Budapest, Hungary
 ##
 ############################################################################
 #
@@ -10,6 +9,4 @@
 # The instance name and arguments _must_ be separated by spaces instead
 # of tabs! Otherwise zorpctl will stop working.
 
-#instance  arguments
-#zorp_http --verbose=5 --policy /etc/zorp/policy-http.py
-#zorp_plug --policy /etc/zorp/policy-plug.py
+#zorp_https --verbose=3 --policy /etc/zorp/policy.py

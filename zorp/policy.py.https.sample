@@ -1,0 +1,56 @@
+############################################################################
+##
+## Copyright (c) 2014 BalaBit IT Ltd, Budapest, Hungary
+##
+############################################################################
+
+# sample firewall policy with transparent access to HTTPS servers.
+
+from Zorp.Core import *
+from Zorp.Http import *
+from Zorp.Keybridge import X509KeyBridge
+
+#
+# Let's define a transparent https proxy, which bridges X509
+# CAs and certificates
+#
+class HttpsProxyKeybridge(HttpProxy):
+    key_generator=X509KeyBridge(
+    key_file="/etc/zorp/keybridge/key.pem",
+    key_passphrase="passphrase",
+    cache_directory="/var/lib/zorp/keybridge-cache",
+    trusted_ca_files=(
+        "/etc/zorp/keybridge/ZorpGPL_TrustedCA.cert.pem",
+        "/etc/zorp/keybridge/ZorpGPL_TrustedCA.key.pem",
+        "passphrase"
+    ),
+    untrusted_ca_files=(
+        "/etc/zorp/keybridge/ZorpGPL_UnTrustedCA.cert.pem",
+        "/etc/zorp/keybridge/ZorpGPL_UnTrustedCA.key.pem",
+        "passphrase"
+    )
+    )
+
+    def config(self):
+        HttpProxy.config(self)
+        self.require_host_header=FALSE
+        self.ssl.handshake_seq=SSL_HSO_SERVER_CLIENT
+        self.ssl.key_generator = self.key_generator
+        self.ssl.client_keypair_generate=TRUE
+        self.ssl.client_connection_security=SSL_FORCE_SSL
+        self.ssl.client_verify_type=SSL_VERIFY_OPTIONAL_UNTRUSTED
+        self.ssl.server_connection_security=SSL_FORCE_SSL
+        self.ssl.server_verify_type=SSL_VERIFY_REQUIRED_UNTRUSTED
+        self.ssl.server_ca_directory="/etc/ssl/certs"
+        self.ssl.server_trusted_certs_directory="/etc/zorp/certs"
+
+#
+# The name of this function is passed to the Zorp binary with the --as
+# command line option.
+#
+
+# zorp_https instance
+def zorp_https():
+    Service(name="https", proxy_class=HttpsProxyKeybridge)
+
+    Rule(service='https', dst_port=[443, ])

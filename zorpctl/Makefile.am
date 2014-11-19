@@ -1,6 +1,6 @@
 #sbin_SCRIPTS = zorpctl
 
-sysconf_DATA = instances.conf.sample zorpctl.conf
+sysconf_DATA = instances.conf.http.sample instances.conf.https.sample instances.conf.ssh.sample zorpctl.conf
 
 pkgdatadir = @ZORPCTL_PYTHON_DIR@
 

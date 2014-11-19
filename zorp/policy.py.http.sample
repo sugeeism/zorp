@@ -1,0 +1,32 @@
+############################################################################
+##
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+##
+############################################################################
+
+# sample firewall policy with transparent access to HTTP servers.
+
+from Zorp.Core import *
+from Zorp.Http import *
+
+#
+# Let's define a transparent http proxy, which rewrites the user_agent
+# header to something different.
+#
+class Http(HttpProxy):
+
+	def config(self):
+		HttpProxy.config(self)
+		self.transparent_mode = TRUE
+		self.request_headers["User-Agent"] = (HTTP_HDR_CHANGE_VALUE, "Lynx/2.8.3rel.1")
+
+#
+# The name of this function is passed to the Zorp binary with the --as
+# command line option.
+#
+
+# zorp_http instance
+def zorp_http():
+	Service("http", Http)
+
+	Rule(dst_port=80, service="http")

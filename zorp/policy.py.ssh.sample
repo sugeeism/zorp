@@ -1,0 +1,20 @@
+############################################################################
+##
+## Copyright (c) 2014 BalaBit IT Ltd, Budapest, Hungary
+##
+############################################################################
+
+# sample firewall policy with access to SSH servers.
+
+from Zorp.Core import *
+
+#
+# The name of this function is passed to the Zorp binary with the --as
+# command line option.
+#
+
+# zorp_ssh instance
+def zorp_ssh():
+	PFService("ssh")
+
+	Rule(dst_port=22, service="ssh")
