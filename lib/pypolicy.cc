@@ -45,6 +45,7 @@
 #include <zorp/pystream.h>
 #include <zorp/pyproxy.h>
 #include <zorp/pysockaddr.h>
+#include <zorp/pyx509.h>
 #include <zorp/pyproxygroup.h>
 
 /* for capability management */
@@ -1093,6 +1094,7 @@ z_policy_boot(ZPolicy *self)
   z_policy_proxy_module_init();
   z_policy_sockaddr_module_init();
   z_policy_proxy_group_module_init();
+  z_policy_zorp_certificate_module_init();
 
 
 

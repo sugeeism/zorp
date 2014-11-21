@@ -17,6 +17,7 @@
 """
 
 from Zorp import *
+from Certificate_ import ZorpCertificate
 from FileLock import FileLock
 
 import os
@@ -307,21 +308,18 @@ class X509KeyBridge(X509KeyManager):
         """<method internal="yes">
         </method>"""
         filetype = OpenSSL.crypto.FILETYPE_PEM
+        certificate = OpenSSL.crypto.dump_certificate(filetype, orig_cert)
 
-        new_cert = OpenSSL.crypto.load_certificate(filetype, OpenSSL.crypto.dump_certificate(filetype, orig_cert))
+        if self.extension_whitelist:
+          # delete extensions not on whitelist
+          zorp_certificate = ZorpCertificate(certificate)
+          certificate = zorp_certificate.del_extensions(self.extension_whitelist)
+
+        new_cert = OpenSSL.crypto.load_certificate(filetype, certificate)
         new_cert.set_serial_number(serial)
         new_cert.set_issuer(ca_cert.get_subject())
         new_cert.set_pubkey(key)
         hash_alg = orig_cert.get_signature_algorithm()
-
-        # delete extensions not on whitelist
-        ext_index = 0
-        while ext_index < new_cert.get_extension_count():
-            ext = new_cert.get_extension(ext_index)
-            if ext.get_short_name() not in self.extension_whitelist:
-                new_cert.del_extension(ext_index)
-            else:
-                ext_index += 1
 
         new_cert.sign(ca_key, hash_alg)
 

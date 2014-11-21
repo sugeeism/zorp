@@ -29,11 +29,14 @@
  ***************************************************************************/
 
 #include <zorp/pyx509.h>
-#include  <zorp/zpython.h>
+#include <zorp/zpython.h>
+#include <zorp/pystruct.h>
 
 #include <zorp/log.h>
 
 #include <openssl/pem.h>
+#include <set>
+#include <string>
 
 #define PROXY_SSL_EXTRACT_PEM(s, l, r) \
   ({ void *p; BIO *bio = BIO_new_mem_buf(s, l); p = r(bio, NULL, NULL, NULL); BIO_free(bio); p; })
@@ -146,6 +149,105 @@ z_py_zorp_certificate_free(ZorpCertificate *self)
 {
   X509_free(self->cert);
   PyObject_Del(self);
+}
+
+static ZPolicyObj *
+z_py_zorp_certificate_del_extensions(gpointer user_data, ZPolicyObj *args, ZPolicyObj *kw G_GNUC_UNUSED)
+{
+  X509 *certificate = (X509 *) user_data;
+  ZPolicyObj *white_list;
+
+  if (!z_policy_var_parse(args, "(O)", &white_list))
+    {
+      PyErr_SetString(PyExc_ValueError, "Argument must be a list containing strings(white_list)");
+      return nullptr;
+    }
+
+  if (z_policy_seq_length(white_list) == 0)
+    return z_policy_none_ref();
+
+  std::set<std::string> white_list_set;
+
+  for (int i = 0; i < z_policy_seq_length(white_list); i++)
+    {
+      ZPolicyObj *element = z_policy_seq_getitem(white_list, i);
+      const char *string_element = PyString_AsString(element);
+      if (!string_element)
+        {
+          PyErr_SetString(PyExc_ValueError, "white_list must contain strings");
+          return nullptr;
+        }
+      white_list_set.emplace(string_element);
+    }
+
+  int extension_location = 0;
+  while (extension_location < X509_get_ext_count(certificate))
+    {
+      X509_EXTENSION *ext = X509_get_ext(certificate, extension_location);
+      ASN1_OBJECT *obj = X509_EXTENSION_get_object(ext);
+      std::string extension_name(OBJ_nid2sn(OBJ_obj2nid(obj)));
+
+      if (white_list_set.find(extension_name) == white_list_set.end())
+        {
+          X509_EXTENSION *return_ext = X509_delete_ext(certificate, extension_location);
+          X509_EXTENSION_free(return_ext);
+          extension_location--;
+        }
+      extension_location++;
+    }
+  // Let OpenSSL know that it needs to re_encode.
+  certificate->cert_info->enc.modified = 1;
+
+  BIO *bio = BIO_new(BIO_s_mem());
+  PEM_write_bio_X509(bio, certificate);
+  gchar *mem;
+  guint len = BIO_get_mem_data(bio, &mem);
+
+  PyObject *res = PyString_FromStringAndSize(mem, len);
+  BIO_free(bio);
+
+  return res;
+}
+
+static PyObject *
+z_policy_zorp_certificate_new_instance(PyObject *s G_GNUC_UNUSED, PyObject *args)
+{
+  gchar *cert;
+  if (!PyArg_Parse(args, "(s)", &cert))
+    {
+      PyErr_SetString(PyExc_ValueError, "Parameter must be a certificate in PEM format.");
+      return nullptr;
+    }
+
+  BIO *bio = BIO_new_mem_buf(cert, strlen(cert));
+  X509 *certificate = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+  BIO_free(bio);
+  if (!certificate)
+    {
+      PyErr_SetString(PyExc_ValueError, "Certificate must be specified as string in PEM format.");
+      return nullptr;
+    }
+
+  ZPolicyDict *dict = z_policy_dict_new();
+  z_policy_dict_register(dict, Z_VT_METHOD, "del_extensions", Z_VF_READ, z_py_zorp_certificate_del_extensions, certificate, X509_free);
+  return z_policy_struct_new(dict, Z_PST_SHARED);
+}
+
+PyMethodDef z_policy_zorp_certificate_funcs[] =
+{
+  { "ZorpCertificate",  z_policy_zorp_certificate_new_instance, METH_VARARGS, NULL },
+  { NULL,            NULL, 0, NULL }   /* sentinel*/
+};
+
+/**
+ * z_policy_zorp_certificate_module_init
+ *
+ * Module initialisation - This is used only in Keybridge.py to delete extensions
+ */
+void
+z_policy_zorp_certificate_module_init(void)
+{
+  Py_InitModule("Zorp.Certificate_", z_policy_zorp_certificate_funcs);
 }
 
 typedef struct _ZorpCRL

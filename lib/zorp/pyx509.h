@@ -47,4 +47,6 @@ void z_py_ssl_cert_name_list_free(gpointer value);
 ZPolicyObj *z_py_ssl_crl_list_get(ZProxy *self, gchar *name, gpointer value);
 void z_py_ssl_crl_list_free(gpointer value);
 
+void z_policy_zorp_certificate_module_init(void);
+
 #endif
