@@ -1,3 +1,28 @@
+/***************************************************************************
+ *
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
+ *
+ * Note that this permission is granted for only version 2 of the GPL.
+ *
+ * As an additional exemption you are allowed to compile & link against the
+ * OpenSSL libraries as published by the OpenSSL project. See the file
+ * COPYING for details.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ ***************************************************************************/
+
 #ifndef ZORP_DISPATCH_H_INCLUDED
 #define ZORP_DISPATCH_H_INCLUDED
 
@@ -6,8 +31,8 @@
 #include <zorp/sockaddr.h>
 #include <zorp/connection.h>
 
-typedef struct _ZDispatchEntry ZDispatchEntry;
-typedef struct _ZDispatchBind ZDispatchBind;
+class ZDispatchEntry;
+class ZDispatchBind;
 
 /* dispatching priorities */
 
@@ -18,13 +43,13 @@ enum
   ZD_PRI_RELATED=-100,  /* used by proxies needing related connections, e.g. FTP data stream */
 };
 
-enum
+enum ZDispatchBindType
 {
   ZD_BIND_NONE,
   ZD_BIND_SOCKADDR,
   ZD_BIND_IFACE,
   ZD_BIND_IFACE_GROUP,
-} ZDispatchBindType;
+};
 
 typedef struct _ZDispatchCommonParams
 {
@@ -60,8 +85,9 @@ typedef gboolean (*ZDispatchCallbackFunc)(ZConnection *conn, gpointer user_data)
 
 /* The dispatch_table hashtable contains ZDispatchEntry structures keyed
  * with instances of this type */
-struct _ZDispatchBind
+class ZDispatchBind
 {
+public:
   ZRefCount ref_cnt;
   gushort protocol;
   gushort type;

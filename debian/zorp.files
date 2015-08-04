@@ -1,0 +1,6 @@
+etc/zorp/*.sample
+usr/sbin/zorpctl
+usr/share/man/man5/instances.conf.5
+usr/share/man/man5/policy.py.5
+usr/share/man/man8/*
+usr/lib/zorp/zorp

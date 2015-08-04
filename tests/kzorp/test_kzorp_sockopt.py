@@ -1,5 +1,25 @@
 #!/usr/bin/env python
 
+############################################################################
+##
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+##
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+##
+############################################################################
+
 import os
 import sys
 import glob
@@ -9,20 +29,21 @@ socket.IP_TRANSPARENT = 19
 socket.SO_KZORP_RESULT = 1678333
 
 import test_kzorp
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages
+import kzorp.communication
 
 
 class KZorpSockoptTest(test_kzorp.KZorpComm):
     def __init__(self, *args):
         super(KZorpSockoptTest, self).__init__(*args)
-        self.handle = kznl.Handle()
+        self.handle = kzorp.communication.Handle()
 
     __setup_messages = \
         (
-          KZorpAddProxyServiceMessage("service"),
-          KZorpAddZoneMessage("internet"),
-          KZorpAddDispatcherMessage("dispatcher", 1),
-          KZorpAddRuleMessage("dispatcher", 1, "service", {}),
+          kzorp.messages.KZorpAddProxyServiceMessage("service"),
+          kzorp.messages.KZorpAddZoneMessage("internet"),
+          kzorp.messages.KZorpAddDispatcherMessage("dispatcher", 1),
+          kzorp.messages.KZorpAddRuleMessage("dispatcher", 1, "service", {}),
         )
 
     def setUp(self):

@@ -1,9 +1,25 @@
 /***************************************************************************
  *
- * Copyright (c) 2009, 2010 BalaBit IT Ltd, Budapest, Hungary
- * All rights reserved.
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * Author: Laszlo Attila Toth
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
+ *
+ * Note that this permission is granted for only version 2 of the GPL.
+ *
+ * As an additional exemption you are allowed to compile & link against the
+ * OpenSSL libraries as published by the OpenSSL project. See the file
+ * COPYING for details.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -80,6 +96,19 @@ typedef struct _ZProxySsl {
   gboolean server_check_subject;
   GString  *local_privkey_passphrase[EP_MAX];
 
+  GString *tlsext_server_host_name;
+
+  /* List of handshake objects. Unfortunately OpenSSL callbacks cannot be
+   * handed a destroy_notify callback so we generally cannot use
+   * refcounting to manage the lifetime of handshake objects.
+   *
+   * Instead, we do store all handshake objects in this linked list in the
+   * associated proxy and make sure we delete these when we can guarantee that
+   * the handshake is no longer needed (referenced).
+   *
+   * Right now this means we delete handshake objects only from the proxy
+   * destroy method.
+   */
   GList *handshakes;
 } ZProxySsl;
 
@@ -89,7 +118,7 @@ typedef struct _ZProxySSLHandshake {
   ZSSLSession *session;
   ZStream *stream;
   ZProxy *proxy;
-  gint side;
+  ZEndpoint side;
 
   /* result */
   gint ssl_err;
@@ -106,16 +135,16 @@ typedef struct _ZProxySSLHandshake {
   SSL_CTX *ssl_context;
 } ZProxySSLHandshake;
 
-ZProxySSLHandshake *z_proxy_ssl_handshake_new(ZProxy *proxy, ZStream *stream, gint side);
+ZProxySSLHandshake *z_proxy_ssl_handshake_new(ZProxy *proxy, ZStream *stream, ZEndpoint side);
 
 void z_proxy_ssl_config_defaults(ZProxy *self);
 void z_proxy_ssl_register_vars(ZProxy *self);
 void z_proxy_ssl_free_vars(ZProxy *self);
 gboolean z_proxy_ssl_perform_handshake(ZProxySSLHandshake *handshake);
-gboolean z_proxy_ssl_init_stream(ZProxy *self, gint side);
-gboolean z_proxy_ssl_init_stream_nonblocking(ZProxy *self, gint side);
-gboolean z_proxy_ssl_request_handshake(ZProxy *self, gint side, gboolean forced);
-void z_proxy_ssl_clear_session(ZProxy *self, gint side);
+gboolean z_proxy_ssl_init_stream(ZProxy *self, ZEndpoint side);
+gboolean z_proxy_ssl_init_stream_nonblocking(ZProxy *self, ZEndpoint side);
+gboolean z_proxy_ssl_request_handshake(ZProxy *self, ZEndpoint side, gboolean forced);
+void z_proxy_ssl_clear_session(ZProxy *self, ZEndpoint side);
 void z_proxy_ssl_set_force_connect_at_handshake(ZProxy *self, gboolean val);
 
 #endif
