@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -86,6 +81,7 @@ smtp_policy_check_request(SmtpProxy *self)
 	aborts the connection. Check the 'request' attribute.
        */
       z_proxy_log(self, SMTP_POLICY, 1, "Invalid request policy type; request='%s'", self->request->str);
+      z_proxy_report_invalid_policy(&(self->super));
       z_policy_unlock(self->super.thread);
       z_proxy_return(self, SMTP_REQ_ABORT);
     }
@@ -103,6 +99,7 @@ smtp_policy_check_request(SmtpProxy *self)
 	    Check the 'request' attribute.
 	   */
           z_proxy_log(self, SMTP_POLICY, 1, "Error in request policy; request='%s'", self->request->str);
+          z_proxy_report_policy_abort(&(self->super));
           action = SMTP_REQ_ABORT;
         }
       else
@@ -127,6 +124,7 @@ smtp_policy_check_request(SmtpProxy *self)
 	    Check the 'request' attribute.
 	   */
           z_proxy_log(self, SMTP_POLICY, 1, "Error in request policy; request='%s'", self->request->str);
+          z_proxy_report_invalid_policy(&(self->super));
           action = SMTP_REQ_ABORT;
         }
       else
@@ -141,6 +139,7 @@ smtp_policy_check_request(SmtpProxy *self)
 		    is invalid and Zorp aborts the connection. Check the callback function.
 		   */
                   z_proxy_log(self, SMTP_POLICY, 1, "The verdict returned by the policy is not an int; request='%s'", self->request->str);
+                  z_proxy_report_policy_abort(&(self->super));
                   action = SMTP_REQ_ABORT;
                 }
               else
@@ -153,6 +152,7 @@ smtp_policy_check_request(SmtpProxy *self)
                       break;
 
                     default:
+                      z_proxy_report_policy_abort(&(self->super));
                       action = SMTP_REQ_ABORT;
                       break;
                     }
@@ -160,6 +160,7 @@ smtp_policy_check_request(SmtpProxy *self)
             }
           else
             {
+              z_proxy_report_policy_abort(&(self->super));
               action = SMTP_REQ_ABORT;
             }
         }
@@ -168,6 +169,9 @@ smtp_policy_check_request(SmtpProxy *self)
 
     case SMTP_REQ_ABORT:
     default:
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
       action = SMTP_REQ_ABORT;
       break;
     }
@@ -200,6 +204,8 @@ smtp_policy_check_response(SmtpProxy *self)
 	aborts the connection. Check the 'response' attribute.
        */
       z_proxy_log(self, SMTP_POLICY, 1, "Invalid response policy; request='%s', response='%s'", self->request->str, self->response->str);
+      z_proxy_report_invalid_policy(&(self->super));
+      z_policy_unlock(self->super.thread);
       z_proxy_return(self, SMTP_RSP_ABORT);
     }
   z_policy_unlock(self->super.thread);
@@ -214,6 +220,7 @@ smtp_policy_check_response(SmtpProxy *self)
 	    Check the 'response' attribute.
 	   */
           z_proxy_log(self, SMTP_POLICY, 1, "Error in response policy; request='%s', response='%s'", self->request->str, self->response->str);
+          z_proxy_report_invalid_policy(&(self->super));
           action = SMTP_RSP_ABORT;
         }
       else
@@ -227,7 +234,11 @@ smtp_policy_check_response(SmtpProxy *self)
       break;
 
     case SMTP_RSP_ACCEPT:
+      break;
     case SMTP_RSP_ABORT:
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
       break;
 
     case SMTP_RSP_POLICY:
@@ -239,6 +250,7 @@ smtp_policy_check_response(SmtpProxy *self)
 	    Check the 'response' attribute.
 	   */
           z_proxy_log(self, SMTP_POLICY, 1, "Error in response policy; request='%s', response='%s'", self->request->str, self->response->str);
+          z_proxy_report_invalid_policy(&(self->super));
           action = SMTP_RSP_ABORT;
         }
       else
@@ -253,11 +265,13 @@ smtp_policy_check_response(SmtpProxy *self)
 		    is invalid and Zorp aborts the connection. Check the callback function.
 		   */
                   z_proxy_log(self, SMTP_POLICY, 1, "The verdict returned by the policy is not an int; request='%s', response='%s'", self->request->str, self->response->str);
+                  z_proxy_report_policy_abort(&(self->super));
                   action = SMTP_RSP_ABORT;
                 }
             }
           else
             {
+              z_proxy_report_policy_abort(&(self->super));
               action = SMTP_RSP_ABORT;
             }
         }
@@ -265,6 +279,9 @@ smtp_policy_check_response(SmtpProxy *self)
       break;
 
     default:
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
       action = SMTP_RSP_ABORT;
       break;
     }

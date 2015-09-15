@@ -27,5 +27,6 @@ libzorp_la_SOURCES = \
 	proxyssl.cc pyx509.cc proxysslhostiface.cc \
 	kzorp.cc \
 	certchain.cc pyx509chain.cc \
-	session.cc
+	session.cc \
+	pyencryption.cc
 

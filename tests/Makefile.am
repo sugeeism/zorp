@@ -1,3 +1,1 @@
-
-SUBDIRS = python unit kzorp tools zorpctl
-
+SUBDIRS = python unit tools zorpctl

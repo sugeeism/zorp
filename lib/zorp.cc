@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -41,6 +36,7 @@ guint32 startup_id;
 const gchar *instance_name;
 const gchar *virtual_instance_name;
 gboolean zorp_process_master_mode = TRUE;
+gboolean is_kzorp_enabled = TRUE;
 
 /* FIXME: the code in this module was straightly copied from main.c and as
  * such does not really fit into a library. Some generalization would be
@@ -101,6 +97,7 @@ z_read_global_params(ZPolicy *policy)
   z_policy_var_parse_size(z_global_getattr("config.blob.lowat"), &z_blob_system_default_lowat);
   z_policy_var_parse_size(z_global_getattr("config.blob.hiwat"), &z_blob_system_default_hiwat);
   z_policy_var_parse_size(z_global_getattr("config.blob.noswap_max"), &z_blob_system_default_noswap_max);
+  z_policy_var_parse_boolean(z_global_getattr("config.options.kzorp_enabled"), &is_kzorp_enabled);
   z_policy_release_main(policy);
 }
 

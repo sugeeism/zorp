@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  * Notes:
  *   Based on the code by: Viktor Peter Kovacs <vps__@freemail.hu>
@@ -394,6 +389,7 @@ http_filter_headers(HttpProxy *self, ZEndpoint side, HttpHeaderFilter filter)
               if (!z_policy_var_parse(f, "(iO)", &filter_type, &handler))
                 {
                   /* error parsing HTTP_POLICY_CALL rule */
+                  z_proxy_report_invalid_policy(&(self->super));
                   z_policy_unlock(self->super.thread);
                   z_proxy_return(self, FALSE);
                 }
@@ -412,6 +408,7 @@ http_filter_headers(HttpProxy *self, ZEndpoint side, HttpHeaderFilter filter)
                     response_headers hashes.
                   */
                   z_proxy_log(self, HTTP_POLICY, 1, "Policy call-back for header returned invalid value; header='%s'", self->current_header_name->str);
+                  z_proxy_report_policy_abort(&(self->super));
                   z_policy_var_unref(res);
                   z_policy_unlock(self->super.thread);
                   z_proxy_return(self, FALSE);
@@ -448,6 +445,7 @@ http_filter_headers(HttpProxy *self, ZEndpoint side, HttpHeaderFilter filter)
                     request_headers and response_headers hashes.
                   */
                   z_proxy_log(self, HTTP_POLICY, 1, "Invalid HTTP_HDR_CHANGE_NAME rule in header processing; header='%s'", self->current_header_name->str);
+                  z_proxy_report_invalid_policy(&(self->super));
                   z_policy_unlock(self->super.thread);
                   z_proxy_return(self, FALSE);
                 }
@@ -572,6 +570,9 @@ http_filter_headers(HttpProxy *self, ZEndpoint side, HttpHeaderFilter filter)
 
         default:
           self->error_code = HTTP_MSG_POLICY_VIOLATION;
+          z_policy_lock(self->super.thread);
+          z_proxy_report_policy_abort(&(self->super));
+          z_policy_unlock(self->super.thread);
           z_proxy_return(self, FALSE);
         }
 

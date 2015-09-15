@@ -1,40 +1,37 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
 
 #include <zorp/zorp.h>
 #include <zorp/proxy.h>
-#include <zorp/pyx509.h>
 #include <zorp/pyx509chain.h>
+#include <zorp/pyx509.h>
 #include <zorp/streamssl.h>
 #include <zorp/pydict.h>
 #include <zorp/pystruct.h>
+#include <zorp/pysockaddr.h>
 #include <zorp/proxysslhostiface.h>
 #include <zorp/proxygroup.h>
 #include <zorp/source.h>
 #include <zorp/error.h>
+#include <memory>
 
 static void z_proxy_ssl_handshake_destroy(ZProxySSLHandshake *self);
 
@@ -98,9 +95,6 @@ z_proxy_ssl_handshake_destroy(ZProxySSLHandshake *self)
 
   if (self->session)
     z_ssl_session_unref(self->session);
-
-  if (self->ssl_context)
-    SSL_CTX_free(self->ssl_context);
 
   z_stream_unref(self->stream);
   g_free(self);
@@ -192,219 +186,106 @@ z_proxy_ssl_handshake_get_error_str(ZProxySSLHandshake *self)
   return self->ssl_err_str;
 }
 
-/**
- * Set default values of SSL attributes.
- *
- * @param self          the proxy being initialized
- *
- * The function initializes all SSL related members of the proxy instance.
- */
 void
 z_proxy_ssl_config_defaults(ZProxy *self)
 {
-  self->ssl_opts.handshake_timeout = 30000;
-  self->ssl_opts.handshake_seq = PROXY_SSL_HS_CLIENT_SERVER;
-  self->ssl_opts.permit_invalid_certificates = FALSE;
-  self->ssl_opts.permit_missing_crl = TRUE;
-
-  for (ZEndpoint side = EP_CLIENT; side < EP_MAX; ++side)
+  for (gint ep = EP_CLIENT; ep < EP_MAX; ep++)
     {
-      self->ssl_opts.verify_type[side] = PROXY_SSL_VERIFY_REQUIRED_TRUSTED;
-      self->ssl_opts.verify_depth[side] = 4;
-      self->ssl_opts.verify_ca_directory[side] = g_string_new("");
-      self->ssl_opts.verify_crl_directory[side] = g_string_new("");
-      self->ssl_opts.local_ca_list[side] = sk_X509_new_null();
-      self->ssl_opts.local_crl_list[side] = sk_X509_CRL_new_null();
-      self->ssl_opts.handshake_hash[side] = g_hash_table_new(g_str_hash, g_str_equal);
-      self->ssl_opts.ssl_method[side] = g_string_new("SSLv23");
-      self->ssl_opts.ssl_cipher[side] = g_string_new("ALL:!aNULL:@STRENGTH");
-      self->ssl_opts.disable_proto_sslv2[side] = TRUE;
-      self->ssl_opts.local_privkey_passphrase[side] = g_string_new("");
+      self->tls_opts.handshake_pending[ep] = false;
+      self->tls_opts.ssl_sessions[ep] = nullptr;
+      self->tls_opts.peer_cert[ep] = nullptr;
+
+      self->tls_opts.local_privkey[ep] = nullptr;
+      self->tls_opts.local_privkey_passphrase[ep] = g_string_new("");
+      self->tls_opts.local_cert[ep] = nullptr;
+
+      self->tls_opts.certificate_trusted[ep] = false;
     }
 
-  self->ssl_opts.server_peer_ca_list = sk_X509_NAME_new_null();
-  self->ssl_opts.server_check_subject = TRUE;
+  self->tls_opts.force_connect_at_handshake = false;
+  self->tls_opts.tlsext_server_host_name = g_string_new("");
+  self->tls_opts.server_peer_ca_list = sk_X509_NAME_new_null();
 
-  self->ssl_opts.tlsext_server_host_name = g_string_new("");
-
-  self->ssl_opts.dict = z_policy_dict_new();
-
+  self->tls_opts.tls_dict = z_policy_dict_new();
   z_python_lock();
 
-  z_policy_dict_ref(self->ssl_opts.dict);
-  self->ssl_opts.ssl_struct = z_policy_struct_new(self->ssl_opts.dict, Z_PST_SHARED);
+  z_policy_dict_ref(self->tls_opts.tls_dict);
+  self->tls_opts.tls_struct = z_policy_struct_new(self->tls_opts.tls_dict, Z_PST_SHARED);
 
   z_python_unlock();
 
-  g_assert(self->ssl_opts.ssl_struct != NULL);
+  g_assert(self->tls_opts.tls_struct != NULL);
 
-  z_policy_var_ref(self->ssl_opts.ssl_struct);
-  z_policy_dict_register(self->dict, Z_VT_OBJECT, "ssl",
+  z_policy_var_ref(self->tls_opts.tls_struct);
+  z_policy_dict_register(self->dict, Z_VT_OBJECT, "tls",
                          Z_VF_READ | Z_VF_CFG_READ | Z_VF_LITERAL | Z_VF_CONSUME,
-                         self->ssl_opts.ssl_struct);
+                         self->tls_opts.tls_struct);
 }
 
-/**
- * Export SSL related attributes to Python.
- *
- * @param self          the proxy being initialized
- *
- * This function registers all exported SSL attributes with the Python
- * interpreter.
- */
 void
 z_proxy_ssl_register_vars(ZProxy *self)
 {
-  ZPolicyDict *dict = self->ssl_opts.dict;
+  ZPolicyDict *dict = self->tls_opts.tls_dict;
 
-  /* enable ssl */
-  z_policy_dict_register(dict, Z_VT_INT, "client_connection_security", Z_VF_READ | Z_VF_CFG_RW,
-                         &self->ssl_opts.security[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_connection_security", Z_VF_READ | Z_VF_CFG_RW,
-                         &self->ssl_opts.security[EP_SERVER]);
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_peer_certificate", Z_VF_READ | Z_VF_CFG_READ,
+                         &self->tls_opts.peer_cert[EP_CLIENT],
+                         z_py_ssl_certificate_get, NULL, z_py_ssl_certificate_free,
+                         self, NULL,              /* user_data, user_data_free */
+                         NULL,                    /* end of CUSTOM args */
+                         NULL);
 
-  /* common members */
-  z_policy_dict_register(dict, Z_VT_INT, "handshake_timeout", Z_VF_READ | Z_VF_CFG_RW,
-                         &self->ssl_opts.handshake_timeout);
-  z_policy_dict_register(dict, Z_VT_INT, "handshake_seq", Z_VF_READ | Z_VF_CFG_RW,
-                         &self->ssl_opts.handshake_seq);
-  z_policy_dict_register(dict, Z_VT_INT, "permit_invalid_certificates", Z_VF_RW | Z_VF_CFG_RW,
-                         &self->ssl_opts.permit_invalid_certificates);
-  z_policy_dict_register(dict, Z_VT_INT, "permit_missing_crl", Z_VF_RW | Z_VF_CFG_RW,
-                         &self->ssl_opts.permit_missing_crl);
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_peer_certificate", Z_VF_READ | Z_VF_CFG_READ,
+                         &self->tls_opts.peer_cert[EP_SERVER],
+                         z_py_ssl_certificate_get, NULL, z_py_ssl_certificate_free,
+                         self, NULL,              /* user_data, user_data_free */
+                         NULL,                    /* end of CUSTOM args */
+                         NULL);
 
-  /* client side */
-  z_policy_dict_register(dict, Z_VT_HASH, "client_handshake", Z_VF_READ | Z_VF_CFG_READ | Z_VF_CONSUME,
-                         self->ssl_opts.handshake_hash[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_INT, "client_verify_type", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.verify_type[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_INT, "client_max_verify_depth", Z_VF_READ | Z_VF_CFG_RW,
-                         &self->ssl_opts.verify_depth[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_ALIAS, "client_verify_depth", Z_VF_READ | Z_VF_CFG_RW,
-                         "client_max_verify_depth");
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_privatekey", Z_VF_RW | Z_VF_CFG_RW,
-                         &self->ssl_opts.local_privkey[EP_CLIENT],
+  z_policy_dict_register(dict, Z_VT_STRING, "server_name",
+                         Z_VF_READ | Z_VF_CFG_READ | Z_VF_CONSUME,
+                         self->tls_opts.tlsext_server_host_name);
+
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_certificate", Z_VF_RW,
+                         &self->tls_opts.local_cert[EP_CLIENT],
+                         z_py_ssl_certificate_chain_get, z_py_ssl_certificate_chain_set, z_py_ssl_certificate_chain_free,
+                         self, NULL,              /* user_data, user_data_free */
+                         NULL,                    /* end of CUSTOM args */
+                         NULL);
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_certificate", Z_VF_RW,
+                         &self->tls_opts.local_cert[EP_SERVER],
+                         z_py_ssl_certificate_chain_get, z_py_ssl_certificate_chain_set, z_py_ssl_certificate_chain_free,
+                         self, NULL,              /* user_data, user_data_free */
+                         NULL,                    /* end of CUSTOM args */
+                         NULL);
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_privatekey", Z_VF_RW,
+                         &self->tls_opts.local_privkey[EP_CLIENT],
                          z_py_ssl_privkey_get, z_py_ssl_privkey_set, z_py_ssl_privkey_free,
                          self, NULL,              /* user_data, user_data_free */
                          NULL,                    /* end of CUSTOM args */
                          NULL);
   z_policy_dict_register(dict, Z_VT_STRING, "client_local_privatekey_passphrase",
-                         Z_VF_RW | Z_VF_CFG_RW | Z_VF_CONSUME,
-                         self->ssl_opts.local_privkey_passphrase[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_certificate", Z_VF_RW | Z_VF_CFG_RW,
-                         &self->ssl_opts.local_cert[EP_CLIENT],
-                         z_py_ssl_certificate_chain_get, z_py_ssl_certificate_chain_set, z_py_ssl_certificate_chain_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_peer_certificate", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.peer_cert[EP_CLIENT],
-                         z_py_ssl_certificate_get, NULL, z_py_ssl_certificate_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_ca_list", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.local_ca_list[EP_CLIENT],
-                         z_py_ssl_cert_list_get, NULL, z_py_ssl_cert_list_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "client_local_crl_list", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.local_crl_list[EP_CLIENT],
-                         z_py_ssl_crl_list_get, NULL, z_py_ssl_crl_list_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_STRING, "client_verify_ca_directory",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.verify_ca_directory[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_STRING, "client_verify_crl_directory",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.verify_crl_directory[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_STRING, "client_ssl_method",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.ssl_method[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_INT, "client_disable_proto_sslv2", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.disable_proto_sslv2[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_INT, "client_disable_proto_sslv3", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.disable_proto_sslv3[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_INT, "client_disable_proto_tlsv1", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.disable_proto_tlsv1[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_STRING, "client_ssl_cipher",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.ssl_cipher[EP_CLIENT]);
-  z_policy_dict_register(dict, Z_VT_STRING, "client_tlsext_server_name",
-                         Z_VF_READ | Z_VF_CFG_READ | Z_VF_CONSUME,
-                         self->ssl_opts.tlsext_server_host_name);
-
-  /* server side */
-  z_policy_dict_register(dict, Z_VT_HASH, "server_handshake", Z_VF_READ | Z_VF_CFG_READ | Z_VF_CONSUME,
-                         self->ssl_opts.handshake_hash[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_verify_type", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.verify_type[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_max_verify_depth", Z_VF_READ | Z_VF_CFG_RW,
-                         &self->ssl_opts.verify_depth[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_ALIAS, "server_verify_depth", Z_VF_READ | Z_VF_CFG_RW,
-                         "server_max_verify_depth");
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_privatekey", Z_VF_RW | Z_VF_CFG_RW,
-                         &self->ssl_opts.local_privkey[EP_SERVER],
+                         Z_VF_RW | Z_VF_CONSUME,
+                         self->tls_opts.local_privkey_passphrase[EP_CLIENT]);
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_privatekey", Z_VF_RW,
+                         &self->tls_opts.local_privkey[EP_SERVER],
                          z_py_ssl_privkey_get, z_py_ssl_privkey_set, z_py_ssl_privkey_free,
                          self, NULL,              /* user_data, user_data_free */
                          NULL,                    /* end of CUSTOM args */
                          NULL);
   z_policy_dict_register(dict, Z_VT_STRING, "server_local_privatekey_passphrase",
-                         Z_VF_RW | Z_VF_CFG_RW | Z_VF_CONSUME,
-                         self->ssl_opts.local_privkey_passphrase[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_certificate", Z_VF_RW | Z_VF_CFG_RW,
-                         &self->ssl_opts.local_cert[EP_SERVER],
-                         z_py_ssl_certificate_chain_get, z_py_ssl_certificate_chain_set, z_py_ssl_certificate_chain_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_peer_certificate", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.peer_cert[EP_SERVER],
-                         z_py_ssl_certificate_get, NULL, z_py_ssl_certificate_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_ca_list", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.local_ca_list[EP_SERVER],
-                         z_py_ssl_cert_list_get, NULL, z_py_ssl_cert_list_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_peer_ca_list", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.server_peer_ca_list,
+                         Z_VF_RW | Z_VF_CONSUME,
+                         self->tls_opts.local_privkey_passphrase[EP_SERVER]);
+  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_peer_ca_list", Z_VF_READ,
+                         &self->tls_opts.server_peer_ca_list,
                          z_py_ssl_cert_name_list_get, NULL, z_py_ssl_cert_name_list_free,
                          self, NULL,              /* user_data, user_data_free */
                          NULL,                    /* end of CUSTOM args */
                          NULL);
-  z_policy_dict_register(dict, Z_VT_CUSTOM, "server_local_crl_list", Z_VF_READ | Z_VF_CFG_READ,
-                         &self->ssl_opts.local_crl_list[EP_SERVER],
-                         z_py_ssl_crl_list_get, NULL, z_py_ssl_crl_list_free,
-                         self, NULL,              /* user_data, user_data_free */
-                         NULL,                    /* end of CUSTOM args */
-                         NULL);
-  z_policy_dict_register(dict, Z_VT_STRING, "server_verify_ca_directory",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.verify_ca_directory[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_STRING, "server_verify_crl_directory",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.verify_crl_directory[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_STRING, "server_ssl_method",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.ssl_method[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_disable_proto_sslv2", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.disable_proto_sslv2[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_disable_proto_sslv3", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.disable_proto_sslv3[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_disable_proto_tlsv1", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.disable_proto_tlsv1[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_STRING, "server_ssl_cipher",
-                         Z_VF_READ | Z_VF_CFG_WRITE | Z_VF_CONSUME,
-                         self->ssl_opts.ssl_cipher[EP_SERVER]);
-  z_policy_dict_register(dict, Z_VT_INT, "server_check_subject", Z_VF_READ | Z_VF_CFG_WRITE,
-                         &self->ssl_opts.server_check_subject);
+  z_policy_dict_register(dict, Z_VT_INT, "client_certificate_trusted", Z_VF_RW,
+                         &self->tls_opts.certificate_trusted[EP_CLIENT]);
+  z_policy_dict_register(dict, Z_VT_INT, "server_certificate_trusted", Z_VF_RW,
+                         &self->tls_opts.certificate_trusted[EP_SERVER]);
+
 }
 
 /**
@@ -422,21 +303,18 @@ z_proxy_ssl_free_vars(ZProxy *self)
 
   z_enter();
 
-  g_assert(self->ssl_opts.dict != NULL);
-  g_assert(self->ssl_opts.ssl_struct != NULL);
+  z_policy_var_unref(self->tls_opts.tls_struct);
+  self->tls_opts.tls_struct = nullptr;
 
-  z_policy_var_unref(self->ssl_opts.ssl_struct);
-  self->ssl_opts.ssl_struct = NULL;
-
-  z_policy_dict_unref(self->ssl_opts.dict);
-  self->ssl_opts.dict = NULL;
+  z_policy_dict_unref(self->tls_opts.tls_dict);
+  self->tls_opts.tls_dict = nullptr;
 
   for (ep = EP_CLIENT; ep < EP_MAX; ep++)
     {
-      if (self->ssl_opts.ssl_sessions[ep])
+      if (self->tls_opts.ssl_sessions[ep])
         {
-          z_ssl_session_unref(self->ssl_opts.ssl_sessions[ep]);
-          self->ssl_opts.ssl_sessions[ep] = NULL;
+          z_ssl_session_unref(self->tls_opts.ssl_sessions[ep]);
+          self->tls_opts.ssl_sessions[ep] = NULL;
         }
     }
 
@@ -456,11 +334,11 @@ z_proxy_ssl_register_host_iface(ZProxy *self)
 {
   z_proxy_enter(self);
 
-  if (self->ssl_opts.security[EP_SERVER] > PROXY_SSL_SEC_NONE
-      && self->ssl_opts.ssl_sessions[EP_SERVER]
-      && self->ssl_opts.server_check_subject
-      && (self->ssl_opts.verify_type[EP_SERVER] == PROXY_SSL_VERIFY_OPTIONAL_TRUSTED
-          || self->ssl_opts.verify_type[EP_SERVER] == PROXY_SSL_VERIFY_REQUIRED_TRUSTED))
+  if (self->encryption->ssl_opts.security[EP_SERVER] > ENCRYPTION_SEC_NONE
+      && self->tls_opts.ssl_sessions[EP_SERVER]
+      && self->encryption->ssl_opts.server_check_subject
+      && (self->encryption->ssl_opts.verify_type[EP_SERVER] == ENCRYPTION_VERIFY_OPTIONAL_TRUSTED
+          || self->encryption->ssl_opts.verify_type[EP_SERVER] == ENCRYPTION_VERIFY_REQUIRED_TRUSTED))
     {
       ZProxyIface *iface;
 
@@ -486,7 +364,7 @@ z_proxy_ssl_register_host_iface(ZProxy *self)
 static inline gboolean
 z_proxy_ssl_callback_exists(ZProxy *self, gint ndx, gchar *name)
 {
-  return !!g_hash_table_lookup(self->ssl_opts.handshake_hash[ndx], name);
+  return !!g_hash_table_lookup(self->encryption->ssl_opts.handshake_hash[ndx], name);
 }
 
 /**
@@ -512,7 +390,7 @@ z_proxy_ssl_callback(ZProxy *self, gint ndx, gchar *name, ZPolicyObj *args, guin
   guint type;
 
   z_proxy_enter(self);
-  tuple = static_cast<ZPolicyObj *>(g_hash_table_lookup(self->ssl_opts.handshake_hash[ndx], name));
+  tuple = static_cast<ZPolicyObj *>(g_hash_table_lookup(self->encryption->ssl_opts.handshake_hash[ndx], name));
   if (!tuple)
     {
       *retval = PROXY_SSL_HS_ACCEPT;
@@ -523,6 +401,7 @@ z_proxy_ssl_callback(ZProxy *self, gint ndx, gchar *name, ZPolicyObj *args, guin
     {
       z_policy_var_unref(args);
       z_proxy_log(self, CORE_POLICY, 1, "Handshake hash item is not a tuple of (int, func);");
+      z_proxy_report_invalid_policy(self);
       z_proxy_return(self, FALSE);
     }
   if (type != PROXY_SSL_HS_POLICY)
@@ -530,6 +409,7 @@ z_proxy_ssl_callback(ZProxy *self, gint ndx, gchar *name, ZPolicyObj *args, guin
       z_policy_var_unref(args);
       z_proxy_log(self, CORE_POLICY, 1,
                   "Invalid handshake hash item, only PROXY_SSL_HS_POLICY is supported; type='%d'", type);
+      z_proxy_report_invalid_policy(self);
       z_proxy_return(self, FALSE);
     }
 
@@ -542,6 +422,10 @@ z_proxy_ssl_callback(ZProxy *self, gint ndx, gchar *name, ZPolicyObj *args, guin
       else
         rc = TRUE;
     }
+
+  if (!rc)
+    z_proxy_report_policy_abort(self);
+
   z_policy_var_unref(res);
   z_proxy_return(self, rc);
 }
@@ -555,7 +439,15 @@ z_proxy_ssl_policy_setup_key(ZProxy *self, ZEndpoint side)
   z_proxy_enter(self);
 
   z_policy_lock(self->thread);
-  callback_result = z_proxy_ssl_callback(self, side, "setup_key", z_policy_var_build("(i)", side), &policy_type);
+  ZPolicyObj *peer_cert = z_py_ssl_certificate_get(nullptr, nullptr, &self->tls_opts.peer_cert[EP_OTHER(side)]);
+  ZPolicyObj *tlsext_server_host_name = PyString_FromStringAndSize(self->tls_opts.tlsext_server_host_name->str, self->tls_opts.tlsext_server_host_name->len);
+
+  z_policy_var_ref(self->handler);
+  callback_result = z_proxy_ssl_callback(self, side, "setup_key", z_policy_var_build("(iOOO)", side, peer_cert, tlsext_server_host_name, self->handler), &policy_type);
+  z_policy_var_unref(self->handler);
+  z_policy_var_unref(peer_cert);
+  z_policy_var_unref(tlsext_server_host_name);
+
   z_policy_unlock(self->thread);
 
   if (!callback_result || policy_type != PROXY_SSL_HS_ACCEPT)
@@ -572,14 +464,14 @@ z_proxy_ssl_use_local_cert_and_key(ZProxy *self, ZEndpoint side, SSL *ssl)
 {
   z_proxy_enter(self);
 
-  if (self->ssl_opts.local_privkey[side] && self->ssl_opts.local_cert[side])
+  if (self->tls_opts.local_privkey[side] && self->tls_opts.local_cert[side])
     {
-      if (!SSL_use_certificate(ssl, z_certificate_chain_get_cert(self->ssl_opts.local_cert[side])))
+      if (!SSL_use_certificate(ssl, z_certificate_chain_get_cert(self->tls_opts.local_cert[side])))
         {
           z_proxy_log(self, CORE_ERROR, 3, "Unable to set certificate to use in the SSL session;");
           z_proxy_return(self, FALSE);
         }
-      if (!SSL_use_PrivateKey(ssl, self->ssl_opts.local_privkey[side]))
+      if (!SSL_use_PrivateKey(ssl, self->tls_opts.local_privkey[side]))
         {
           z_proxy_log(self, CORE_ERROR, 3, "Unable to set private key to use in the SSL session;");
           z_proxy_return(self, FALSE);
@@ -610,12 +502,12 @@ z_proxy_ssl_append_local_cert_chain(ZProxy *self, const ZEndpoint side, SSL *ssl
 {
   z_proxy_enter(self);
 
-  if (self->ssl_opts.local_cert[side])
+  if (self->tls_opts.local_cert[side])
     {
-      gsize chain_len = z_certificate_chain_get_chain_length(self->ssl_opts.local_cert[side]);
+      gsize chain_len = z_certificate_chain_get_chain_length(self->tls_opts.local_cert[side]);
       for (gsize i = 0; i != chain_len; ++i)
         {
-          X509 *cert = z_certificate_chain_get_cert_from_chain(self->ssl_opts.local_cert[side], i);
+          X509 *cert = z_certificate_chain_get_cert_from_chain(self->tls_opts.local_cert[side], i);
 
           CRYPTO_add(&cert->references, 1, CRYPTO_LOCK_X509);
           if (!SSL_CTX_add_extra_chain_cert(ssl->ctx, cert))
@@ -681,17 +573,17 @@ z_proxy_ssl_load_local_ca_list(ZProxySSLHandshake *handshake)
       if (!sk)
         z_proxy_return(self, FALSE);
 
-      n = sk_X509_num(self->ssl_opts.local_ca_list[ndx]);
+      n = sk_X509_num(self->encryption->ssl_opts.local_ca_list[ndx]);
       for (i = 0; i < n; i++)
-        sk_X509_NAME_push(sk, X509_NAME_dup(X509_get_subject_name(sk_X509_value(self->ssl_opts.local_ca_list[ndx],
+        sk_X509_NAME_push(sk, X509_NAME_dup(X509_get_subject_name(sk_X509_value(self->encryption->ssl_opts.local_ca_list[ndx],
                                                                                 i))));
       SSL_set_client_CA_list(session->ssl, sk);
     }
 
   ctx = session->ssl->ctx->cert_store;
-  n = sk_X509_num(self->ssl_opts.local_ca_list[ndx]);
+  n = sk_X509_num(self->encryption->ssl_opts.local_ca_list[ndx]);
   for (i = 0; i < n; i++)
-    X509_STORE_add_cert(ctx, sk_X509_value(self->ssl_opts.local_ca_list[ndx], i));
+    X509_STORE_add_cert(ctx, sk_X509_value(self->encryption->ssl_opts.local_ca_list[ndx], i));
   z_proxy_return(self, TRUE);
 }
 
@@ -716,12 +608,12 @@ z_proxy_ssl_load_local_crl_list(ZProxySSLHandshake *handshake, gchar *name)
     }
   z_policy_unlock(self->thread);
 
-  for (i = 0; i < sk_X509_CRL_num(self->ssl_opts.local_crl_list[ndx]); i++)
+  for (i = 0; i < sk_X509_CRL_num(self->encryption->ssl_opts.local_crl_list[ndx]); i++)
     {
       X509_CRL *crl;
       char buf[512];
 
-      crl = sk_X509_CRL_value(self->ssl_opts.local_crl_list[ndx], i);
+      crl = sk_X509_CRL_value(self->encryption->ssl_opts.local_crl_list[ndx], i);
       X509_NAME_oneline(X509_CRL_get_issuer(crl), buf, sizeof(buf));
       if (strcmp(buf, name) == 0)
         X509_STORE_add_crl(ctx, crl);
@@ -732,10 +624,11 @@ z_proxy_ssl_load_local_crl_list(ZProxySSLHandshake *handshake, gchar *name)
 /* this function is called to verify the whole chain as provided by
    the peer. The SSL lib takes care about setting up the context,
    we only need to call X509_verify_cert. */
-static int
-z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
+int
+z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data G_GNUC_UNUSED)
 {
-  ZProxySSLHandshake *handshake = (ZProxySSLHandshake *) user_data;
+  SSL *ssl = (SSL *) X509_STORE_CTX_get_app_data(ctx);
+  ZProxySSLHandshake *handshake = (ZProxySSLHandshake *) SSL_get_app_data(ssl);
   ZProxy *self = handshake->proxy;
   ZEndpoint side = handshake->side;
 
@@ -748,18 +641,20 @@ z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
   /* publish the peer's certificate to python, and fetch the calist
      required to verify the certificate */
 
-  if (self->ssl_opts.peer_cert[side])
-    X509_free(self->ssl_opts.peer_cert[side]);
+  if (self->tls_opts.peer_cert[side])
+    X509_free(self->tls_opts.peer_cert[side]);
 
-  self->ssl_opts.peer_cert[side] = ctx->cert;
+  self->tls_opts.peer_cert[side] = ctx->cert;
+  self->tls_opts.certificate_trusted[side] = false;
+
   CRYPTO_add(&ctx->cert->references, 1, CRYPTO_LOCK_X509);
 
-  verify_type = self->ssl_opts.verify_type[side];
+  verify_type = self->encryption->ssl_opts.verify_type[side];
   new_verify_callback = z_proxy_ssl_callback_exists(self, side, "verify_cert_ext");
   if (side == EP_SERVER)
     z_proxy_ssl_load_local_ca_list(handshake);
 
-  if (self->ssl_opts.verify_crl_directory[side]->len > 0)
+  if (self->encryption->ssl_opts.verify_crl_directory[side]->len > 0)
     {
       X509_STORE_CTX_set_flags(ctx, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
     }
@@ -767,7 +662,7 @@ z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
   verify_valid = X509_verify_cert(ctx);
   verify_error = X509_STORE_CTX_get_error(ctx);
 
-  if (self->ssl_opts.permit_missing_crl &&
+  if (self->encryption->ssl_opts.permit_missing_crl[side] &&
       !verify_valid && verify_error == X509_V_ERR_UNABLE_TO_GET_CRL)
     {
       /* no CRL was found, but the configuration explicitly permits
@@ -787,8 +682,16 @@ z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
 
   z_policy_lock(self->thread);
   if (new_verify_callback)
-    success = z_proxy_ssl_callback(self, side, "verify_cert_ext",
-                                   z_policy_var_build("(i(ii))", side, verify_valid, verify_error), &verdict);
+    {
+      ZPolicyObj *peer_cert = z_py_ssl_certificate_get(nullptr, nullptr, &self->tls_opts.peer_cert[side]);
+
+      z_policy_var_ref(self->handler);
+      success = z_proxy_ssl_callback(self, side, "verify_cert_ext",
+                                     z_policy_var_build("(i(ii)OO)", side, verify_valid, verify_error, peer_cert, self->handler), &verdict);
+
+      z_policy_var_unref(self->handler);
+      z_policy_var_unref(peer_cert);
+    }
   else
     success = z_proxy_ssl_callback(self, side, "verify_cert", z_policy_var_build("(i)", side), &verdict);
 
@@ -801,16 +704,16 @@ z_proxy_ssl_app_verify_cb(X509_STORE_CTX *ctx, void *user_data)
 
   if (verdict == PROXY_SSL_HS_ACCEPT)
     {
-      if (verify_type == PROXY_SSL_VERIFY_REQUIRED_TRUSTED ||
-          verify_type == PROXY_SSL_VERIFY_OPTIONAL_TRUSTED)
+      if (verify_type == ENCRYPTION_VERIFY_REQUIRED_TRUSTED ||
+          verify_type == ENCRYPTION_VERIFY_OPTIONAL_TRUSTED)
         {
           ok = verify_valid;
         }
-      else if (verify_type == PROXY_SSL_VERIFY_REQUIRED_UNTRUSTED ||
-               verify_type == PROXY_SSL_VERIFY_OPTIONAL_UNTRUSTED)
+      else if (verify_type == ENCRYPTION_VERIFY_REQUIRED_UNTRUSTED ||
+               verify_type == ENCRYPTION_VERIFY_OPTIONAL_UNTRUSTED)
         {
           if (!verify_valid &&
-              (self->ssl_opts.permit_invalid_certificates ||
+              (self->encryption->ssl_opts.permit_invalid_certificates[side] ||
                (verify_error == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT ||
                 verify_error == X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN ||
                 verify_error == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY ||
@@ -852,7 +755,7 @@ exit:
 
 /* verify callback of the X509_STORE we set up when verifying
    the peer's certificate. We are checking the CRLs here */
-static int
+int
 z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
 {
   SSL *ssl = (SSL *) X509_STORE_CTX_get_app_data(ctx);
@@ -884,7 +787,7 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
   X509_NAME_oneline(issuer, issuer_name, sizeof(issuer_name));
 
   if (!ok &&
-      !(self->ssl_opts.permit_missing_crl && verify_error == X509_V_ERR_UNABLE_TO_GET_CRL))
+      !(self->encryption->ssl_opts.permit_missing_crl[side] && verify_error == X509_V_ERR_UNABLE_TO_GET_CRL))
     {
       /* Do not log an error if the issue was a missing CRL and the policy explicitly
        * permits missing CRLs.
@@ -893,8 +796,8 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
       int loglevel = 1;
       int err = X509_STORE_CTX_get_error(ctx);
       if (err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
-          (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_UNTRUSTED ||
-           self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_UNTRUSTED))
+          (self->encryption->ssl_opts.verify_type[side] == ENCRYPTION_VERIFY_REQUIRED_UNTRUSTED ||
+           self->encryption->ssl_opts.verify_type[side] == ENCRYPTION_VERIFY_OPTIONAL_UNTRUSTED))
         {
           loglevel = 6;
         }
@@ -905,13 +808,13 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
 
   z_proxy_log(self, CORE_DEBUG, 6, "Verifying certificate; issuer='%s', subject='%s'", issuer_name, subject_name);
 
-  if (self->ssl_opts.verify_depth[side] < depth)
+  if (self->encryption->ssl_opts.verify_depth[side] < depth)
     {
       ok = 0;
       z_proxy_log(self, CORE_POLICY, 1, "Certificate verification failed; error='%s', "
                   "side='%s', max_depth='%d', depth='%d'",
                   X509_verify_cert_error_string(X509_V_ERR_CERT_CHAIN_TOO_LONG),
-                  EP_STR(side), self->ssl_opts.verify_depth[side], depth);
+                  EP_STR(side), self->encryption->ssl_opts.verify_depth[side], depth);
     }
 
   z_proxy_ssl_load_local_crl_list(handshake, subject_name);
@@ -956,7 +859,7 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
         }
       X509_OBJECT_free_contents(&obj);
     }
-  else if (depth > 0 && !self->ssl_opts.permit_missing_crl)
+  else if (depth > 0 && !self->encryption->ssl_opts.permit_missing_crl[side])
     {
       /*LOG
         This message indicates that no certificate revocation list was found for a CA
@@ -1016,7 +919,7 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
         }
       X509_OBJECT_free_contents(&obj);
     }
-  else if (!self->ssl_opts.permit_missing_crl)
+  else if (!self->encryption->ssl_opts.permit_missing_crl[side])
     {
       /*LOG
         This message indicates that no certificate revocation list was found for a CA
@@ -1033,7 +936,7 @@ z_proxy_ssl_verify_peer_cert_cb(int ok, X509_STORE_CTX *ctx)
   z_proxy_return(self, 0);
 }
 
-static int
+int
 z_proxy_ssl_client_cert_cb(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
 {
   ZProxySSLHandshake *handshake = (ZProxySSLHandshake *) SSL_get_app_data(ssl);
@@ -1053,17 +956,17 @@ z_proxy_ssl_client_cert_cb(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
           X509_NAME *v;
 
           v = sk_X509_NAME_value(ssl->s3->tmp.ca_names, i);
-          sk_X509_NAME_push(self->ssl_opts.server_peer_ca_list, X509_NAME_dup(v));
+          sk_X509_NAME_push(self->tls_opts.server_peer_ca_list, X509_NAME_dup(v));
         }
     }
 
   if (!z_proxy_ssl_load_local_key(handshake))
     z_proxy_return(self, 0);
 
-  if (self->ssl_opts.local_cert[side] && self->ssl_opts.local_privkey[side])
+  if (self->tls_opts.local_cert[side] && self->tls_opts.local_privkey[side])
     {
-      *cert = z_certificate_chain_get_cert(self->ssl_opts.local_cert[side]);
-      *pkey = self->ssl_opts.local_privkey[side];
+      *cert = z_certificate_chain_get_cert(self->tls_opts.local_cert[side]);
+      *pkey = self->tls_opts.local_privkey[side];
 
       CRYPTO_add(&(*cert)->references, 1, CRYPTO_LOCK_X509);
       CRYPTO_add(&(*pkey)->references, 1, CRYPTO_LOCK_EVP_PKEY);
@@ -1077,69 +980,6 @@ z_proxy_ssl_client_cert_cb(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
     }
   z_proxy_return(self, res);
 }
-
-static gboolean
-z_proxy_ssl_policy_set_servername(ZProxy *self, ZEndpoint side)
-{
-  guint policy_type;
-  gboolean callback_result;
-
-  z_proxy_enter(self);
-
-  z_policy_lock(self->thread);
-  callback_result = z_proxy_ssl_callback(self, side, "set_servername", z_policy_var_build("(i)", side), &policy_type);
-  z_policy_unlock(self->thread);
-
-  if (!callback_result || policy_type != PROXY_SSL_HS_ACCEPT)
-    {
-      z_proxy_log(self, CORE_POLICY, 1, "Error in set_servername; side='%s'", EP_STR(side));
-      z_proxy_return(self, FALSE);
-    }
-
-  z_proxy_return(self, TRUE);
-}
-
-int
-z_proxy_ssl_tlsext_servername_cb(SSL *ssl, int *_ad G_GNUC_UNUSED, void *_arg G_GNUC_UNUSED)
-{
-  ZProxySSLHandshake *handshake = (ZProxySSLHandshake *) SSL_get_app_data(ssl);
-  ZProxy *self;
-  ZEndpoint side;
-  const gchar *server_name;
-
-  g_assert(handshake);
-
-  self = handshake->proxy;
-  side = handshake->side;
-
-  z_proxy_enter(self);
-
-  if (side == EP_SERVER)
-    goto exit;
-
-  server_name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-
-  if (server_name == NULL)
-    goto exit;
-
-  g_string_assign(self->ssl_opts.tlsext_server_host_name, server_name);
-  z_proxy_log(self, CORE_INFO, 6, "TLS Server Name Indication extension; side='%s', server_name='%s'",
-              EP_STR(side), server_name);
-
-  // Performance optimization only: skip cert/key change entirely when policy callback does not exist
-  if (!z_proxy_ssl_callback_exists(self, side, "set_servername"))
-    goto exit;
-
-  if (!z_proxy_ssl_policy_set_servername(self, side)
-      || !z_proxy_ssl_use_local_cert_and_key(self, side, ssl))
-    {
-      z_proxy_return(self, SSL_TLSEXT_ERR_ALERT_FATAL);
-    }
-
- exit:
-  z_proxy_return(self, SSL_TLSEXT_ERR_OK);
-}
-
 
 static gboolean
 z_proxy_ssl_handshake_timeout(gpointer user_data)
@@ -1190,8 +1030,9 @@ static gboolean
 z_proxy_ssl_handshake_cb(ZStream *stream, GIOCondition poll_cond G_GNUC_UNUSED, gpointer s)
 {
   ZProxySSLHandshake *handshake = (ZProxySSLHandshake *) s;
-  X509 *peercert = NULL;
   gint result;
+  ZEndpoint side = handshake->side;
+  ZProxy *self = handshake->proxy;
 
   z_proxy_enter(handshake->proxy);
 
@@ -1244,22 +1085,26 @@ z_proxy_ssl_handshake_cb(ZStream *stream, GIOCondition poll_cond G_GNUC_UNUSED, 
   z_proxy_ssl_handshake_set_error(handshake, 0);
 
   /* print peer certificate info */
-  peercert = SSL_get_peer_certificate(handshake->session->ssl);
-  if (peercert && z_log_enabled(CORE_DEBUG, 4))
+  if (self->tls_opts.peer_cert[side])
+    X509_free(self->tls_opts.peer_cert[side]);
+
+  self->tls_opts.peer_cert[side] = SSL_get_peer_certificate(handshake->session->ssl);
+
+  if (self->tls_opts.peer_cert[side] && z_log_enabled(CORE_DEBUG, 4))
     {
       gchar name[1024];
       gchar issuer[1024];
       BIO *bio;
       char serial_str[128];
       char *ptr;
-      long version = X509_get_version(peercert);
+      long version = X509_get_version(self->tls_opts.peer_cert[side]);
 
       bio = BIO_new(BIO_s_mem());
 
       if (bio)
         {
           unsigned long len;
-          i2a_ASN1_INTEGER(bio, X509_get_serialNumber(peercert));
+          i2a_ASN1_INTEGER(bio, X509_get_serialNumber(self->tls_opts.peer_cert[side]));
 
           len = BIO_get_mem_data(bio, &ptr);
           len = MIN(len, sizeof(serial_str) - 1);
@@ -1267,8 +1112,8 @@ z_proxy_ssl_handshake_cb(ZStream *stream, GIOCondition poll_cond G_GNUC_UNUSED, 
           memcpy(serial_str, ptr, len);
           serial_str[len] = 0;
 
-          X509_NAME_oneline(X509_get_subject_name(peercert), name, sizeof(name) - 1);
-          X509_NAME_oneline(X509_get_issuer_name(peercert), issuer, sizeof(issuer) - 1);
+          X509_NAME_oneline(X509_get_subject_name(self->tls_opts.peer_cert[side]), name, sizeof(name) - 1);
+          X509_NAME_oneline(X509_get_issuer_name(self->tls_opts.peer_cert[side]), issuer, sizeof(issuer) - 1);
 
           z_proxy_log(handshake->proxy, CORE_DEBUG, 4, "Identified peer; side='%s', peer='%s', "
                       "issuer='%s', serial='%s', version='%lu'",
@@ -1276,8 +1121,6 @@ z_proxy_ssl_handshake_cb(ZStream *stream, GIOCondition poll_cond G_GNUC_UNUSED, 
           BIO_free_all(bio);
         }
     }
-  if (peercert)
-    X509_free(peercert);
 
 done:
   z_proxy_leave(handshake->proxy);
@@ -1323,7 +1166,7 @@ z_proxy_ssl_setup_stream(ZProxySSLHandshake *handshake,
   z_stream_set_nonblock(handshake->stream, TRUE);
 
   /* set up our timeout source */
-  handshake->timeout = z_timeout_source_new(handshake->proxy->ssl_opts.handshake_timeout);
+  handshake->timeout = z_timeout_source_new(handshake->proxy->encryption->ssl_opts.handshake_timeout);
   g_source_set_callback(handshake->timeout, z_proxy_ssl_handshake_timeout,
                         handshake, NULL);
   g_source_attach(handshake->timeout, z_proxy_group_get_context(proxy_group));
@@ -1443,7 +1286,7 @@ z_proxy_ssl_do_handshake(ZProxySSLHandshake *handshake,
        * stream (and thus the BIO) is in blocking mode, so SSL_accept()/SSL_connect()
        * is done
        */
-      z_stream_set_timeout(handshake->stream, handshake->proxy->ssl_opts.handshake_timeout);
+      z_stream_set_timeout(handshake->stream, handshake->proxy->encryption->ssl_opts.handshake_timeout);
       z_proxy_ssl_handshake_cb(handshake->stream, static_cast<GIOCondition>(0), reinterpret_cast<gpointer>(handshake));
       z_stream_set_timeout(handshake->stream, -2);
     }
@@ -1470,7 +1313,6 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
   SSL_CTX *ctx;
   SSL *tmpssl;
   ZSSLSession *ssl;
-  int verify_mode = 0;
   gsize buffered_bytes;
 
   z_proxy_enter(self);
@@ -1491,98 +1333,10 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
       z_proxy_return(self, FALSE);
     }
 
-  if (strcmp(self->ssl_opts.ssl_method[side]->str, "SSLv23") == 0)
-    {
-      if (side == EP_CLIENT)
-        ctx = SSL_CTX_new(SSLv23_server_method());
-      else
-        ctx = SSL_CTX_new(SSLv23_client_method());
-    }
-#ifndef OPENSSL_NO_SSL2
-  else if (strcmp(self->ssl_opts.ssl_method[side]->str, "SSLv2") == 0)
-    {
-      if (side == EP_CLIENT)
-        ctx = SSL_CTX_new(SSLv2_server_method());
-      else
-        ctx = SSL_CTX_new(SSLv2_client_method());
-    }
-#endif
-  else if (strcmp(self->ssl_opts.ssl_method[side]->str, "SSLv3") == 0)
-    {
-      if (side == EP_CLIENT)
-        ctx = SSL_CTX_new(SSLv3_server_method());
-      else
-        ctx = SSL_CTX_new(SSLv3_client_method());
-    }
-  else if (strcmp(self->ssl_opts.ssl_method[side]->str, "TLSv1") == 0)
-    {
-      if (side == EP_CLIENT)
-        ctx = SSL_CTX_new(TLSv1_server_method());
-      else
-        ctx = SSL_CTX_new(TLSv1_client_method());
-    }
+  if (side == EP_CLIENT)
+    ctx = self->encryption->ssl_client_context;
   else
-    {
-      z_proxy_log(self, CORE_POLICY, 1, "Bad SSL method; method='%s', side='%s'",
-                  self->ssl_opts.ssl_method[side]->str, EP_STR(side));
-      z_proxy_return(self, FALSE);
-    }
-
-  if (!ctx)
-    {
-      z_proxy_log(self, CORE_ERROR, 1, "Error allocating SSL_CTX struct;");
-      z_proxy_return(self, FALSE);
-    }
-
-  if (!SSL_CTX_set_cipher_list(ctx, self->ssl_opts.ssl_cipher[side]->str))
-    {
-      z_proxy_log(self, CORE_ERROR, 1, "Error setting cipher spec; ciphers='%s', side='%s'",
-                  self->ssl_opts.ssl_cipher[side]->str, EP_STR(side));
-      z_proxy_return(self, FALSE);
-    }
-
-  SSL_CTX_set_options(ctx, SSL_OP_ALL |
-                      (self->ssl_opts.disable_proto_sslv2[side] ? SSL_OP_NO_SSLv2 : 0) |
-                      (self->ssl_opts.disable_proto_sslv3[side] ? SSL_OP_NO_SSLv3 : 0) |
-                      (self->ssl_opts.disable_proto_tlsv1[side] ? SSL_OP_NO_TLSv1 : 0));
-
-  if (side == EP_SERVER)
-    SSL_CTX_set_client_cert_cb(ctx, z_proxy_ssl_client_cert_cb); /* instead of specifying key here */
-
-  /* For server side, the z_proxy_ssl_app_verify_callback_cb sets up
-     trusted CA list. It calls verify_cert callback for both sides.
-
-     Releasing the handshake reference is done by the callback. */
-
-  SSL_CTX_set_cert_verify_callback(ctx, z_proxy_ssl_app_verify_cb, handshake);
-
-  if (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_TRUSTED ||
-      self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_REQUIRED_UNTRUSTED)
-    verify_mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-  else if (self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_UNTRUSTED ||
-           self->ssl_opts.verify_type[side] == PROXY_SSL_VERIFY_OPTIONAL_TRUSTED)
-    verify_mode = SSL_VERIFY_PEER;
-
-  if (verify_mode)
-    SSL_CTX_set_verify(ctx, verify_mode, z_proxy_ssl_verify_peer_cert_cb);
-
-  if (self->ssl_opts.verify_ca_directory[side]->len > 0 ||
-      self->ssl_opts.verify_crl_directory[side]->len > 0)
-    {
-      X509_LOOKUP *lookup = X509_STORE_add_lookup(ctx->cert_store, X509_LOOKUP_hash_dir());
-
-      if (self->ssl_opts.verify_ca_directory[side]->len > 0)
-        X509_LOOKUP_add_dir(lookup, self->ssl_opts.verify_ca_directory[side]->str, X509_FILETYPE_PEM);
-
-      if (self->ssl_opts.verify_crl_directory[side]->len > 0)
-        {
-          X509_LOOKUP_add_dir(lookup, self->ssl_opts.verify_crl_directory[side]->str, X509_FILETYPE_PEM);
-          X509_STORE_set_flags(ctx->cert_store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-        }
-    }
-
-  /* TLS Server Name Indication extension support */
-  SSL_CTX_set_tlsext_servername_callback(ctx, z_proxy_ssl_tlsext_servername_cb);
+    ctx = self->encryption->ssl_server_context;
 
   tmpssl = SSL_new(ctx);
   if (!tmpssl)
@@ -1591,8 +1345,15 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
       z_proxy_return(self, FALSE);
     }
 
-  SSL_set_options(tmpssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
   SSL_set_app_data(tmpssl, handshake);
+  if (side == EP_SERVER)
+    {
+      if (self->tls_opts.tlsext_server_host_name->len)
+        {
+          SSL_set_tlsext_host_name(tmpssl, self->tls_opts.tlsext_server_host_name->str);
+        }
+
+    }
 
   /* Give the SSL context to the handshake class after
      cleaning up the current one */
@@ -1602,17 +1363,16 @@ z_proxy_ssl_setup_handshake(ZProxySSLHandshake *handshake)
   ssl = handshake->session = z_ssl_session_new_ssl(tmpssl);
   SSL_free(tmpssl);
 
-  if (handshake->ssl_context)
-    SSL_CTX_free(handshake->ssl_context);
-
-  handshake->ssl_context = ctx;
-
   if (!ssl)
     {
       z_proxy_log(self, CORE_ERROR, 1, "Error creating SSL session; side='%s'", EP_STR(side));
       z_proxy_return(self, FALSE);
     }
-
+  if (side == EP_CLIENT && self->encryption->ssl_opts.handshake_seq == PROXY_SSL_HS_CLIENT_SERVER)
+    {
+      /* TLS Server Name Indication extension support */
+      z_proxy_ssl_get_sni_from_client(self);
+    }
   if (side == EP_CLIENT)
     {
       if (!z_proxy_ssl_load_local_key(handshake) ||
@@ -1693,7 +1453,7 @@ z_proxy_ssl_init_stream(ZProxy *self, ZEndpoint side)
 
   z_proxy_enter(self);
 
-  if (self->ssl_opts.security[side] > PROXY_SSL_SEC_NONE)
+  if (self->encryption->ssl_opts.security[side] > ENCRYPTION_SEC_NONE)
     {
       ZStream *old;
 
@@ -1702,8 +1462,16 @@ z_proxy_ssl_init_stream(ZProxy *self, ZEndpoint side)
       z_stream_unref(old);
 
       /* do an SSL handshake right away if we're in forced SSL mode */
-      if (self->ssl_opts.security[side] == PROXY_SSL_SEC_FORCE_SSL)
-        rc = z_proxy_ssl_request_handshake(self, side, FALSE);
+      if (self->encryption->ssl_opts.security[side] == ENCRYPTION_SEC_FORCE_SSL)
+        {
+          if (side == EP_CLIENT && self->encryption->ssl_opts.handshake_seq == PROXY_SSL_HS_SERVER_CLIENT)
+            {
+              /* TLS Server Name Indication extension support */
+              z_proxy_ssl_get_sni_from_client(self);
+            }
+
+          rc = z_proxy_ssl_request_handshake(self, side, FALSE);
+        }
     }
 
   z_proxy_return(self, rc);
@@ -1777,10 +1545,10 @@ z_proxy_ssl_init_completed(ZProxySSLHandshake *handshake, gpointer user_data)
   /* if the handshake was successful, set the session and call nonblocking init */
   if (success)
     {
-      if (self->ssl_opts.ssl_sessions[handshake->side])
+      if (self->tls_opts.ssl_sessions[handshake->side])
         z_proxy_ssl_clear_session(self, handshake->side);
 
-      self->ssl_opts.ssl_sessions[handshake->side] = z_ssl_session_ref(handshake->session);
+      self->tls_opts.ssl_sessions[handshake->side] = z_ssl_session_ref(handshake->session);
 
       /* call the nonblocking init callback of the proxy */
       success = z_proxy_nonblocking_init(self, z_proxy_group_get_poll(z_proxy_get_group(self)));
@@ -1820,11 +1588,11 @@ z_proxy_ssl_init_stream_nonblocking(ZProxy *self, ZEndpoint side)
 
   z_proxy_enter(self);
 
-  if (self->ssl_opts.security[side] > PROXY_SSL_SEC_NONE)
+  if (self->encryption->ssl_opts.security[side] > ENCRYPTION_SEC_NONE)
     {
       /* we support async handshake only on the client side, and only if handshake order
        * is (client, server) */
-      if ((side == EP_CLIENT) && self->ssl_opts.handshake_seq == PROXY_SSL_HS_CLIENT_SERVER)
+      if ((side == EP_CLIENT) && self->encryption->ssl_opts.handshake_seq == PROXY_SSL_HS_CLIENT_SERVER)
         {
           ZProxySSLHandshake *handshake;
           ZStream *old;
@@ -1851,6 +1619,67 @@ z_proxy_ssl_init_stream_nonblocking(ZProxy *self, ZEndpoint side)
   z_proxy_return(self, res);
 }
 
+static void
+z_proxy_ssl_sni_do_handshake(ZProxy *self, ZPktBuf *buf, gsize bytes_read)
+{
+  if (self->tls_opts.tlsext_server_host_name->len)
+    {
+      g_string_truncate(self->tls_opts.tlsext_server_host_name, 0);
+    }
+
+  //z_proxy_log_data_dump(self, CORE_DEBUG, 6, (gchar *) buf->data, bytes_read);
+
+  SSL *ssl_connection = SSL_new(self->encryption->ssl_client_context);
+  ZProxySSLHandshake *handshake = g_new0(ZProxySSLHandshake, 1);
+  handshake->proxy = z_proxy_ref(self);
+
+  SSL_set_app_data(ssl_connection, handshake);
+  SSL_set_accept_state(ssl_connection);
+  BIO *bio_in = BIO_new(BIO_s_mem());
+  BIO *bio_out = BIO_new(BIO_s_mem());
+
+  SSL_set_bio(ssl_connection, bio_in, bio_out);
+
+  BIO_write(bio_in, buf->data, bytes_read);
+  SSL_do_handshake(ssl_connection);
+  SSL_free(ssl_connection);
+
+  z_proxy_unref(handshake->proxy);
+  g_free(handshake);
+}
+
+void
+z_proxy_ssl_get_sni_from_client(ZProxy *self)
+{
+  ZPktBuf *buf = z_pktbuf_new();
+  z_pktbuf_resize(buf, 1024);
+  gsize bytes_read = 0;
+
+  ZStream *ssl_stream = z_stream_search_stack(self->endpoints[EP_CLIENT], G_IO_OUT, Z_CLASS(ZStreamSsl));
+  if (!ssl_stream)
+    {
+      z_proxy_log(self, CORE_ERROR, 1, "Could not find ssl stream on stream stack");
+      return;
+    }
+  GIOStatus status = z_stream_read(ssl_stream, buf->data, buf->allocated, &bytes_read, NULL);
+  if (status == G_IO_STATUS_ERROR || status == G_IO_STATUS_EOF)
+    {
+      z_proxy_log(self, CORE_ERROR, 0, "Error reading from ssl stream; status=%d", status);
+      return;
+    }
+  else
+    {
+      z_proxy_ssl_sni_do_handshake(self, buf, bytes_read);
+
+      z_stream_ref(ssl_stream);
+      ZStream *fd_stream = z_stream_pop(ssl_stream);
+      z_stream_unget(fd_stream, buf->data, bytes_read, NULL);
+      z_stream_push(fd_stream, ssl_stream);
+    }
+
+  z_pktbuf_unref(buf);
+}
+
 /**
  * Request an SSL handshake to be done on one of the proxy endpoints.
  *
@@ -1875,14 +1704,14 @@ z_proxy_ssl_request_handshake(ZProxy *self, ZEndpoint side, gboolean forced)
   z_proxy_enter(self);
 
   /* if already initialized, return right away */
-  if (self->ssl_opts.ssl_sessions[side])
+  if (self->tls_opts.ssl_sessions[side])
     z_proxy_return(self, TRUE);
 
   /* if the proxy requested that we force-connect to the server and
    * we're doing handshake at the client side, we have to connect
    * first */
   if ((side == EP_CLIENT)
-      && self->ssl_opts.force_connect_at_handshake)
+      && self->tls_opts.force_connect_at_handshake)
     {
       z_proxy_log(self, CORE_INFO, 6, "Force-establishing server connection since the configured handshake order requires it;");
       if (!z_proxy_connect_server(self, NULL, 0))
@@ -1902,18 +1731,18 @@ z_proxy_ssl_request_handshake(ZProxy *self, ZEndpoint side, gboolean forced)
    *     it)
    *   - the other endpoint has already completed the SSL handshake
    */
-  if ((self->ssl_opts.handshake_seq != side)
+  if ((self->encryption->ssl_opts.handshake_seq != side)
       && !forced
-      && self->ssl_opts.security[EP_OTHER(side)] > PROXY_SSL_SEC_NONE
-      && !((self->ssl_opts.security[side] == PROXY_SSL_SEC_FORCE_SSL)
-           && (self->ssl_opts.security[EP_OTHER(side)] != PROXY_SSL_SEC_FORCE_SSL))
-      && (self->ssl_opts.ssl_sessions[EP_OTHER(side)] == NULL))
+      && self->encryption->ssl_opts.security[EP_OTHER(side)] > ENCRYPTION_SEC_NONE
+      && !((self->encryption->ssl_opts.security[side] == ENCRYPTION_SEC_FORCE_SSL)
+           && (self->encryption->ssl_opts.security[EP_OTHER(side)] != ENCRYPTION_SEC_FORCE_SSL))
+      && (self->tls_opts.ssl_sessions[EP_OTHER(side)] == NULL))
     {
       /* if we've requested a handshake, but the handshake order requires
          the other endpoint to be the first and that side isn't ready yet,
          we only register the intent */
       z_proxy_log(self, CORE_DEBUG, 6, "Delaying SSL handshake after the other endpoint is ready; side='%s'", EP_STR(side));
-      self->ssl_opts.handshake_pending[side] = TRUE;
+      self->tls_opts.handshake_pending[side] = TRUE;
       z_proxy_return(self, TRUE);
     }
 
@@ -1929,9 +1758,9 @@ z_proxy_ssl_request_handshake(ZProxy *self, ZEndpoint side, gboolean forced)
       z_proxy_return(self, rc);
     }
 
-  if (self->ssl_opts.ssl_sessions[side])
+  if (self->tls_opts.ssl_sessions[side])
     z_proxy_ssl_clear_session(self, side);
-  self->ssl_opts.ssl_sessions[side] = z_ssl_session_ref(handshake->session);
+  self->tls_opts.ssl_sessions[side] = z_ssl_session_ref(handshake->session);
 
   if (side == EP_SERVER)
     z_proxy_ssl_register_host_iface(self);
@@ -1939,19 +1768,19 @@ z_proxy_ssl_request_handshake(ZProxy *self, ZEndpoint side, gboolean forced)
   /* in case there's a pending handshake request on the other endpoint
      make sure we complete that */
   side = EP_OTHER(side);
-  if (self->ssl_opts.handshake_pending[side])
+  if (self->tls_opts.handshake_pending[side])
     {
       z_proxy_log(self, CORE_DEBUG, 6, "Starting delayed SSL handshake; side='%s'", EP_STR(side));
 
       g_assert(self->endpoints[side] != NULL);
       handshake = z_proxy_ssl_handshake_new(self, self->endpoints[side], side);
 
-      self->ssl_opts.handshake_pending[side] = FALSE;
+      self->tls_opts.handshake_pending[side] = FALSE;
       rc = z_proxy_ssl_perform_handshake(handshake);
 
-      if (self->ssl_opts.ssl_sessions[side])
+      if (self->tls_opts.ssl_sessions[side])
         z_proxy_ssl_clear_session(self, side);
-      self->ssl_opts.ssl_sessions[side] = z_ssl_session_ref(handshake->session);
+      self->tls_opts.ssl_sessions[side] = z_ssl_session_ref(handshake->session);
 
       if (side == EP_SERVER)
         z_proxy_ssl_register_host_iface(self);
@@ -1974,7 +1803,7 @@ z_proxy_ssl_clear_session(ZProxy *self, ZEndpoint side)
 {
   z_proxy_enter(self);
 
-  if (self->ssl_opts.ssl_sessions[side])
+  if (self->tls_opts.ssl_sessions[side])
     {
       if (side == EP_SERVER)
         {
@@ -1988,8 +1817,8 @@ z_proxy_ssl_clear_session(ZProxy *self, ZEndpoint side)
             }
         }
 
-      z_ssl_session_unref(self->ssl_opts.ssl_sessions[side]);
-      self->ssl_opts.ssl_sessions[side] = NULL;
+      z_ssl_session_unref(self->tls_opts.ssl_sessions[side]);
+      self->tls_opts.ssl_sessions[side] = nullptr;
     }
 
   z_proxy_leave(self);
@@ -2017,8 +1846,8 @@ z_proxy_ssl_set_force_connect_at_handshake(ZProxy *self, gboolean val)
 
   /* force-connecting the server side is meaningful only if the configured
    * handshake order is server-client */
-  if (self->ssl_opts.handshake_seq == PROXY_SSL_HS_SERVER_CLIENT)
-    self->ssl_opts.force_connect_at_handshake = val;
+  if (self->encryption->ssl_opts.handshake_seq == PROXY_SSL_HS_SERVER_CLIENT)
+    self->tls_opts.force_connect_at_handshake = val;
 
   z_proxy_leave(self);
 }

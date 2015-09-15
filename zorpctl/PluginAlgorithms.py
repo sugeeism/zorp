@@ -1,26 +1,28 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
 import argparse
 
 from Zorp.InstancesConf import InstancesConf
+from Zorp.Instance import ZorpProcess
 
 from zorpctl.szig import SZIG, SZIGError
 from zorpctl.ProcessAlgorithms import ProcessAlgorithm, GetProcInfoAlgorithm
@@ -172,19 +174,8 @@ class ParseZorpArgumentsAlgorithm(ProcessAlgorithm):
     def __init__(self):
         super(ParseZorpArgumentsAlgorithm, self).__init__()
 
-        self.parser = argparse.ArgumentParser(
-                                        prog="Zorp specific instance argument parser")
-        self.parser.add_argument('--threads', type=int)
-        self.parser.add_argument('--stack-size', type=int)
-        self.parser.add_argument('--process-mode', type=str)
-        self.parser.add_argument('--verbose', type=int)
-        self.parser.add_argument('--uid', type=str)
-        self.parser.add_argument('--gid', type=str)
-        self.parser.add_argument('--fd-limit-min', type=int)
-        self.parser.add_argument('--policy', type=str)
-
     def execute(self):
-        return vars(self.parser.parse_args(self.instance.zorp_argument_list))
+        return ZorpProcess(self.instance.zorp_argument_list).args
 
 class GetThreadLimitAlgorithm(ProcessAlgorithm):
 

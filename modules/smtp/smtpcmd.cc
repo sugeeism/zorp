@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -641,14 +636,14 @@ smtp_response_EHLO(SmtpProxy *self)
                        *  - client: != ACCEPT_STARTTLS / server *: we have to remove 'STARTTLS'
                        *  - client: ACCEPT_STARTTLS / server != FORWARD_STARTTLS: we have to add 'STARTTLS'
                        */
-                      if (self->super.ssl_opts.security[EP_CLIENT] != PROXY_SSL_SEC_ACCEPT_STARTTLS ||
+                      if (self->super.encryption->ssl_opts.security[EP_CLIENT] != ENCRYPTION_SEC_ACCEPT_STARTTLS ||
                           self->start_tls_ok[EP_CLIENT])
                         {
                           self->active_extensions &= ~SMTP_EM_STARTTLS;
                           remove_ext_from_list = TRUE;
                         }
-                      else if (self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS &&
-                               self->super.ssl_opts.security[EP_SERVER] != PROXY_SSL_SEC_FORWARD_STARTTLS &&
+                      else if (self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS &&
+                               self->super.encryption->ssl_opts.security[EP_SERVER] != ENCRYPTION_SEC_FORWARD_STARTTLS &&
                                !self->start_tls_ok[EP_CLIENT])
                         {
                           self->active_extensions |= SMTP_EM_STARTTLS;
@@ -879,30 +874,30 @@ smtp_request_STARTTLS(SmtpProxy *self)
    *  - client ACCEPT_STARTTLS / server !FORWARD_STARTTLS: return success
    *    to the client and don't forward the request
    */
-  switch (self->super.ssl_opts.security[EP_CLIENT])
+  switch (self->super.encryption->ssl_opts.security[EP_CLIENT])
     {
-    case PROXY_SSL_SEC_FORWARD_STARTTLS:
+    case ENCRYPTION_SEC_FORWARD_STARTTLS:
       g_assert_not_reached();
 
-    case PROXY_SSL_SEC_NONE:
+    case ENCRYPTION_SEC_NONE:
       z_proxy_log(self, SMTP_POLICY, 4, "Client-side STARTTLS is not permitted by policy;");
       goto error;
 
-    case PROXY_SSL_SEC_FORCE_SSL:
+    case ENCRYPTION_SEC_FORCE_SSL:
       SMTP_SET_RESPONSE(SMTP_MSG_TLS_NOT_AVAILABLE);
       goto error;
 
-    case PROXY_SSL_SEC_ACCEPT_STARTTLS:
-      switch (self->super.ssl_opts.security[EP_SERVER])
+    case ENCRYPTION_SEC_ACCEPT_STARTTLS:
+      switch (self->super.encryption->ssl_opts.security[EP_SERVER])
         {
-        case PROXY_SSL_SEC_ACCEPT_STARTTLS:
+        case ENCRYPTION_SEC_ACCEPT_STARTTLS:
           g_assert_not_reached();
 
-        case PROXY_SSL_SEC_FORWARD_STARTTLS:
+        case ENCRYPTION_SEC_FORWARD_STARTTLS:
           break;
 
-        case PROXY_SSL_SEC_NONE:
-        case PROXY_SSL_SEC_FORCE_SSL:
+        case ENCRYPTION_SEC_NONE:
+        case ENCRYPTION_SEC_FORCE_SSL:
           /* Nothing to do. SSL handshake made as action */
           break;
         }
@@ -925,8 +920,8 @@ smtp_response_STARTTLS(SmtpProxy *self)
    *  - client ACCEPT_STARTTLS / server FORWARD_STARTTLS: do handshake on both
    *    sides if the server accepted the request
    */
-  g_assert((self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS) &&
-           (self->super.ssl_opts.security[EP_SERVER] == PROXY_SSL_SEC_FORWARD_STARTTLS));
+  g_assert((self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS) &&
+           (self->super.encryption->ssl_opts.security[EP_SERVER] == ENCRYPTION_SEC_FORWARD_STARTTLS));
 
   if (atoi(self->response->str) != 220)
     z_proxy_return(self, SMTP_RSP_ACCEPT);
@@ -945,6 +940,9 @@ smtp_response_STARTTLS(SmtpProxy *self)
     }
   else
     {
+      // FUTURE-FEATURE
+      //z_proxy_ssl_get_sni_from_client(&self->super);
+
       /* Do server and client handshake */
       if (!z_proxy_ssl_request_handshake(&self->super, EP_SERVER, FALSE))
         {
@@ -982,16 +980,16 @@ smtp_action_STARTTLS(SmtpProxy *self)
 
   z_proxy_enter(self);
 
-  switch (self->super.ssl_opts.security[EP_SERVER])
+  switch (self->super.encryption->ssl_opts.security[EP_SERVER])
     {
-    case PROXY_SSL_SEC_ACCEPT_STARTTLS:
+    case ENCRYPTION_SEC_ACCEPT_STARTTLS:
       g_assert_not_reached();
 
-    case PROXY_SSL_SEC_FORWARD_STARTTLS:
+    case ENCRYPTION_SEC_FORWARD_STARTTLS:
       break;
 
-    case PROXY_SSL_SEC_NONE:
-    case PROXY_SSL_SEC_FORCE_SSL:
+    case ENCRYPTION_SEC_NONE:
+    case ENCRYPTION_SEC_FORCE_SSL:
       /* return success to the client right away */
       z_proxy_log(self, SMTP_INFO, 3, "Zorp is configured for client-only SMTP STARTTLS, accepting request;");
 

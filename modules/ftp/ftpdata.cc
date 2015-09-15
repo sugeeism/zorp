@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  *
@@ -147,6 +142,7 @@ ftp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
 	Check your Zorp configuration.
        */
       z_proxy_log(self->super.owner, FTP_POLICY, 3, "Invalid stacking tuple returned by policy;");
+      z_proxy_report_invalid_policy(self->super.owner);
       goto unref_unlock;
     }
   if (stack_type < FTP_STK_NONE || stack_type > FTP_STK_DATA)
@@ -156,6 +152,7 @@ ftp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
 	contains an invalid stacking type. Check your Zorp configuration.
        */
       z_proxy_log(self->super.owner, FTP_POLICY, 3, "Invalid stacking type; type='%d'", stack_type);
+      z_proxy_report_invalid_policy(self->super.owner);
       stack_type = FTP_STK_NONE;
       goto unref_unlock;
     }
@@ -172,6 +169,9 @@ ftp_transfer_stack_proxy(ZTransfer2 *s, ZStackedProxy **stacked)
       break;
     }
  unref_unlock:
+  if (!success)
+    z_proxy_report_policy_abort(self->super.owner);
+
   z_policy_var_unref(proxy_stack_tuple);
   z_policy_unlock(self->super.owner->thread);
   return success;

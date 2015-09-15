@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -29,222 +30,8 @@
       Protocol-specific proxy modules are derived from the Proxy module, and are
       described in <xref linkend="chapter_Proxies"/>.
     </para>
-    <para>
-        Starting with Zorp 3.3FR1, the Proxy module provides a common SSL/TLS framework for the Zorp proxies as well. This SSL framework replaces and extends the functionality of the Pssl proxy, providing support for STARTTLS as well. The Pssl proxy has become obsolete, but still provides a compatibility layer for older configuration files, but you are recommended to update your configuration to use the new SSL framework as soon as possible. The SSL framework is described in <xref linkend="chapter_ssl"/>.
-    </para>
-    <note>
-        <para>STARTTLS support is currently available only for the Ftp proxy to support FTPS sessions and for the SMTP proxy.</para>
-    </note>
-    <inline type="enum" target="enum.ssl.verify"/>
-    <inline type="enum" target="enum.ssl.method"/>
-    <inline type="enum" target="enum.ssl.ciphers"/>
-    <inline type="enum" target="enum.ssl.hso"/>
-    <inline type="enum" target="enum.ssl.client_connection_security"/>
-    <inline type="enum" target="enum.ssl.server_connection_security"/>
-    <inline type="const" target="const.ssl.log"/>
-    <inline type="const" target="const.ssl.hs"/>
   </description>
   <metainfo>
-    <enums>
-      <enum maturity="stable" id="enum.ssl.verify">
-        <description>
-          Certificate verification settings
-        </description>
-        <item>
-          <name>SSL_VERIFY_NONE</name>
-          <description>Automatic certificate verification is disabled.</description>
-        </item>
-        <item>
-          <name>SSL_VERIFY_OPTIONAL_UNTRUSTED</name>
-          <description>Certificate is optional, if present, both trusted and untrusted certificates are accepted.</description>
-        </item>
-        <item>
-          <name>SSL_VERIFY_OPTIONAL_TRUSTED</name>
-          <description>Certificate is optional, but if a certificate is present, only  certificates signed by a trusted CA are accepted.</description>
-        </item>
-        <item>
-          <name>SSL_VERIFY_REQUIRED_UNTRUSTED</name>
-          <description>Valid certificate is required, both trusted and untrusted certificates are accepted.</description>
-        </item>
-        <item>
-          <name>SSL_VERIFY_REQUIRED_TRUSTED</name>
-          <description>Certificate is required, only valid certificates signed by a trusted CA are accepted.</description>
-        </item>
-      </enum>
-      <enum maturity="stable" id="enum.ssl.method">
-        <description>
-          Constants for SSL/TLS protocol selection
-        </description>
-        <item>
-          <name>SSL_METHOD_SSLV2</name>
-          <description>
-           Permit the use of SSLv2 exclusively.
-          </description>
-        </item>
-        <item>
-          <name>SSL_METHOD_SSLV3</name>
-          <description>
-                Permit the use of SSLv3 exclusively.
-          </description>
-        </item>
-        <item>
-          <name>SSL_METHOD_TLSV1</name>
-          <description>
-                Permit the use of TLSv1 exclusively.
-          </description>
-        </item>
-        <item>
-          <name>SSL_METHOD_ALL</name>
-          <description>
-           Permit the use of all the supported (SSLv2, SSLv3, and TLSv1) protocols.
-          </description>
-        </item>
-      </enum>
-      <enum maturity="stable" id="enum.ssl.ciphers">
-        <description>
-          Constants for cipher selection
-        </description>
-        <item>
-          <name>SSL_CIPHERS_ALL</name>
-          <description>
-           Permit the use of all supported ciphers, including the 40 and 56 bit exportable ciphers.
-          </description>
-        </item>
-        <item>
-          <name>SSL_CIPHERS_HIGH</name>
-          <description>
-                Permit only the use of ciphers which use at least 128 bit long keys.
-          </description>
-        </item>
-        <item>
-          <name>SSL_CIPHERS_MEDIUM</name>
-          <description>
-                Permit only the use of ciphers which use 128 bit long keys.
-          </description>
-        </item>
-        <item>
-          <name>SSL_CIPHERS_LOW</name>
-          <description>
-                Permit only the use of ciphers which use keys shorter then 128 bits.
-          </description>
-        </item>
-      </enum>
-      <enum maturity="stable" id="enum.ssl.hso">
-        <description>
-          Handshake order.
-        </description>
-        <item>
-          <name>SSL_HSO_CLIENT_SERVER</name>
-          <description>
-                Perform the SSL-handshake with the client first.
-          </description>
-        </item>
-        <item>
-          <name>SSL_HSO_SERVER_CLIENT</name>
-          <description>
-                Perform the SSL-handshake with the server first.
-          </description>
-        </item>
-      </enum>
-      <enum maturity="stable" id="enum.ssl.client_connection_security">
-        <description>
-          Client connection security type.
-        </description>
-        <item>
-          <name>SSL_NONE</name>
-          <description>
-                Disable encryption between Zorp and the peer.
-          </description>
-        </item>
-        <item>
-          <name>SSL_FORCE_SSL</name>
-          <description>
-                Require encrypted communication between Zorp and the peer.
-          </description>
-        </item>
-        <item>
-          <name>SSL_ACCEPT_STARTTLS</name>
-          <description>
-                Permit STARTTLS sessions. Currently supported only in the Ftp and Smtp proxies.
-          </description>
-        </item>
-      </enum>
-      <enum maturity="stable" id="enum.ssl.server_connection_security">
-        <description>
-          Server connection security type.
-        </description>
-        <item>
-          <name>SSL_NONE</name>
-          <description>
-                Disable encryption between Zorp and the peer.
-          </description>
-        </item>
-        <item>
-          <name>SSL_FORCE_SSL</name>
-          <description>
-                Require encrypted communication between Zorp and the peer.
-          </description>
-        </item>
-        <item>
-          <name>SSL_FORWARD_STARTTLS</name>
-          <description>
-                Forward STARTTLS requests to the server. Currently supported only in the Ftp and Smtp proxies.
-          </description>
-        </item>
-      </enum>
-    </enums>
-    <constants>
-      <constantgroup maturity="stable" id="const.ssl.log">
-        <description>
-          Verbosity level of the log messages
-        </description>
-        <item>
-          <name>SSL_ERROR</name>
-          <description>
-                Log only errors of the SSL framework.
-          </description>
-        </item>
-        <item>
-          <name>SSL_DEBUG</name>
-          <description>
-                Enable verbose logging of the SSL framework.
-          </description>
-        </item>
-      </constantgroup>
-      <constantgroup maturity="stable" id="const.ssl.hs">
-        <description>
-          Handshake policy decisions
-        </description>
-        <item>
-          <name>SSL_HS_ACCEPT</name>
-          <value>0</value>
-          <description>
-                Accept the connection.
-          </description>
-        </item>
-        <item>
-          <name>SSL_HS_REJECT</name>
-          <value>1</value>
-          <description>
-                Reject the connection.
-          </description>
-        </item>
-        <item>
-          <name>SSL_HS_POLICY</name>
-          <value>6</value>
-          <description>
-                Use a policy to decide about the connection.
-          </description>
-        </item>
-        <item>
-          <name>SSL_HS_VERIFIED</name>
-          <value>10</value>
-          <description>
-                <!--FIXME-->
-          </description>
-        </item>
-      </constantgroup>
-    </constants>
   </metainfo>
 </module>
 """
@@ -259,48 +46,9 @@ from Keybridge import *
 from Chainer import ConnectChainer
 from Exceptions import *
 from Detector import *
+from LegacyEncryption import *
 
 import string, os, sys, traceback, re, types
-
-SSL_ERROR      = 'core.error'
-SSL_DEBUG      = 'core.debug'
-SSL_INFO       = 'core.info'
-SSL_VIOLATION  = 'core.violation'
-
-SSL_VERIFY_NONE                = 0
-SSL_VERIFY_OPTIONAL            = 1
-SSL_VERIFY_OPTIONAL_UNTRUSTED  = 1
-SSL_VERIFY_OPTIONAL_TRUSTED    = 2
-SSL_VERIFY_REQUIRED_UNTRUSTED  = 3
-SSL_VERIFY_REQUIRED_TRUSTED    = 4
-
-# handshake order
-SSL_HSO_CLIENT_SERVER   = 0
-SSL_HSO_SERVER_CLIENT   = 1
-
-# handshake policy decisions
-SSL_HS_ACCEPT           = 1
-SSL_HS_REJECT           = 3
-SSL_HS_POLICY           = 6
-SSL_HS_VERIFIED         = 10
-
-SSL_METHOD_SSLV23       = "SSLv23"
-SSL_METHOD_SSLV2        = "SSLv2"
-SSL_METHOD_SSLV3        = "SSLv3"
-SSL_METHOD_TLSV1        = "TLSv1"
-SSL_METHOD_ALL          = "SSLv23"
-
-SSL_CIPHERS_ALL         = "ALL:!aNULL:@STRENGTH"
-
-SSL_CIPHERS_HIGH        = "HIGH:!aNULL:@STRENGTH"
-SSL_CIPHERS_MEDIUM      = "HIGH:MEDIUM:!aNULL:@STRENGTH"
-SSL_CIPHERS_LOW         = "HIGH:MEDIUM:LOW:EXPORT:!aNULL:@STRENGTH"
-
-# connection security settings
-SSL_NONE                = 0
-SSL_FORCE_SSL           = 1
-SSL_ACCEPT_STARTTLS     = 2
-SSL_FORWARD_STARTTLS    = 3
 
 def proxyLog(self, type, level, msg, args=None):
     """
@@ -1483,7 +1231,22 @@ class Proxy(BuiltinProxy):
               firewall hosted local CA.
             </description>
           </attribute>
-
+          <attribute state="stable">
+            <name>encryption_policy</name>
+            <type>
+              <class filter="encryptionpolicy" instance="no" existing="yes"/>
+            </type>
+            <default>None</default>
+            <conftime>
+              <read/>
+              <write/>
+            </conftime>
+            <runtime/>
+            <description>Name of the Encryption policy instance used to
+            encrypt the sessions and verify the certificates used.
+            For details, see <xref linkend="python.Encryption"/>.
+            </description>
+          </attribute>
         </attributes>
       </metainfo>
     </class>
@@ -1494,6 +1257,7 @@ class Proxy(BuiltinProxy):
     auth_inband_supported = FALSE
     auth_server_supported = FALSE
 
+    ssl_deprecation_warning = True
     def __init__(self, session):
         """
         <method internal="yes">
@@ -1572,7 +1336,6 @@ class Proxy(BuiltinProxy):
         """
         pass
 
-
     def __pre_config__(self):
         """
         <method internal="yes">
@@ -1598,109 +1361,27 @@ class Proxy(BuiltinProxy):
         if (self.session.protocol == ZD_PROTO_UDP) and self.timeout > 60000:
             self.timeout = 60000
         self.language = config.options.language
-
-        self.ssl.client_trusted_certs_directory = ''
-        self.ssl.server_trusted_certs_directory = ''
-        self.ssl.client_keypair_generate = FALSE
-        self.ssl.server_keypair_generate = FALSE
-        self.ssl.client_certificate_trusted = FALSE
-        self.ssl.server_certificate_trusted = FALSE
-
-        self.ssl.client_handshake["verify_cert_ext"] = (SSL_HS_POLICY, self.verifyTrustedCertClient)
-        self.ssl.server_handshake["verify_cert_ext"] = (SSL_HS_POLICY, self.verifyTrustedCertServer)
-
-        if self.session.service.encryption_policy:
-            self.session.service.encryption_policy.apply(self)
+        self.ssl = LegacyEncryption()
+        self.encryption_policy = None
 
     def __post_config__(self):
         """<method internal="yes">
         </method>
         """
-        if self.ssl.client_keypair_generate == TRUE and self.ssl.server_keypair_generate == TRUE:
-            raise ValueError, 'client_keypair_generate and server_keypair_generate are both enabled. '\
-                    'Key generation cannot work on both sides at the same time.'
+        if Proxy.ssl_deprecation_warning and self.ssl.isEncryptionUsed():
+            Proxy.ssl_deprecation_warning = False
+            log(None, CORE_DEBUG, 3, "Use of self.ssl properties are deprecated, EncryptionPolicy should be used instead.")
 
-        if self.ssl.client_connection_security > SSL_NONE:
-            if hasattr(self.ssl, "client_cert") and type(self.ssl.client_cert) == types.StringType:
-                self.ssl.client_cert_file = self.ssl.client_cert
-            if hasattr(self.ssl, "client_key") and type(self.ssl.client_key) == types.StringType:
-                self.ssl.client_key_file = self.ssl.client_key
+        if self.session.service.encryption_policy and self.ssl.isEncryptionUsed():
+            raise ValueError, 'You can only configure encryption through EncryptionPolicy or Proxy settings, not both'
+        self.encryption = None
+        if self.session.service.encryption_policy:
+            self.encryption = self.session.service.encryption_policy.getEncryption()
+        elif self.encryption_policy:
+            self.encryption = getEncryptionPolicy(self.encryption_policy).getEncryption()
+        else:
+            self.encryption = self.ssl.getEncryption(self)
 
-            if hasattr(self.ssl, "client_keypair_files"):
-                self.ssl.client_cert_file = self.ssl.client_keypair_files[0]
-                self.ssl.client_key_file = self.ssl.client_keypair_files[1]
-
-            if hasattr(self.ssl, "client_cagroup_directories"):
-                self.ssl.client_ca_directory = self.ssl.client_cagroup_directories[0]
-                self.ssl.client_crl_directory = self.ssl.client_cagroup_directories[1]
-
-            if hasattr(self.ssl, "client_verify_cagroup_directories"):
-                self.ssl.client_verify_ca_directory = self.ssl.client_verify_cagroup_directories[0]
-                self.ssl.client_verify_crl_directory = self.ssl.client_verify_cagroup_directories[1]
-
-            if hasattr(self.ssl, "client_cert_file"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing client_cert_file; value='%s'" % self.ssl.client_cert_file)
-                self.ssl.client_local_certificate = self.readPEM(self.ssl.client_cert_file)
-
-            if hasattr(self.ssl, "client_key_file"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing client_key_file; value='%s'" % self.ssl.client_key_file)
-                self.ssl.client_local_privatekey = self.readPEM(self.ssl.client_key_file)
-
-            if hasattr(self.ssl, "client_ca_directory"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing client_ca_directory; value='%s'" % self.ssl.client_ca_directory)
-                self.readHashDir(self.ssl.client_local_ca_list, self.ssl.client_ca_directory)
-
-            if hasattr(self.ssl, "client_crl_directory"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing client_crl_directory; value='%s'" % self.ssl.client_crl_directory)
-                self.readHashDir(self.ssl.client_local_crl_list, self.ssl.client_crl_directory)
-
-            if self.ssl.client_keypair_generate:
-                if self.ssl.handshake_seq != SSL_HSO_SERVER_CLIENT:
-                    raise ValueError, "For client-side keypair generation, the handshake order"\
-                            " must be SSL_HSO_SERVER_CLIENT."
-                else:
-                    self.ssl.client_handshake["setup_key"] = (SSL_HS_POLICY, self.generateKeyClient)
-
-        if self.ssl.server_connection_security > SSL_NONE:
-            if hasattr(self.ssl, "server_cert") and type(self.ssl.server_cert) == types.StringType:
-                self.ssl.server_cert_file = self.ssl.server_cert
-            if hasattr(self.ssl, "server_key") and type(self.ssl.server_key) == types.StringType:
-                self.ssl.server_key_file = self.ssl.server_key
-
-            if hasattr(self.ssl, "server_keypair_files"):
-                self.ssl.server_cert_file = self.ssl.server_keypair_files[0]
-                self.ssl.server_key_file = self.ssl.server_keypair_files[1]
-
-            if hasattr(self.ssl, "server_cagroup_directories"):
-                self.ssl.server_ca_directory = self.ssl.server_cagroup_directories[0]
-                self.ssl.server_crl_directory = self.ssl.server_cagroup_directories[1]
-
-            if hasattr(self.ssl, "server_verify_cagroup_directories"):
-                self.ssl.server_verify_ca_directory = self.ssl.server_verify_cagroup_directories[0]
-                self.ssl.server_verify_crl_directory = self.ssl.server_verify_cagroup_directories[1]
-
-            if hasattr(self.ssl, "server_cert_file"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing server_cert_file; value='%s'" % self.ssl.server_cert_file)
-                self.ssl.server_local_certificate = self.readPEM(self.ssl.server_cert_file)
-
-            if hasattr(self.ssl, "server_key_file"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing server_key_file; value='%s'" % self.ssl.server_key_file)
-                self.ssl.server_local_privatekey = self.readPEM(self.ssl.server_key_file)
-
-            if hasattr(self.ssl, "server_ca_directory"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing server_ca_directory; value='%s'" % self.ssl.server_ca_directory)
-                self.readHashDir(self.ssl.server_local_ca_list, self.ssl.server_ca_directory)
-
-            if hasattr(self.ssl, "server_crl_directory"):
-                proxyLog(self, SSL_DEBUG, 6, "Compatibility feature, processing server_crl_directory; value='%s'" % self.ssl.server_crl_directory)
-                self.readHashDir(self.ssl.server_local_crl_list, self.ssl.server_crl_directory)
-
-            if self.ssl.server_keypair_generate:
-                if self.ssl.handshake_seq != SSL_HSO_CLIENT_SERVER:
-                    raise ValueError, "For server-side keypair generation, the handshake order"\
-                            " must be SSL_HSO_CLIENT_SERVER."
-                else:
-                    self.ssl.server_handshake["setup_key"] = (SSL_HS_POLICY, self.generateKeyServer)
 
     def config(self):
         """
@@ -1720,6 +1401,45 @@ class Proxy(BuiltinProxy):
         </method>
         """
         pass
+
+    def closedByAbort(self):
+        """
+        <method maturity="stable">
+          <summary>
+            Function called by the proxy core when an abort has been occured.
+          </summary>
+          <description>
+            <para>
+              This function is called when a callback gives abort or no result. It simply sets a flag that
+              will be used for logging the reason of the proxy's ending.
+            </para>
+          </description>
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        if self.session.owner.verdict == ConnectionVerdict(ConnectionVerdict.ACCEPTED):
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.ABORTED_BY_POLICY_ACTION)
+
+    def invalidPolicyCall(self):
+        """
+        <method maturity="stable">
+          <summary>
+            Invalid policy function called.
+          </summary>
+          <description>
+            <para>
+              This function is called when invalid policy function has been called.
+            </para>
+          </description>
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        if self.session.owner.verdict == ConnectionVerdict(ConnectionVerdict.ACCEPTED):
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.INVALID_POLICY_CALL)
 
     def __destroy__(self):
         """
@@ -1943,13 +1663,13 @@ class Proxy(BuiltinProxy):
         server_stream = None
 
         try:
-                server_stream = self.session.chainer.chainParent(self.session)
-
+            server_stream = self.session.chainer.chainParent(self.session)
         except ZoneException, s:
             ## LOG ##
             # This message indicates that no appropriate zone was found for the server address.
             # @see: Zone
             ##
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             proxyLog(self, CORE_POLICY, 1, "Zone not found; info='%s'", (s,))
         except DACException, s:
             ## LOG ##
@@ -1957,24 +1677,34 @@ class Proxy(BuiltinProxy):
             # It is likely that the new connection was not permitted as an inbound_service in the given zone.
             # @see: Zone
             ##
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             proxyLog(self, CORE_POLICY, 1, "DAC policy violation; info='%s'", (s,))
             self.notifyEvent("core.dac_exception", [])
         except MACException, s:
             ## LOG ##
             # This message indicates that a MAC policy violation occurred.
             ##
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             proxyLog(self, CORE_POLICY, 1, "MAC policy violation; info='%s'", (s,))
         except AAException, s:
             ## NOLOG ##
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             proxyLog(self.self, CORE_POLICY, 1, "Authentication failure; info='%s'", (s,))
         except LimitException, s:
             ## NOLOG ##
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_LIMIT)
             proxyLog(self, CORE_POLICY, 1, "Connection over permitted limits; info='%s'", (s,))
         except LicenseException, s:
             ## NOLOG ##
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_LIMIT)
             proxyLog(self, CORE_POLICY, 1, "Attempt to use an unlicensed component, or number of licensed hosts exceeded; info='%s'", (s,))
         except:
+            self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_UNKNOWN_FAIL)
             traceback.print_exc()
+        else:
+            is_silent_io_error = server_stream is None
+            if is_silent_io_error:
+                self.session.owner.verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_CONNECTION_FAIL)
 
         return server_stream
 
@@ -2095,106 +1825,5 @@ class Proxy(BuiltinProxy):
         return res
 
     hash_pattern = re.compile("[0-9a-fA-F]*\.(r){0,1}[0-9]")
-
-    def readHashDir(self, hash, directory):
-        """<method internal="yes">
-        </method>
-        """
-        try:
-            files = os.listdir(directory)
-            i = 0
-            for file in files:
-                if self.hash_pattern.match(file):
-                    try:
-                        hash[i] = self.readPEM(directory + '/' + file)
-                    except (TypeError, ValueError), s:
-                        proxyLog(self, SSL_ERROR, 3, "Error adding CA certificate; reason='%s'" % (s,))
-                    i = i+1
-        except OSError, e:
-            proxyLog(self, SSL_ERROR, 3, "Error reading CA or CRL directory; dir='%s', error='%s'", (directory, e.strerror))
-
-    def verifyTrustedCert(self, side, verify_results, trusted_certs_dir, blob):
-        """<method internal="yes">
-        </method>
-        """
-        if trusted_certs_dir:
-            if side == 1:
-                f = '%s/%s:%d' % (self.ssl.server_trusted_certs_directory, self.session.server_address.ip_s, self.session.server_address.port)
-            elif side == 0:
-                f = '%s/%s' % (self.ssl.client_trusted_certs_directory, self.session.client_address.ip_s)
-        else:
-            return SSL_HS_ACCEPT
-
-        proxyLog(self, SSL_DEBUG, 6, "Testing trusted certificates; f='%s'", (f,))
-        if blob and os.access(f, os.R_OK):
-            if self.readPEM(f) == blob:
-                proxyLog(self, SSL_INFO, 4, "Trusting peer certificate; stored_cert='%s'", f)
-                return SSL_HS_VERIFIED
-            else:
-                proxyLog(self, SSL_VIOLATION, 2, "Peer certificate differs from trusted cert; stored_cert='%s'", f)
-                return SSL_HS_REJECT
-
-        return SSL_HS_ACCEPT
-
-    def verifyTrustedCertClient(self, side, verify_results):
-        """<method internal="yes">
-        </method>
-        """
-        res = self.verifyTrustedCert(side, verify_results, self.ssl.client_trusted_certs_directory, self.ssl.client_peer_certificate.blob)
-        if res == SSL_HS_VERIFIED or (res == SSL_HS_ACCEPT and verify_results[0]):
-            self.ssl.client_certificate_trusted = TRUE
-        return res
-
-    def verifyTrustedCertServer(self, side, verify_results):
-        """<method internal="yes">
-        </method>"""
-        res = self.verifyTrustedCert(side, verify_results, self.ssl.server_trusted_certs_directory, self.ssl.server_peer_certificate.blob)
-        if res == SSL_HS_VERIFIED or (res == SSL_HS_ACCEPT and verify_results[0]):
-            self.ssl.server_certificate_trusted = TRUE
-        return res
-
-    def generateKeyClient(self, side):
-        """<method internal="yes">
-        </method>
-        """
-        # client side, we need to look up the server key
-        if not getattr(self.ssl, "server_peer_certificate", None):
-            proxyLog(self, SSL_ERROR, 4, "Unable to generate certificate for the client, no server certificate present, using configured certificate;")
-            return SSL_HS_ACCEPT
-
-        if hasattr(self.ssl, "key_generator"):
-            proxyLog(self, SSL_DEBUG, 4, "Generating key for the client; trusted='%d'", self.ssl.server_certificate_trusted)
-            if self.ssl.server_certificate_trusted:
-                (self.ssl.client_local_certificate, self.ssl.client_local_privatekey) = \
-                    self.ssl.key_generator.getKeypair({'bridge-trusted-key': self.ssl.server_peer_certificate.blob})
-            else:
-                (self.ssl.client_local_certificate, self.ssl.client_local_privatekey) = \
-                    self.ssl.key_generator.getKeypair({'bridge-untrusted-key': self.ssl.server_peer_certificate.blob})
-            return SSL_HS_ACCEPT
-        else:
-            proxyLog(self, SSL_ERROR, 4, "Unable to generate key for the client, no key generator configured;")
-            return SSL_HS_REJECT
-
-    def generateKeyServer(self, side):
-        """<method internal="yes">
-        </method>
-        """
-        # server side, we need to look up the client key
-        if not getattr(self.ssl, "client_peer_certificate", None):
-            proxyLog(self, SSL_ERROR, 4, "Unable to generate certificate for the server, no client certificate present, using configured certificate;")
-            return SSL_HS_ACCEPT
-
-        if hasattr(self.ssl, "key_generator"):
-            proxyLog(self, SSL_DEBUG, 4, "Generating key for the server; trusted='%d'", self.ssl.server_certificate_trusted)
-            if self.ssl.client_certificate_trusted:
-                (self.ssl.server_local_certificate, self.ssl.server_local_privatekey) = \
-                    self.ssl.key_generator.getKeypair({'bridge-trusted-key': self.ssl.client_peer_certificate.blob})
-            else:
-                (self.ssl.server_local_certificate, self.ssl.server_local_privatekey) = \
-                    self.ssl.key_generator.getKeypair({'bridge-untrusted-key': self.ssl.client_peer_certificate.blob})
-            return SSL_HS_ACCEPT
-        else:
-            proxyLog(self, SSL_ERROR, 4, "Unable to generate key for the server, no key generator configured;")
-            return SSL_HS_REJECT
 
 

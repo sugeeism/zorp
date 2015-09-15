@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -30,14 +31,14 @@
         </link> connects an additional proxy before connecting the server.
         </para>
 
-        <section id="chainer_protocol">
+        <section xml:id="chainer_protocol">
         <title>Selecting the network protocol</title>
         <para>The client-side and the server-side connections can use different networking protocols if needed.
         The <parameter>protocol</parameter> attribute of the chainer classes determines the network protocol used in the
         server-side connection. By default, Zorp uses the same protocol in both connections.
         The following options are available:</para>
         <!--<inline type="enum" target="zorp.proto.id"/>-->
-        <table frame="all" id="table-ZD_PROTO">
+        <table frame="all" xml:id="table-ZD_PROTO">
         <title>
         The network protocol used in the server-side connection
         </title>
@@ -101,12 +102,12 @@ class AbstractChainer(object):
       </metainfo>
     </class>
     """
-    def __init__(self):
+    def __init__(self, protocol=ZD_PROTO_AUTO):
         """
         <method internal="yes">
         </method>
         """
-        pass
+        self.protocol = protocol
 
     def chainParent(self, session):
         """
@@ -131,6 +132,13 @@ class AbstractChainer(object):
         </method>
         """
         raise NotImplementedError
+
+    def getProtocol(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        return self.protocol
 
 class ConnectChainer(AbstractChainer):
     """
@@ -205,8 +213,7 @@ in a roundrobin fashion.</para>
           </metainfo>
         </method>
         """
-        super(ConnectChainer, self).__init__()
-        self.protocol = protocol
+        super(ConnectChainer, self).__init__(protocol)
         if not timeout_connect:
             self.timeout_connect = config.options.timeout_server_connect
         else:
@@ -272,6 +279,7 @@ in a roundrobin fashion.</para>
                               server_socket_mark=session.proxy.server_socket_mark)
                 session.server_stream = conn.start()
                 session.server_local = conn.local
+                session.owner.server_local = conn.local
             except IOError:
                 session.server_stream = None
             if session.server_stream == None:
@@ -873,7 +881,7 @@ class SideStackChainer(AbstractChainer):
         <para>
         Proxy sidestacking is useful for example to create one-sided SSL connections.
         See the tutorials of the BalaBit Documentation Page available at
-        <ulink url="http://www.balabit.com/support/documentation/">http://www.balabit.com/support/documentation/</ulink>
+        <link xmlns:ns1="http://www.w3.org/1999/xlink" ns1:href="http://www.balabit.com/network-security/zorp-gateway/support/documentation/">http://www.balabit.com/network-security/zorp-gateway/support/documentation/</link>
         for details.
         </para>
         </tip>
@@ -935,6 +943,13 @@ class SideStackChainer(AbstractChainer):
         if right_chainer == None:
             right_chainer = ConnectChainer()
         self.right_chainer = right_chainer
+
+    def getProtocol(self):
+        """
+        <method internal="yes">
+        </method>
+        """
+        return self.right_chainer.getProcotol()
 
     def chainParent(self, session):
         """

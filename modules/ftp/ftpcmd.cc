@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -2171,14 +2166,14 @@ ftp_process_feature_list(FtpProxy *self, GList *incoming)
    *  - client: ACCEPT_STARTTLS / server != FORWARD_STARTTLS: we have to add 'AUTH TLS',
    *    'PBSZ' and 'PROT'
    */
-  if (self->super.ssl_opts.security[EP_CLIENT] != PROXY_SSL_SEC_ACCEPT_STARTTLS)
+  if (self->super.encryption->ssl_opts.security[EP_CLIENT] != ENCRYPTION_SEC_ACCEPT_STARTTLS)
     {
       g_hash_table_remove(filtered, "AUTH TLS");
       g_hash_table_remove(filtered, "PROT");
       g_hash_table_remove(filtered, "PBSZ");
     }
-  else if ((self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
-           && ((self->super.ssl_opts.security[EP_SERVER] != PROXY_SSL_SEC_FORWARD_STARTTLS)
+  else if ((self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
+           && ((self->super.encryption->ssl_opts.security[EP_SERVER] != ENCRYPTION_SEC_FORWARD_STARTTLS)
                || (self->transparent_mode == FALSE)))
     {
       g_hash_table_insert(filtered, const_cast<char *>("AUTH TLS"), NULL);
@@ -2254,8 +2249,8 @@ ftp_command_answer_FEAT(FtpProxy *self)
       /* If it was an error, and FTPS is enabled on the client side but disabled on the
        * server, we have to generate a fake list of features containing AUTH TLS, etc.
        * Thus, we need to change the answer code to 221. */
-      if ((self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
-          && (self->super.ssl_opts.security[EP_SERVER] != PROXY_SSL_SEC_FORWARD_STARTTLS))
+      if ((self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
+          && (self->super.encryption->ssl_opts.security[EP_SERVER] != ENCRYPTION_SEC_FORWARD_STARTTLS))
         {
           self->answer_code = 211;
           g_string_assign(self->answer_cmd, "211");
@@ -2342,10 +2337,10 @@ ftp_command_parse_AUTH(FtpProxy *self)
      *  - client ACCEPT_STARTTLS / server !FORWARD_STARTTLS: return success
      *    to the client and don't forward the request
      */
-    if (self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
+    if (self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
       {
         if (!non_transparent
-            && (self->super.ssl_opts.security[EP_SERVER] == PROXY_SSL_SEC_FORWARD_STARTTLS))
+            && (self->super.encryption->ssl_opts.security[EP_SERVER] == ENCRYPTION_SEC_FORWARD_STARTTLS))
           /* nothing to do, we do handshake only if the server agrees to do so,
            * but that is handled in the _answer_AUTH function
            */
@@ -2426,8 +2421,8 @@ ftp_command_answer_AUTH(FtpProxy *self)
    *  - client ACCEPT_STARTTLS / server FORWARD_STARTTLS: do handshake on both
    *    sides if the server accepted the request
    */
-  g_assert((self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
-           && (self->super.ssl_opts.security[EP_SERVER] == PROXY_SSL_SEC_FORWARD_STARTTLS));
+  g_assert((self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
+           && (self->super.encryption->ssl_opts.security[EP_SERVER] == ENCRYPTION_SEC_FORWARD_STARTTLS));
 
   switch (self->answer_code)
     {
@@ -2435,6 +2430,9 @@ ftp_command_answer_AUTH(FtpProxy *self)
       ftp_answer_write_with_setup(self, self->answer_cmd->str, self->answer_param->str);
 
       z_proxy_log(self, FTP_INFO, 3, "Server accepted TLS authentication, starting handshake;");
+
+      // FUTURE-FEATURE
+      //z_proxy_ssl_get_sni_from_client(&self->super);
 
       res = z_proxy_ssl_request_handshake(&self->super, EP_SERVER, FALSE);
       if (res)
@@ -2501,8 +2499,8 @@ ftp_command_parse_PBSZ(FtpProxy *self)
          *   and don't forward the request
          * - in all other cases we forward the request to the server
          */
-        if ((self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
-            && (self->super.ssl_opts.security[EP_SERVER] != PROXY_SSL_SEC_FORWARD_STARTTLS))
+        if ((self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
+            && (self->super.encryption->ssl_opts.security[EP_SERVER] != ENCRYPTION_SEC_FORWARD_STARTTLS))
           {
             SET_ANSWER(MSG_PBSZ_SUCCESSFUL);
             z_proxy_return(self, FTP_PROXY_ANS);
@@ -2564,8 +2562,8 @@ ftp_command_parse_PROT(FtpProxy *self)
        *   and don't forward the request
        * - in all other cases we forward the request to the server
        */
-      if ((self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
-          && (self->super.ssl_opts.security[EP_SERVER] != PROXY_SSL_SEC_FORWARD_STARTTLS))
+      if ((self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
+          && (self->super.encryption->ssl_opts.security[EP_SERVER] != ENCRYPTION_SEC_FORWARD_STARTTLS))
         {
           self->data_protection_enabled[EP_CLIENT] = prot_level_private;
 
@@ -2576,10 +2574,10 @@ ftp_command_parse_PROT(FtpProxy *self)
         {
           /* we temporary set data_protection_enabled according to the parameter,
            * in case the server doesn't accept the request we'll clear this */
-          if (self->super.ssl_opts.security[EP_CLIENT] == PROXY_SSL_SEC_ACCEPT_STARTTLS)
+          if (self->super.encryption->ssl_opts.security[EP_CLIENT] == ENCRYPTION_SEC_ACCEPT_STARTTLS)
             self->data_protection_enabled[EP_CLIENT] = prot_level_private;
 
-          if (self->super.ssl_opts.security[EP_SERVER] == PROXY_SSL_SEC_FORWARD_STARTTLS)
+          if (self->super.encryption->ssl_opts.security[EP_SERVER] == ENCRYPTION_SEC_FORWARD_STARTTLS)
             self->data_protection_enabled[EP_SERVER] = prot_level_private;
         }
     break;

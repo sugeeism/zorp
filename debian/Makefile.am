@@ -1,10 +1,7 @@
 EXTRA_DIST = changelog compat control copyright rules instances.conf \
 	libzorp@PACKAGE_SUFFIX@@LIBZORP_LT_COMPAT_BRANCH@.files \
 	libzorp@PACKAGE_SUFFIX@@LIBZORP_LT_RELEASE@-dev.files \
-	python-kzorp.files \
 	python-zorp-base.pyinstall \
-	kzorp.files \
-	kzorp.kzorpd.init \
 	zorp@PACKAGE_SUFFIX@.docs \
 	zorp@PACKAGE_SUFFIX@.files \
 	zorp@PACKAGE_SUFFIX@.pyinstall \
@@ -81,9 +78,6 @@ control: control.in@PACKAGE_SUFFIX@
 	$(top_builddir)/config.status --file $@:$<
 
 copyright: copyright.in@PACKAGE_SUFFIX@
-	$(top_builddir)/config.status --file $@:$<
-
-python-kzorp.files: python-kzorp.files.in
 	$(top_builddir)/config.status --file $@:$<
 
 rules: rules.in@PACKAGE_SUFFIX@

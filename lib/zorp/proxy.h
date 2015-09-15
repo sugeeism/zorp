@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  ***************************************************************************/
 
@@ -35,6 +30,7 @@
 #include <zorp/poll.h>
 #include <zorp/thread.h>
 #include <zorp/proxyssl.h>
+#include <zorp/pyencryption.h>
 
 
 #include <glib.h>
@@ -125,6 +121,8 @@ public:
 
 #define Z_PROXY_FUNCS_FOR_AUDIT(a, b, c)
 
+#define Z_PROXY_SERVER_SOCKET_MARK 0x40000000
+
 struct ZChannelProps
 {
 public:
@@ -159,10 +157,12 @@ public:
   GMutex interfaces_lock;
   GList *interfaces;
 
-  ZProxySsl ssl_opts;
 
   gboolean channel_props_set[EP_MAX];
   ZChannelProps channel_props[EP_MAX];
+
+  ZPolicyEncryption *encryption;
+  ZProxyTls tls_opts;
 };
 
 extern ZClass ZProxy__class;
@@ -220,6 +220,9 @@ public:
 #endif
 
 #define z_proxy_return(self, ...)      do { z_proxy_leave(self); return __VA_ARGS__; } while (0)
+
+void z_proxy_report_policy_abort(ZProxy *self);
+void z_proxy_report_invalid_policy(ZProxy *self);
 
 /* interface support */
 void z_proxy_add_iface(ZProxy *self, ZProxyIface *iface);

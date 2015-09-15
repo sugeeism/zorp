@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  * Stream like operations for datagram based protocols.
  *
@@ -141,7 +136,7 @@ z_nf_dgram_socket_open(guint flags, ZSockAddr *remote, ZSockAddr *local, guint32
     }
   else if (flags & ZDS_ESTABLISHED)
     {
-      struct sockaddr_in local_sa;
+      struct sockaddr_storage local_sa;
       socklen_t local_salen = sizeof(local_sa);
 
       if (z_bind(fd, local, sock_flags) != G_IO_STATUS_NORMAL)
@@ -273,7 +268,7 @@ z_nf_dgram_socket_setup(gint fd, guint flags, gint tos, gint family)
 GIOStatus
 z_nf_dgram_socket_recv(gint fd, ZPktBuf **packet, ZSockAddr **from_addr, ZSockAddr **to_addr, gint *tos, gboolean peek, GError **error G_GNUC_UNUSED)
 {
-  struct sockaddr from;
+  struct sockaddr_storage from;
   gchar buf[65536], ctl_buf[64];
   struct msghdr msg;
   struct cmsghdr *cmsg;
@@ -349,16 +344,16 @@ z_nf_dgram_socket_recv(gint fd, ZPktBuf **packet, ZSockAddr **from_addr, ZSockAd
 
       if (to_addr && *to_addr == NULL)
         {
-          struct sockaddr to;
+          struct sockaddr_storage to;
           socklen_t tolen = sizeof(to);
 
-          getsockname(fd, &to, &tolen);
-          *to_addr = z_sockaddr_new(&to, tolen);
+          getsockname(fd, reinterpret_cast<struct sockaddr *>(&to), &tolen);
+          *to_addr = z_sockaddr_new(reinterpret_cast<struct sockaddr *>(&to), tolen);
         }
 
       if (from_addr)
         {
-          *from_addr = z_sockaddr_new(&from, sizeof(from));
+          *from_addr = z_sockaddr_new(reinterpret_cast<struct sockaddr *>(&from), sizeof(from));
         }
     }
   z_return(G_IO_STATUS_NORMAL);

@@ -1,25 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-##
-## Author  : Bazsi
-## Auditor :
-## Last audited version:
-## Notes:
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -151,7 +147,7 @@ Content-Length: 14
       </para>
       <para>
       Several examples and considerations on how to enable virus filtering in the HTTP traffic are discussed in the
-        Technical White Paper and Tutorial <emphasis>Virus filtering in HTTP</emphasis>, available at the BalaBit Documentation Page <ulink url="http://www.balabit.com/support/documentation/">http://www.balabit.com/support/documentation/</ulink>.
+        Technical White Paper and Tutorial <emphasis>Virus filtering in HTTP</emphasis>, available at the BalaBit Documentation Page <link xmlns:ns1="http://www.w3.org/1999/xlink" ns1:href="http://www.balabit.com/network-security/zorp-gateway/support/documentation/">http://www.balabit.com/network-security/zorp-gateway/support/documentation/</link>.
       </para>
       <section>
         <title>Transparent and non-transparent modes</title>
@@ -475,7 +471,7 @@ def instance():
         by the RFCs, but Zorp permits such responses for interoperability reasons.
         </para>
         </section>
-        <section xml:id="zorp_http_urlfiltering">
+        <section xml:id="zorp_http_urlfiltering" condition="zorp">
             <title>URL filtering in HTTP</title>
             <para>Starting with version 3.3FR1, Zorp supports category-based URL filtering using a regularly updated database.</para>
             <itemizedlist>
@@ -2417,7 +2413,8 @@ class AbstractHttpProxy(Proxy):
             <read/>
           </runtime>
           <description>
-            Enables URL filtering in HTTP requests. See <xref linkend="zorp_http_urlfiltering"/> for details. Note that URL filtering requires the <parameter>url-filter</parameter> license option.
+            Enables URL filtering in HTTP requests. <phrase condition="zorp">See <xref linkend="zorp_http_urlfiltering"/> for details. Note that URL filtering requires the <parameter>url-filter</parameter> license option.</phrase>
+            <para condition="zorp-gpl"><emphasis role="bold">Warning!</emphasis> This option is available only in the commercial version of Zorp.</para>
           </description>
         </attribute>
         <attribute>
@@ -2434,7 +2431,8 @@ class AbstractHttpProxy(Proxy):
             <read/>
           </runtime>
           <description>
-            Enables DNS- and reverse-DNS resolution to ensure that a domain or URL is correctly categorized even when it is listed in the database using its domain name, but the client tries to access it with its IP address (or vice-versa). See <xref linkend="zorp_http_urlfiltering"/> for details. Note that URL filtering requires the <parameter>url-filter</parameter> license option.
+            Enables DNS- and reverse-DNS resolution to ensure that a domain or URL is correctly categorized even when it is listed in the database using its domain name, but the client tries to access it with its IP address (or vice-versa). <phrase condition="zorp">See <xref linkend="zorp_http_urlfiltering"/> for details. Note that URL filtering requires the <parameter>url-filter</parameter> license option.</phrase>
+            <para condition="zorp-gpl"><emphasis role="bold">Warning!</emphasis> This option is available only in the commercial version of Zorp.</para>
           </description>
         </attribute>
         <attribute>
@@ -2461,20 +2459,14 @@ class AbstractHttpProxy(Proxy):
           <description>
             Normative policy hash for category-based URL-filtering.
             The hash is indexed by the name of the category.
-            See also <xref linkend="zorp_http_urlfiltering_categories"/>.
+            <phrase condition="zorp">See also <xref linkend="zorp_http_urlfiltering_categories"/>.</phrase>
+            <para condition="zorp-gpl"><emphasis role="bold">Warning!</emphasis> This option is available only in the commercial version of Zorp.</para>
           </description>
         </attribute>
         <attribute>
           <name>url_filter_uncategorized_action</name>
           <type>
-            <hash>
-              <key>
-                <string/>
-              </key>
-              <value>
-                <link id="action.http.url"/>
-              </value>
-            </hash>
+            <link id="action.http.url"/>
           </type>
           <default>HTTP_URL_ACCEPT</default>
           <conftime>
@@ -2486,8 +2478,9 @@ class AbstractHttpProxy(Proxy):
             <write/>
           </runtime>
           <description>
-            <para>The action applied to uncategorized (unknown) URLs when URL filtering is used. By default, uncategorized URLs are accepted: <parameter>self.url_filter_uncategorized_action=(HTTP_URL_ACCEPT,)</parameter>. Note that if you set this option to <parameter>HTTP_URL_REJECT</parameter>, you must add every URL on your intranet to a category and set an <parameter>HTTP_URL_ACCEPT</parameter> rule to this category, otherwise your clients will not able to access your intranet sites. For details, see <xref linkend="zorp_http_urlfiltering_configuring"/>.</para>
+            <para>The action applied to uncategorized (unknown) URLs when URL filtering is used. By default, uncategorized URLs are accepted: <parameter>self.url_filter_uncategorized_action=(HTTP_URL_ACCEPT,)</parameter>. Note that if you set this option to <parameter>HTTP_URL_REJECT</parameter>, you must add every URL on your intranet to a category and set an <parameter>HTTP_URL_ACCEPT</parameter> rule to this category, otherwise your clients will not able to access your intranet sites. <phrase condition="zorp">For details, see <xref linkend="zorp_http_urlfiltering_configuring"/>.</phrase></para>
             <para>Available only in Zorp version 3.4.5 and later.</para>
+            <para condition="zorp-gpl"><emphasis role="bold">Warning!</emphasis> This option is available only in the commercial version of Zorp.</para>
           </description>
         </attribute>
         <attribute>

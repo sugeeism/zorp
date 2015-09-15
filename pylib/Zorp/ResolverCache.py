@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -32,90 +33,73 @@
 """
 
 from Zorp import *
-import DNS
+import dns.resolver
+import dns.query
+from dns.exception import DNSException
 import time
 import operator
-
+import socket
 
 class AbstractResolver(object):
-    def resolve(self, timeout):
-        self.__timeout = timeout
+    """<class internal="yes"/>"""
+    def __init__(self, timeout):
+        self.timeout = timeout
 
     def resolve(self, name):
         raise NotImplementedError
 
 
 class DNSResolver(AbstractResolver):
-    DNS = __import__('DNS')
-    DNS.DiscoverNameServers()
+    """<class internal="yes"/>"""
+    def __init__(self, server=None, timeout=2):
+        super(DNSResolver, self).__init__(timeout)
 
-    def __init__(self, server=None, timeout=None):
-        self.server = server
-
-    def __getAddressesFromRecords(self, records):
-        if not records:
-            raise KeyError
-
-        # IPv4 addresses are already in a string form in the data attribute
-        ipv4_addresses = map(lambda x: x["data"], filter(lambda y: y["typename"] == "A", records))
-        # while IPv6 addresses are represented in their network representation, need to be converted
-        ipv6_addresses = map(lambda x: socket.inet_ntop(socket.AF_INET6, x["data"]),
-                             filter(lambda y: y["typename"] == "AAAA", records))
-
-        return ipv4_addresses, ipv6_addresses
-
-    def __getTTLFromRecords(self, records):
-        if records:
-            # filter A and AAAA records
-            # got A or AAA records, find minimum TTL and update cache
-            ttl = min(map(lambda x: x["ttl"], records))
+        self.nameservers = []
+        if server:
+            self.nameservers.append(server)
         else:
-            # no records, cache failure for negative TTL secs
-            if isinstance(records, list):
-                ttl = 60
-            else:
-                ttl = answer.authority[0]["data"][6][1]
+            self.nameservers = dns.resolver.Resolver().nameservers
 
-        return ttl
+    def __resolveHost(self, nameserver, host):
+        ttl = None
+        ipv4_addresses = []
+        ipv6_addresses = []
 
-    def __filterDNSRecords(self, records):
-        if records:
-            return filter(lambda x: x["typename"] == "A" or x["typename"] == "AAAA", records)
-        else:
-            return []
+        domain = dns.name.from_text(host)
+        query = dns.message.make_query(domain, dns.rdatatype.ANY)
+        response = dns.query.udp(query, nameserver, self.timeout)
 
-    def __getDNSRecords(self, host, type):
-        #do lookup
-        params = {"name": host, "qtype": type}
-        if self.server:
-            params["server"] = self.server
-        request = DNS.DnsRequest(**params)
-        try:
-            answer = request.req()
-        except DNS.DNSError:
-            log(None, CORE_ERROR, 3, "Error resolving host; host='%s'" % host)
-            raise KeyError
+        for answer in response.answer:
+            for item in answer.items:
+                if item.rdtype == dns.rdatatype.CNAME:
+                    ttl, ipv4_addresses, ipv6_addresses = self.__resolveHost(nameserver, item.target.to_text())
+                if item.rdtype == dns.rdatatype.A:
+                    ipv4_addresses.append(item.address)
+                if item.rdtype == dns.rdatatype.AAAA:
+                    ipv6_addresses.append(item.address)
+            if not ttl or ttl > answer.ttl:
+                ttl = answer.ttl
 
-        records = self.__filterDNSRecords(answer.answers)
+        if not ipv4_addresses and not ipv6_addresses:
+            raise DNSException
 
-        # follow one level of CNAMES
-        for rec in answer.answers:
-            if rec["typename"] == "CNAME":
-                records += self.__getDNSRecords(rec["data"], DNS.Type.A)
-                records += self.__getDNSRecords(rec["data"], DNS.Type.AAAA)
-
-        return records
+        return ttl, ipv4_addresses, ipv6_addresses
 
     def resolve(self, host):
-        records = self.__getDNSRecords(host, DNS.Type.A)
-        records += self.__getDNSRecords(host, DNS.Type.AAAA)
-        ttl = self.__getTTLFromRecords(records)
-        ipv4_addresses, ipv6_addresses = self.__getAddressesFromRecords(records)
-        log(None, CORE_DEBUG, 6, "Host resolved; host='%s', ttl='%d', addresses='%s'" % (host, ttl, ipv4_addresses + ipv6_addresses))
+        for nameserver in self.nameservers:
+            try:
+                ttl, ipv4_addresses, ipv6_addresses = self.__resolveHost(nameserver, host)
+                log(None, CORE_DEBUG, 6, "Host resolved; host='%s', ttl='%d', addresses='%s'" % (host, ttl, ipv4_addresses + ipv6_addresses))
+            except (DNSException, socket.error) as e:
+                log(None, CORE_ERROR, 4, "Could not resolve host; host='%s', error='%s'" % (host, e))
+                raise KeyError
+
         return ttl, ipv4_addresses, ipv6_addresses
 
 
 class AbstractHostnameCache(object):
+    default_cache_timeout = 60
+
     def __init__(self, hosts=(), server=None):
         raise NotImplementedError
 
@@ -259,8 +243,12 @@ class ResolverCache(AbstractHostnameCache):
         """
         self.__dropHostFromCache(host)
 
-        ttl, ipv4_addresses, ipv6_addresses = self.resolver.resolve(host)
-        self.__addHostToCache(host, ipv4_addresses, ipv6_addresses, ttl)
+        try:
+            ttl, ipv4_addresses, ipv6_addresses = self.resolver.resolve(host)
+            self.__addHostToCache(host, ipv4_addresses, ipv6_addresses, ttl)
+        except KeyError:
+            self.__addHostToCache(host, [], [], AbstractHostnameCache.default_cache_timeout)
+            log(None, CORE_INFO, 3, "Could not resolve host name trying again after default timeout; host='%s', timeout='%d'" % (host, AbstractHostnameCache.default_cache_timeout))
 
     def updateHost(self, host):
         """<method internal="yes">

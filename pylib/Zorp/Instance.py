@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -31,6 +32,7 @@ class ZorpProcess(object):
         parser = argparse.ArgumentParser(prog="Zorp specific instance argument parser")
 
         parser.add_argument('--log-tags', action='store_true')
+        parser.add_argument('--log-escape', action='store_true')
         parser.add_argument('--log-spec', type=str)
         parser.add_argument('--threads', type=int)
         parser.add_argument('--stack-size', type=int)
@@ -42,6 +44,12 @@ class ZorpProcess(object):
         parser.add_argument('-p', '--policy', type=str,
                             dest='policy', default='/etc/zorp/policy.py',
                             )
+        parser.add_argument('-N', '--no-caps', action='store_true')
+        parser.add_argument('--caps', type=str)
+        parser.add_argument('--chroot', type=str)
+        parser.add_argument('--crypto-engine', type=str)
+        parser.add_argument('--enable-core', action='store_true')
+
         self.args = parser.parse_args(zorp_argv)
 
 class Instance(object):

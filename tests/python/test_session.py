@@ -2,21 +2,22 @@
 
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -24,7 +25,7 @@ from Zorp.Core import *
 from Zorp.Zorp import quit
 from Zorp.Proxy import Proxy
 from Zorp.Http import HttpProxy
-from Zorp.Session import MasterSession, StackedSession, ClientInfo
+from Zorp.Session import MasterSession, StackedSession
 import Zorp.Globals
 import Zorp.Resolver
 import socket
@@ -48,8 +49,7 @@ class TestSessionBase(unittest.TestCase):
     def setUp(self):
         self.service = Service("testservice", HttpProxy, resolver_policy="test_resolver")
         self.address = SockAddrInet("127.0.0.1", 80)
-        client_info = ClientInfo(client_stream=None, client_local=None, client_listen=None, client_address=self.address)
-        self.mastersession = MasterSession(ZD_PROTO_TCP, self.service, client_info, instance_id=1)
+        self.mastersession = MasterSession(self.service, client_stream=None, client_local=None, client_listen=DBSockAddr(self.address, ZD_PROTO_TCP), client_address=self.address, instance_id=1)
         self.session = StackedSession(self.mastersession)
 
     def tearDown(self):
@@ -67,7 +67,7 @@ class TestTopLevelProxySession(TestSessionBase):
         self.assertTrue(isinstance(self.session, StackedSession))
 
     def test_construction_initializes_protocol(self):
-        master = MasterSession(ZD_PROTO_TCP, self.service, ClientInfo(None,None,None,None), 1)
+        master = MasterSession(self.service, None, None, DBSockAddr(SockAddrInet('127.0.0.1', 1234), ZD_PROTO_TCP), None, instance_id=1)
         self.assertEqual(master.protocol, ZD_PROTO_TCP)
         self.assertEqual(master.protocol_name, "TCP")
 
@@ -91,7 +91,7 @@ class TestTopLevelProxySession(TestSessionBase):
         (client_stream, server_stream) = streamPair(socket.AF_UNIX, socket.SOCK_STREAM)
         self.session.client_stream = client_stream
         proxy = HttpProxy(self.session)
-        self.assertEqual(self.session.session_id, "svc/" + self.service.name + ":1" + "/http")
+        self.assertEqual(self.session.session_id, "svc//" + self.service.name + ":1" + "//http")
         self.assertEqual(self.session.proxy, proxy)
         self.assertEqual(self.session.http, proxy)
         self.assertEqual(proxy.session, self.session)

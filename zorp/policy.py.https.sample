@@ -1,0 +1,71 @@
+############################################################################
+##
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
+##
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+##
+############################################################################
+
+# sample firewall policy with transparent access to HTTPS servers.
+
+from Zorp.Core import *
+from Zorp.Http import *
+from Zorp.Keybridge import X509KeyBridge
+
+#
+# Let's define a transparent https proxy, which bridges X509
+# CAs and certificates
+#
+class HttpsProxyKeybridge(HttpProxy):
+    key_generator=X509KeyBridge(
+    key_file="/etc/zorp/keybridge/key.pem",
+    key_passphrase="passphrase",
+    cache_directory="/var/lib/zorp/keybridge-cache",
+    trusted_ca_files=(
+        "/etc/zorp/keybridge/ZorpGPL_TrustedCA.cert.pem",
+        "/etc/zorp/keybridge/ZorpGPL_TrustedCA.key.pem",
+        "passphrase"
+    ),
+    untrusted_ca_files=(
+        "/etc/zorp/keybridge/ZorpGPL_UnTrustedCA.cert.pem",
+        "/etc/zorp/keybridge/ZorpGPL_UnTrustedCA.key.pem",
+        "passphrase"
+    )
+    )
+
+    def config(self):
+        HttpProxy.config(self)
+        self.require_host_header=FALSE
+        self.ssl.handshake_seq=SSL_HSO_SERVER_CLIENT
+        self.ssl.key_generator = self.key_generator
+        self.ssl.client_keypair_generate=TRUE
+        self.ssl.client_connection_security=SSL_FORCE_SSL
+        self.ssl.client_verify_type=SSL_VERIFY_OPTIONAL_UNTRUSTED
+        self.ssl.server_connection_security=SSL_FORCE_SSL
+        self.ssl.server_verify_type=SSL_VERIFY_REQUIRED_UNTRUSTED
+        self.ssl.server_ca_directory="/etc/ssl/certs"
+        self.ssl.server_trusted_certs_directory="/etc/zorp/certs"
+
+#
+# The name of this function is passed to the Zorp binary with the --as
+# command line option.
+#
+
+# zorp_https instance
+def zorp_https():
+    Service(name="https", proxy_class=HttpsProxyKeybridge)
+
+    Rule(service='https', dst_port=[443, ])

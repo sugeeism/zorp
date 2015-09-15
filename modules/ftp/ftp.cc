@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -636,7 +631,7 @@ ftp_data_do_ssl_handshake(FtpProxy *self, ZEndpoint side)
    * - the proxy requires SSL on this side
    */
   if ((self->data_protection_enabled[side])
-      || self->super.ssl_opts.security[side] == PROXY_SSL_SEC_FORCE_SSL)
+      || self->super.encryption->ssl_opts.security[side] == ENCRYPTION_SEC_FORCE_SSL)
     {
       ZProxySSLHandshake *handshake;
       ZStream *old;
@@ -692,7 +687,7 @@ ftp_data_create_transfer(FtpProxy *self)
     }
 
   /* do SSL handshake if required */
-  if (self->super.ssl_opts.handshake_seq == PROXY_SSL_HS_CLIENT_SERVER)
+  if (self->super.encryption->ssl_opts.handshake_seq == PROXY_SSL_HS_CLIENT_SERVER)
     first_side = EP_CLIENT;
   else
     first_side = EP_SERVER;
@@ -2065,7 +2060,7 @@ ftp_proto_nt_server_to_proxy(FtpProxy *self)
       if (strcmp(self->answer_cmd->str, "220") == 0)
         {
           if (self->auth_tls_ok[EP_CLIENT]
-              && (self->super.ssl_opts.security[EP_SERVER] == PROXY_SSL_SEC_FORWARD_STARTTLS))
+              && (self->super.encryption->ssl_opts.security[EP_SERVER] == ENCRYPTION_SEC_FORWARD_STARTTLS))
             {
               /* send AUTH TLS */
               g_string_assign(self->request_cmd, "AUTH");

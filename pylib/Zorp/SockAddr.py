@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -85,6 +86,9 @@ class SockAddrInet(object):
     </class>
     """
     def __init__(self, ip_addr, port):
+        """
+        <method internal="yes"/>
+        """
         pass
 
 class SockAddrInet6(object):
@@ -139,6 +143,9 @@ class SockAddrInet6(object):
     </class>
     """
     def __init__(self, ip_addr, port):
+        """
+        <method internal="yes"/>
+        """
         pass
 
 class SockAddrInetRange(object):
@@ -185,6 +192,9 @@ class SockAddrInetRange(object):
 
     """
     def __init__(self, ip_addr, port_min, port_max):
+        """
+        <method internal="yes"/>
+        """
         pass
 
 class SockAddrUnix(object):
@@ -225,8 +235,65 @@ class SockAddrUnix(object):
 
     """
     def __init__(self, socket_path):
+        """
+        <method internal="yes"/>
+        """
         pass
 
 class SockAddrInetHostname(object):
+    """
+    <class maturity="stable">
+      <summary>
+        Class encapsulating a hostname:port pair.
+      </summary>
+      <description>
+        <para>
+          This class encapsulates a hostname:port or IPv4 address:port pair. Name resolution is only performed when creating
+          the SockAddrInetHostname object (that is, during startup and reload).
+          The class is implemented and exported by the Zorp core. The <parameter>SockAddrInetHostname</parameter>
+          Python class serves only documentation purposes, and has no real connection to the
+          behavior implemented in C.
+        </para>
+        <example>
+            <title>SockAddrInetHostname example</title>
+            <para>
+            The following example defines a hostname:port or IPv4 address:port pair.</para>
+            <synopsis>SockAddrInetHostname('www.example.com', 80)</synopsis>
+            <synopsis>SockAddrInetHostname('192.168.10.10', 80)</synopsis>
+            <para>
+            The following example uses SockAddrInetHostname in a dispatcher.
+            </para>
+            <synopsis>Dispatcher(transparent=TRUE, bindto=DBSockAddr(protocol=ZD_PROTO_TCP, sa=SockAddrInetHostname('www.example.com', 50080)), service="intra_HTTP_inter", backlog=255, rule_port="50080")</synopsis>
+        </example>
+      </description>
+      <metainfo>
+        <attributes>
+          <attribute maturity="stable">
+            <name>type</name>
+            <type><string/></type>
+            <description>The <parameter>inet</parameter> value that indicates an address in the AF_INET domain.</description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>ip</name>
+            <type></type>
+            <description>IP address (network byte order).</description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>ip_s</name>
+            <type></type>
+            <description>IP address in string representation.</description>
+          </attribute>
+          <attribute maturity="stable">
+            <name>port</name>
+            <type></type>
+            <description>Port number (network byte order).</description>
+          </attribute>
+        </attributes>
+      </metainfo>
+    </class>
+    """
     def __init__(self, hostname, port):
+        """
+        <method internal="yes"/>
+        """
         pass

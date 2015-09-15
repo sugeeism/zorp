@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -108,6 +103,9 @@ telnet_policy_option(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 comma
   if (!type_found )
     {
       z_proxy_log(self, TELNET_POLICY, 2, "Policy type invalid; option='%s'", lookup_str);
+      z_policy_lock(self->super.thread);
+      z_proxy_report_invalid_policy(&(self->super));
+      z_policy_unlock(self->super.thread);
       z_proxy_return(self, ZV_ABORT);
     }
 
@@ -128,6 +126,7 @@ telnet_policy_option(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 comma
       if (!z_policy_var_parse(tmp, "(iO)", &command_do, &command_where))
         {
           z_proxy_log(self, TELNET_POLICY, 2, "Cannot parse policy line; option='%s'", lookup_str);
+          z_proxy_report_invalid_policy(&(self->super));
           res = ZV_ABORT;
         }
       else
@@ -136,11 +135,13 @@ telnet_policy_option(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 comma
           if (pol_res == NULL)
             {
               z_proxy_log(self, TELNET_POLICY, 2, "Error in policy calling; option='%s'", lookup_str);
+              z_proxy_report_policy_abort(&(self->super));
               res = ZV_ABORT;
             }
           else if (!z_policy_var_parse(pol_res, "i", &res))
             {
               z_proxy_log(self, TELNET_POLICY, 1, "Can't parse return verdict; option='%s'", lookup_str);
+              z_proxy_report_policy_abort(&(self->super));
               res = ZV_ABORT;
             }
           else
@@ -166,6 +167,7 @@ telnet_policy_option(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 comma
                 case ZV_ABORT:
                 default:
                   z_proxy_log(self, TELNET_POLICY, 1, "Policy function aborted session; option='%s'", lookup_str);
+                  z_proxy_report_policy_abort(&(self->super));
                   res = ZV_ABORT;
                   break;
                 }
@@ -182,6 +184,11 @@ telnet_policy_option(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 comma
     case ZV_ABORT:
     default:
       z_proxy_log(self, TELNET_POLICY, 3, "Policy aborted session; option='%s'", lookup_str);
+
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
+
       res = ZV_ABORT;
       break;
     }
@@ -260,6 +267,7 @@ telnet_policy_suboption(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 op
       if (!z_policy_var_parse(tmp, "(iO)", &command_do, &command_where))
         {
           z_proxy_log(self, TELNET_POLICY, 2, "Cannot parse policy line for option; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
+          z_proxy_report_invalid_policy(&(self->super));
           res = ZV_ABORT;
         }
       else
@@ -283,11 +291,13 @@ telnet_policy_suboption(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 op
           if (pol_res == NULL)
             {
               z_proxy_log(self, TELNET_POLICY, 2, "Error in policy calling; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
+              z_proxy_report_policy_abort(&(self->super));
               res = ZV_ABORT;
             }
           else if (!z_policy_var_parse(pol_res, "i", &res))
             {
               z_proxy_log(self, TELNET_POLICY, 2, "Can't parse return verdict; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
+              z_proxy_report_policy_abort(&(self->super));
               res = ZV_ABORT;
             }
           else
@@ -316,6 +326,7 @@ telnet_policy_suboption(TelnetProxy *self, ZEndpoint ep G_GNUC_UNUSED, guint8 op
                 case ZV_ABORT:
                 default:
                   z_proxy_log(self, TELNET_POLICY, 3, "Policy function aborted suboption; command=`%s', option=`%s'", lookup_str[1], lookup_str[0]);
+                  z_proxy_report_policy_abort(&(self->super));
                   res = ZV_ABORT;
                   break;
                 }
@@ -350,6 +361,7 @@ telnet_policy_parse_authinfo(TelnetProxy *self, const gchar *env, GString *conte
 
   if (!called)
     {
+      z_proxy_report_policy_abort(&(self->super));
       z_policy_unlock(self->super.thread);
       z_proxy_return(self, FALSE);
     }
@@ -359,6 +371,10 @@ telnet_policy_parse_authinfo(TelnetProxy *self, const gchar *env, GString *conte
 
   if (result)
     z_policy_var_unref(result);
+
+  if (!ret)
+    z_proxy_report_policy_abort(&(self->super));
+
   z_policy_unlock(self->super.thread);
 
   z_proxy_return(self, ret);

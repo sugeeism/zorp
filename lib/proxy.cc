@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -358,6 +353,7 @@ z_proxy_policy_call_event(ZProxy *self, gchar *event, gchar *old_event_name)
     }
   if (res == NULL && called)
     {
+      z_proxy_report_policy_abort(self);
       z_proxy_leave(self);
       return FALSE;
     }
@@ -421,9 +417,6 @@ z_proxy_policy_config(ZProxy *self)
   z_proxy_enter(self);
 
   z_proxy_set_state(self, ZPS_CONFIG);
-
-  z_policy_struct_set_is_config(self->ssl_opts.ssl_struct, TRUE);
-
   if (!z_proxy_policy_call(self, "config", NULL))
     {
       z_proxy_leave(self);
@@ -437,8 +430,17 @@ z_proxy_policy_config(ZProxy *self)
   z_policy_thread_release(self->thread);
 #endif
 
-  z_policy_struct_set_is_config(self->ssl_opts.ssl_struct, FALSE);
+  z_policy_thread_acquire(self->thread);
+  PyObject *encryption = z_policy_getattr(self->handler, "encryption");
+  if (!z_policy_encryption_type_check(encryption))
+    {
+      z_policy_thread_release(self->thread);
+      z_proxy_leave(self);
+      return FALSE;
+    }
 
+  z_policy_thread_release(self->thread);
+  self->encryption = (ZPolicyEncryption *)encryption;
   z_proxy_leave(self);
   return TRUE;
 }
@@ -545,6 +547,8 @@ z_proxy_set_server_address_no_acquire(ZProxy *self, const gchar *host, gint port
  out:
   if (res)
     z_policy_var_unref(res);
+  if (!rc)
+    z_proxy_report_policy_abort(self);
   return rc;
 }
 
@@ -704,7 +708,10 @@ z_proxy_user_authenticated(ZProxy *self, const gchar *entity, gchar const **grou
   z_policy_var_unref(groups_tuple);
 
   if (!res)
-    rc = FALSE;
+    {
+      rc = FALSE;
+      z_proxy_report_policy_abort(self);
+    }
 
   z_policy_var_unref(res);
   z_policy_thread_release(self->thread);
@@ -1260,6 +1267,7 @@ z_proxy_destroy_method(ZProxy *self)
   ZPolicyThread *thread;
   ZPolicyDict *dict;
   GList *ifaces, *p;
+  ZPolicyObj *encryption;
 
   z_proxy_enter(self);
   z_proxy_policy_destroy(self);
@@ -1318,6 +1326,10 @@ z_proxy_destroy_method(ZProxy *self)
       handler = self->handler;
       self->handler = NULL;
       z_policy_var_unref(handler);
+
+      encryption = (ZPolicyObj *)self->encryption;
+      self->encryption = NULL;
+      z_policy_var_unref(encryption);
 
       z_policy_thread_release(thread);
     }
@@ -1514,7 +1526,15 @@ z_proxy_new(ZClass *proxy_class, ZProxyParams *params)
     }
 
   g_strlcpy(self->session_id, params->session_id, sizeof(self->session_id));
-  self->server_socket_mark = 0;
+
+ /*
+  * Adding mark to the server side socket makes passible to distinguish the
+  * client and server side socket in IPTables since they cannot be
+  * differenciate from each other by source/destination address/port pair if
+  * they are forged. Mark 0x40000000 is used to mark packets which are
+  * accepted by kZorp, so the next bit is used.
+  */
+  self->server_socket_mark = is_kzorp_enabled ? Z_PROXY_SERVER_SOCKET_MARK : 0;
   self->language = g_string_new("en");
   self->alerting_config = g_string_new("{}");
 
@@ -1659,6 +1679,20 @@ z_proxy_basic_iface_set_var_method(ZProxyBasicIface *self G_GNUC_UNUSED, const g
   return FALSE;
 }
 
+
+void
+z_proxy_report_policy_abort(ZProxy *self)
+{
+  gboolean called;
+  z_policy_call(self->handler, "closedByAbort", NULL, &called, self->session_id);
+}
+
+void
+z_proxy_report_invalid_policy(ZProxy *self)
+{
+  gboolean called;
+  z_policy_call(self->handler, "invalidPolicyCall", NULL, &called, self->session_id);
+}
 
 /**
  * Constructor for ZProxyBasicIface class, derived from ZProxyIface.

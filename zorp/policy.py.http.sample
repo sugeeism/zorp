@@ -1,0 +1,47 @@
+############################################################################
+##
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
+##
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+##
+############################################################################
+
+# sample firewall policy with transparent access to HTTP servers.
+
+from Zorp.Core import *
+from Zorp.Http import *
+
+#
+# Let's define a transparent http proxy, which rewrites the user_agent
+# header to something different.
+#
+class Http(HttpProxy):
+
+	def config(self):
+		HttpProxy.config(self)
+		self.transparent_mode = TRUE
+		self.request_headers["User-Agent"] = (HTTP_HDR_CHANGE_VALUE, "Lynx/2.8.3rel.1")
+
+#
+# The name of this function is passed to the Zorp binary with the --as
+# command line option.
+#
+
+# zorp_http instance
+def zorp_http():
+	Service("http", Http)
+
+	Rule(dst_port=80, service="http")

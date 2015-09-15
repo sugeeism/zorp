@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -929,6 +924,7 @@ smtp_generate_received(SmtpProxy *self, GString **dst_string)
       if (!z_policy_var_parse(res, "s", &received_line))
         {
           z_proxy_log(self, SMTP_ERROR, 3, "Couldn't generate received line; error='wrong return value'");
+          z_proxy_report_policy_abort(&(self->super));
         }
       else
         {
@@ -940,6 +936,7 @@ smtp_generate_received(SmtpProxy *self, GString **dst_string)
   else
     {
       z_proxy_log(self, SMTP_ERROR, 3, "Couldn't generate received line; error='exception occurred'");
+      z_proxy_report_policy_abort(&(self->super));
     }
 
   z_policy_unlock(self->super.thread);
@@ -983,8 +980,8 @@ smtp_process_transfer(SmtpProxy *self)
   ZTransfer2Result tr;
   gboolean policy_rejected;
 
-  g_string_assign(self->error_code, "550");
-  g_string_assign(self->error_info, "Error storing message");
+  g_string_assign(self->error_code, "421");
+  g_string_assign(self->error_info, "Service not available, closing transmission channel");
 
   tr = ZT2_RESULT_FAILED;
   if (smtp_transfer_is_data_delayed(self->transfer))

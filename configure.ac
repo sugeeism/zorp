@@ -16,19 +16,19 @@ dnl ***************************************************************************
 dnl Definitions
 
 PACKAGE=zorp-pro
-BROCHURE_VERSION="5"
+BROCHURE_VERSION="6"
 VERSION=`cat $srcdir/VERSION`
 ZORP_PRODUCT_NAME="Zorp Professional"
-ZORP_LICENSE_VERSION="5.0"
+ZORP_LICENSE_VERSION="6.0"
 
 dnl ***************************************************************************
 dnl Dependencies
 
 GLIB_MIN_VERSION="2.32.0"
-ZORPLL_MIN_VERSION="5.0.0.0"
-ZORPLIC_MIN_VERSION="5.0.0.0"
-ZORPMISC_MIN_VERSION="5.0.0.0"
-OPENSSL_MIN_VERSION="1.0.0"
+ZORPLL_MIN_VERSION="6.0.3.0"
+ZORPLIC_MIN_VERSION="6.0.3.0"
+ZORPMISC_MIN_VERSION="6.0.3.0"
+OPENSSL_MIN_VERSION="1.0.1"
 PYTHON_MIN_VERSION="2.7"
 PYTHON_MAX_VERSION="2.8"
 
@@ -122,8 +122,6 @@ ZORP_MUNIN_CONF_DIR="${sysconfdir}/munin/plugin-conf.d"
 ZORP_NAGIOS_CONF_DIR="${sysconfdir}/nagios/nrpe.d"
 ZORP_SUDOERSD_CONF_DIR="${sysconfdir}/sudoers.d"
 sysconfdir="${sysconfdir}/zorp"
-#datadir='${prefix}/share/zorp'
-libdir='${prefix}/lib'
 
 dnl ***************************************************************************
 dnl Argument processing which might affect detection
@@ -252,9 +250,9 @@ PKG_CHECK_MODULES(ZORPLL, zorplibll >= $ZORPLL_MIN_VERSION,,
 PKG_CHECK_MODULES(OPENSSL, openssl >= $OPENSSL_MIN_VERSION,,
         AC_MSG_ERROR(Cannot find OpenSSL library version >= $OPENSSL_MIN_VERSION: is pkg-config in path?))
 
-PKG_CHECK_MODULES(PYTHON, python >= $PYTHON_MIN_VERSION,,
+PKG_CHECK_MODULES(PYTHON, python-2.7 >= $PYTHON_MIN_VERSION,,
 	AC_MSG_ERROR(Cannot find Python library version >= $PYTHON_MIN_VERSION: is pkg-config in path?))
-PKG_CHECK_MODULES(PYTHON, python < $PYTHON_MAX_VERSION,,
+PKG_CHECK_MODULES(PYTHON, python-2.7 < $PYTHON_MAX_VERSION,,
 	AC_MSG_ERROR(Cannot find Python library version >= $PYTHON_MAX_VERSION: is pkg-config in path?))
 
 
@@ -305,7 +303,6 @@ AC_SUBST(ZORP_OS)
 AC_SUBST(ZORP_MUNIN_CONF_DIR)
 AC_SUBST(ZORP_NAGIOS_CONF_DIR)
 AC_SUBST(ZORP_PYTHON_DIR)
-AC_SUBST(KZORP_PYTHON_DIR)
 AC_SUBST(ZORPCTL_PYTHON_DIR)
 AC_SUBST(ZORP_SUDOERSD_CONF_DIR)
 
@@ -322,9 +319,8 @@ zorpeval()
 }
 
 ZORP_MUNIN_DIR="${prefix}/share/munin/plugins"
-ZORP_NAGIOS_DIR="${prefix}/lib/nagios/plugins"
+ZORP_NAGIOS_DIR="${libdir}/nagios/plugins"
 ZORP_PYTHON_DIR="${pythondir}/Zorp"
-KZORP_PYTHON_DIR="${pythondir}/kzorp"
 ZORPCTL_PYTHON_DIR="${pythondir}/zorpctl"
 
 zorp_sysconfdir="`zorpeval $sysconfdir`"
@@ -452,13 +448,6 @@ AC_SUBST(ZORP_SYSCONFDIR)
 date=`date +%Y/%m/%d`
 AC_DEFINE_UNQUOTED(ZORP_CONFIG_DATE, "$date", [Configuration date])
 
-TESTCASES=""
-dnl for mod in $MODULE_DIRS; do
-dnl	TESTCASES="${TESTCASES} `cd $top_srcdir/tests; find functional/$mod -type f -a ! -path '*.arch-ids*' | tr '\n' ' '`"
-dnl done
-AC_SUBST(TESTCASES)
-
-
 cat <<EOF
 
 
@@ -525,10 +514,8 @@ nagios_plugins/Makefile
 pylib/Makefile
 pylib/Zorp/Config.py
 pylib/Zorp/Makefile
-pylib/kzorp/Makefile
 scripts/Makefile
 tests/Makefile
-tests/kzorp/Makefile
 tests/python/runtest.sh
 tests/python/Makefile
 tests/tools/Makefile
