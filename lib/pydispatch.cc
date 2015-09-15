@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -31,6 +26,8 @@
 #include <zorp/pysockaddr.h>
 #include <zorp/pystream.h>
 #include <zorp/kzorp.h>
+/* for capability management */
+#include <zorp/cap.h>
 /* ZPolicyDispatchBind */
 
 ZDispatchBind *
@@ -350,8 +347,15 @@ z_policy_dispatch_accept(ZConnection *conn, gpointer user_data)
       bound = z_policy_none_ref();
       pystream = z_policy_none_ref();
     }
+
+  cap_t saved_caps = cap_save();
+  cap_enable(CAP_NET_ADMIN);
+
   res = PyEval_CallFunction(self->handler, "(OOOO)",
 			    pystream, addr, local, bound);
+
+  cap_restore(saved_caps);
+
   Py_XDECREF(bound);
   Py_XDECREF(addr);
   Py_XDECREF(local);
@@ -676,8 +680,8 @@ z_policy_dispatch_get_kzorp_result(PyObject *o G_GNUC_UNUSED, PyObject *args)
       return z_policy_none_ref();
     }
 
-  ret = Py_BuildValue("(ssss)", &buf.czone_name, &buf.szone_name,
-                      &buf.dispatcher_name, &buf.service_name);
+  ret = Py_BuildValue("(ssssI)", &buf.czone_name, &buf.szone_name,
+                      &buf.dispatcher_name, &buf.service_name, buf.rule_id);
 
   return ret;
 }

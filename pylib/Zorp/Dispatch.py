@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 """
@@ -53,7 +54,7 @@
         Only one dispatcher can bind to an IP address/port pair.
         </para>
         </note>
-        <section id="dispatcher_service_selection">
+        <section xml:id="dispatcher_service_selection">
         <title>Zone-based service selection</title>
               <para>
               Dispatchers can start only a predefined service. Use
@@ -102,7 +103,7 @@
 """
 from Zorp import *
 from Zone import Zone
-from Session import MasterSession, ClientInfo
+from Session import MasterSession
 from Cache import ShiftCache
 from SockAddr import SockAddrInet, SockAddrInet6
 from Subnet import Subnet
@@ -113,7 +114,6 @@ from traceback import print_exc
 import Zorp, SockAddr
 import collections, sys
 
-import kzorp.messages as kzorp
 import socket
 
 listen_hook = None
@@ -228,26 +228,23 @@ class BaseDispatch(object):
         return ranges
 
     @staticmethod
-    def _startInstance(client_info, service):
+    def startService(service, session):
         try:
-            session = MasterSession(protocol=client_info.client_listen.protocol, service=service, client_info=client_info, instance_id=getInstanceId(service.name))
-
-            client_info.client_stream.name = session.session_id
-
             ## LOG ##
             # This message reports that the given service is started, because of a new connection.
             ##
             #log(self.session_id, CORE_SESSION, 5, "Starting service; name='%s'", service.name)
             log(session.session_id, CORE_SESSION, 5, "Starting service; name='%s'", service.name)
 
-            if service.startInstance(session):
-                return TRUE
-
+            verdict = ConnectionVerdict(ConnectionVerdict.ACCEPTED)
+            stacked_session = service.startInstance(session)
+            return TRUE
         except ZoneException, s:
             ## LOG ##
             # This message indicates that no appropriate zone was found for the client address.
             # @see: Zone
             ##
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             log(session.session_id, CORE_POLICY, 1, "Zone not found; info='%s'", (s,))
         except DACException, s:
             ## LOG ##
@@ -255,17 +252,20 @@ class BaseDispatch(object):
             # It is likely that the new connection was not permitted as an outbound_service in the given zone.
             # @see: Zone
             ##
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             log(session.session_id, CORE_POLICY, 1, "DAC policy violation; info='%s'", (s,))
         except MACException, s:
             ## LOG ##
             # This message indicates that a MAC policy violation occurred.
             ##
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             log(session.session_id, CORE_POLICY, 1, "MAC policy violation; info='%s'", (s,))
         except AAException, s:
             ## LOG ##
             # This message indicates that an authentication failure occurred.
             # @see: Auth
             ##
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_POLICY)
             log(session.session_id, CORE_POLICY, 1, "Authentication failure; info='%s'", (s,))
         except LimitException, s:
             ## LOG ##
@@ -273,17 +273,24 @@ class BaseDispatch(object):
             # Try increase the Service "max_instances" attribute.
             # @see: Service.Service
             ##
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_LIMIT)
             log(session.session_id, CORE_POLICY, 1, "Connection over permitted limits; info='%s'", (s,))
         except LicenseException, s:
             ## LOG ##
             # This message indicates that the licensed number of IP address limit is reached, and no new IP address is allowed or an unlicensed component is used.
             # Check your license's "Licensed-Hosts" and "Licensed-Options" options.
             ##
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_LIMIT)
             log(session.session_id, CORE_POLICY, 1, "Attempt to use an unlicensed component, or number of licensed hosts exceeded; info='%s'", (s,))
         except RuntimeError, s:
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_UNKNOWN_FAIL)
             log(session.session_id, CORE_POLICY, 1, "Unexpected runtime error occured; info='%s'", (s,))
         except:
+            verdict = ConnectionVerdict(ConnectionVerdict.DENIED_BY_UNKNOWN_FAIL)
             print_exc()
+        finally:
+            if verdict != ConnectionVerdict(ConnectionVerdict.ACCEPTED):
+                session.verdict = verdict
 
         if session != None:
             session.destroy()
@@ -335,15 +342,15 @@ class BaseDispatch(object):
         """
         if stream == None:
             return None
-        session = None
-        client_info = ClientInfo(client_stream=stream,
-                                 client_local=client_local,
-                                 client_listen=client_listen,
-                                 client_address=client_address)
 
-        service = self.getService(client_info)
-        if not service:
+        session = self._getSession(client_stream=stream,
+                                    client_local=client_local,
+                                    client_listen=client_listen,
+                                    client_address=client_address)
+        if not session:
             raise DACException, "No applicable service found"
+
+        stream.name = session.session_id
 
         ## LOG ##
         # This message indicates that a new connection is accepted.
@@ -351,9 +358,9 @@ class BaseDispatch(object):
         #log(session.session_id, CORE_DEBUG, 8, "Connection accepted; client_address='%s'", (client_address,))
         log(None, CORE_DEBUG, 8, "Connection accepted; client_address='%s'", (client_address,))
 
-        return self._startInstance(client_info, service)
+        return self.startService(session.service, session)
 
-    def getService(self, session):
+    def _getSession(self, client_stream, client_local, client_listen, client_address):
         """
         <method internal="yes">
           <summary>Get the service associated with the session</summary>
@@ -365,15 +372,15 @@ class BaseDispatch(object):
           <metainfo>
             <arguments>
               <argument maturity="stable">
-                <name>session</name>
+                <name>client_info</name>
                 <type></type>
-                <description>session reference</description>
+                <description>client_info reference</description>
               </argument>
             </arguments>
           </metainfo>
         </method>
         """
-        return None
+        raise NotImplementedError
 
     def destroy(self):
         """
@@ -428,18 +435,12 @@ class RuleDispatcher(BaseDispatch):
         kw['transparent'] = TRUE
         super(RuleDispatcher, self).__init__(Globals.instance_name, self.bindto, **kw)
 
-    def getService(self, session):
+    def _getSession(self, client_stream, client_local, client_listen, client_address):
         """<method internal="yes">
         </method>
         """
-        # query the KZorp result for the client fd of this session
-        fd = session.client_stream.fd
-        result = getKZorpResult(session.client_address.family, fd)
-        if (result):
-            (client_zone_name, server_zone_name, dispatcher_name, service_name) = result
-
-            return Globals.services.get(service_name)
-        else:
+        result = getKZorpResult(client_address.family, client_stream.fd)
+        if result is None:
             ## LOG ##
             # This message indicates that the KZorp result
             # lookup has failed for this session.
@@ -447,10 +448,19 @@ class RuleDispatcher(BaseDispatch):
             log(None, CORE_POLICY, 0, "Unable to determine service, KZorp service lookup failed; bindto='%s'", (self.bindto[0], ))
             return None
 
+        (client_zone_name, server_zone_name, dispatcher_name, service_name, rule_id) = result
+        service = Globals.services.get(service_name)
+        client_zone = Zone.lookupByName(client_zone_name)
+        server_zone = Zone.lookupByName(server_zone_name)
+
+        return MasterSession(service, client_stream, client_local, client_listen, client_address,
+                             client_zone = client_zone, server_zone = server_zone, rule_id = rule_id, instance_id=getInstanceId(service.name))
+
     def buildKZorpMessage(self):
         """<method internal="yes">
         </method>
         """
+        import kzorp.messages as kzorp
         messages = []
 
         messages.append(kzorp.KZorpAddDispatcherMessage(self.session_id, Globals.rules.length))
@@ -464,6 +474,7 @@ class RuleDispatcher(BaseDispatch):
         """<method internal="yes">
         </method>
         """
+        import kzorp.messages as kzorp
         messages = []
         for bind in self.bindto:
             messages.append(kzorp.KZorpAddBindMessage(bind.sa.family, Globals.instance_name,
@@ -620,7 +631,7 @@ class Dispatcher(BaseDispatch):
         self.bindto = bindto
         super(Dispatcher, self).__init__(Globals.instance_name, bindto, **kw)
 
-    def getService(self, client_info):
+    def _getSession(self, client_stream, client_local, client_listen, client_address):
         """
         <method internal="yes">
           <summary>Returns the service associated with the listener</summary>
@@ -640,7 +651,7 @@ class Dispatcher(BaseDispatch):
           </metainfo>
         </method>
         """
-        return self.service
+        return MasterSession(self.service, client_stream, client_local, client_listen, client_address)
 
 class ZoneDispatcher(Dispatcher):
     """
@@ -678,6 +689,7 @@ class ZoneDispatcher(Dispatcher):
     </class>
     """
 
+    deprecated_warning = True
     def __init__(self, bindto=None, services=None, **kw):
         """
         <method maturity="stable">
@@ -709,12 +721,17 @@ class ZoneDispatcher(Dispatcher):
           </metainfo>
         </method>
         """
+        if (ZoneDispatcher.deprecated_warning):
+
+            ZoneDispatcher.deprecated_warning = False
+            log(None, CORE_DEBUG, 3, "Use of ZoneDispatcher class is deprecated, Rule should be used instead.")
+
         self.follow_parent = kw.pop('follow_parent', FALSE)
         super(ZoneDispatcher, self).__init__(bindto, None, **kw)
         self.services = services
         self.cache = ShiftCache('sdispatch(%s)' % str(bindto), config.options.zone_dispatcher_shift_threshold)
 
-    def getService(self, client_info):
+    def _getSession(self, client_stream, client_local, client_listen, client_address):
         """
         <method internal="yes">
           <summary>Virtual function which returns the service to be ran</summary>
@@ -730,14 +747,15 @@ class ZoneDispatcher(Dispatcher):
               <argument maturity="stable">
                 <name>client_info</name>
                 <type></type>
-                <description>Client connection info</description>
+                <description>Session information</description>
               </argument>
             </arguments>
           </metainfo>
         </method>
         """
 
-        cache_ndx = client_info.client_zone.getName()
+        client_zone = Zone.lookup(client_address)
+        cache_ndx = client_zone.getName()
 
         cached = self.cache.lookup(cache_ndx)
         if cached == 0:
@@ -748,13 +766,13 @@ class ZoneDispatcher(Dispatcher):
             # @see: Listener.ZoneListener
             # @see: Receiver.ZoneReceiver
             ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client zone (cached); bindto='%s', client_zone='%s'", (self.bindto, client_info.client_zone))
+            log(None, CORE_POLICY, 2, "No applicable service found for this client zone (cached); bindto='%s', client_zone='%s'", (self.bindto, client_zone))
         elif cached:
             return cached
 
         src_hierarchy = {}
         if self.follow_parent:
-            z = client_info.client_zone
+            z = client_zone
             level = 0
             while z:
                 src_hierarchy[z.getName()] = level
@@ -763,7 +781,7 @@ class ZoneDispatcher(Dispatcher):
             src_hierarchy['*'] = level
             max_level = level + 1
         else:
-            src_hierarchy[client_info.client_zone.getName()] = 0
+            src_hierarchy[client_zone.getName()] = 0
             src_hierarchy['*'] = 1
             max_level = 10
 
@@ -779,10 +797,10 @@ class ZoneDispatcher(Dispatcher):
                 best = self.services[spec]
                 best_src_level = src_level
 
-        s = None
+        service = None
         if best_src_level < max_level:
             try:
-                s = Globals.services[best]
+                service = Globals.services[best]
             except KeyError:
                 log(None, CORE_POLICY, 2, "No such service; service='%s'", (best))
 
@@ -793,10 +811,10 @@ class ZoneDispatcher(Dispatcher):
             # @see: Listener.ZoneListener
             # @see: Receiver.ZoneReceiver
             ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client zone; bindto='%s', client_zone='%s'", (self.bindto, client_info.client_zone))
+            log(None, CORE_POLICY, 2, "No applicable service found for this client zone; bindto='%s', client_zone='%s'", (self.bindto, client_zone))
 
-        self.cache.store(cache_ndx, s)
-        return s
+        self.cache.store(cache_ndx, service)
+        return MasterSession(service, client_stream, client_local, client_listen, client_address, client_zone = client_zone)
 
 class CSZoneDispatcher(Dispatcher):
     """
@@ -841,6 +859,7 @@ class CSZoneDispatcher(Dispatcher):
     </class>
     """
 
+    deprecated_warning = True
     def __init__(self, bindto=None, services=None, **kw):
         """
         <method maturity="stable">
@@ -897,12 +916,17 @@ class CSZoneDispatcher(Dispatcher):
           </metainfo>
         </method>
         """
+        if (CSZoneDispatcher.deprecated_warning):
+
+            CSZoneDispatcher.deprecated_warning = False
+            log(None, CORE_DEBUG, 3, "Use of CSZoneDispatcher class is deprecated, Rule should be used instead.")
+
         self.follow_parent = kw.pop('follow_parent', FALSE)
         super(CSZoneDispatcher, self).__init__(bindto, None, **kw)
         self.services = services
         self.cache = ShiftCache('csdispatch(%s)' % str(self.bindto), config.options.zone_dispatcher_shift_threshold)
 
-    def getService(self, client_info):
+    def _getSession(self, client_stream, client_local, client_listen, client_address):
         """
         <method internal="yes">
           <summary>Virtual function which returns the service to be ran</summary>
@@ -919,15 +943,15 @@ class CSZoneDispatcher(Dispatcher):
               <argument maturity="stable">
                 <name>client_info</name>
                 <type></type>
-                <description>Client connection info</description>
+                <description>Session information</description>
               </argument>
             </arguments>
           </metainfo>
         </method>
         """
-        dest_zone = Zone.lookup(client_info.client_local)
-
-        cache_ndx = (client_info.client_zone.getName(), dest_zone.getName())
+        dest_zone = Zone.lookup(client_local)
+        client_zone = Zone.lookup(client_address)
+        cache_ndx = (client_zone.getName(), dest_zone.getName())
 
         cached = self.cache.lookup(cache_ndx)
         if cached == 0:
@@ -938,14 +962,14 @@ class CSZoneDispatcher(Dispatcher):
             # @see: Listener.CSZoneListener
             # @see: Receiver.CSZoneReceiver
             ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone (cached); bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, client_info.client_zone, dest_zone))
+            log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone (cached); bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, client_zone, dest_zone))
         elif cached:
             return cached
 
         src_hierarchy = {}
         dst_hierarchy = {}
         if self.follow_parent:
-            z = client_info.client_zone
+            z = client_zone
             level = 0
             while z:
                 src_hierarchy[z.getName()] = level
@@ -962,7 +986,7 @@ class CSZoneDispatcher(Dispatcher):
             dst_hierarchy['*'] = level
             max_level = max(max_level, level + 1)
         else:
-            src_hierarchy[client_info.client_zone.getName()] = 0
+            src_hierarchy[client_zone.getName()] = 0
             src_hierarchy['*'] = 1
             dst_hierarchy[dest_zone.getName()] = 0
             dst_hierarchy['*'] = 1
@@ -984,10 +1008,10 @@ class CSZoneDispatcher(Dispatcher):
                 best_src_level = src_level
                 best_dst_level = dst_level
 
-        s = None
+        service = None
         if best_src_level < max_level and best_dst_level < max_level:
             try:
-                s = Globals.services[best]
+                service = Globals.services[best]
             except KeyError:
                 log(None, CORE_POLICY, 2, "No such service; service='%s'", (best))
         else:
@@ -998,8 +1022,8 @@ class CSZoneDispatcher(Dispatcher):
             # @see: Receiver.CSZoneReceiver
             ##
             log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone; bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, session.client_zone, dest_zone))
-        self.cache.store(cache_ndx, s)
-        return s
+        self.cache.store(cache_ndx, service)
+        return MasterSession(service, client_stream, client_local, client_listen, client_address, client_zone = client_zone)
 
 
 def purgeDispatches():

@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -187,6 +188,7 @@
         <item><name>CORE_POLICY</name><value>"core.policy"</value></item>
         <item><name>CORE_MESSAGE</name><value>"core.message"</value></item>
         <item><name>CORE_AUTH</name><value>"core.auth"</value></item>
+        <item><name>CORE_SUMMARY</name><value>"core.summary"</value></item>
       </constantgroup>
     </constants>
   </metainfo>
@@ -213,6 +215,7 @@ CORE_MESSAGE = Common.CORE_MESSAGE
 CORE_AUTH = Common.CORE_AUTH
 CORE_INFO = Common.CORE_INFO
 CORE_ALERTING = Common.CORE_ALERTING
+CORE_SUMMARY = Common.CORE_SUMMARY
 
 # return values returned by event handlers
 ZV_UNSPEC         = 0
@@ -317,6 +320,42 @@ Z_SSL_VERIFY_OPTIONAL_TRUSTED   = 2
 Z_SSL_VERIFY_REQUIRED_UNTRUSTED = 3
 Z_SSL_VERIFY_REQUIRED_TRUSTED   = 4
 
+class ConnectionVerdict(object):
+    __MIN_VALUE               = 0
+    ACCEPTED                  = 0
+    DENIED_BY_POLICY          = 1
+    DENIED_BY_LIMIT           = 2
+    DENIED_BY_CONNECTION_FAIL = 3
+    DENIED_BY_UNKNOWN_FAIL    = 4
+    __MAX_VALUE               = 4
+
+    __str_rep = {
+        ACCEPTED                  : "ACCEPTED",
+        DENIED_BY_POLICY          : "DENIED_BY_POLICY",
+        DENIED_BY_LIMIT           : "DENIED_BY_LIMIT",
+        DENIED_BY_CONNECTION_FAIL : "DENIED_BY_CONNECTION_FAIL",
+        DENIED_BY_UNKNOWN_FAIL    : "DENIED_BY_UNKNOWN_FAIL",
+    }
+
+    def __init__(self, verdict_value):
+        if verdict_value < ConnectionVerdict.__MIN_VALUE or \
+           verdict_value > ConnectionVerdict.__MAX_VALUE:
+            raise ValueError
+
+        self.value = verdict_value
+
+    def __str__(self):
+        return ConnectionVerdict.__str_rep[self.value]
+
+    def __eq__(self, other):
+        if other is not None and \
+           isinstance(other, ConnectionVerdict) and \
+           self.value == other.value:
+            return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 import Globals
 
 def init(names, virtual_name, is_master):
@@ -359,10 +398,10 @@ def init(names, virtual_name, is_master):
     </function>
     """
     import __main__
-    import SockAddr, KZorp, Matcher, Rule
-    import kzorp.netlink
-    import kzorp.communication
+    import SockAddr, Matcher, Rule
     import errno
+
+    Globals.virtual_instance_name = virtual_name
 
     # miscelanneous initialization
     if config.audit.encrypt_certificate_file:
@@ -403,6 +442,7 @@ def init(names, virtual_name, is_master):
     Globals.rules = Rule.RuleSet()
 
     if config.options.kzorp_enabled:
+        import kzorp.communication
         # ping kzorp to see if it's there
         try:
             h = kzorp.communication.Handle()
@@ -427,6 +467,7 @@ def init(names, virtual_name, is_master):
     Matcher.validateMatchers()
 
     if Globals.kzorp_available:
+        import KZorp
         try:
             KZorp.downloadKZorpConfig(names[0], is_master)
         except:
@@ -470,7 +511,7 @@ def cleanup(names, virtual_name, is_master):
     <function internal="yes">
     </function>
     """
-    import KZorp
+
     ## LOG ##
     # This message reports that the given instance is freeing its external
     # resources (for example its kernel-level policy objects).
@@ -478,6 +519,7 @@ def cleanup(names, virtual_name, is_master):
     log(None, CORE_DEBUG, 6, "Cleaning up instance; name='%s'", (names,))
 
     if is_master and Globals.kzorp_available and config.options.kzorp_enabled:
+        import KZorp
         try:
             KZorp.flushKZorpConfig(names[0])
         except:
@@ -545,3 +587,46 @@ def log(sessionid, logclass, verbosity, msg, args=None):
     </function>
     """
     Common.log(sessionid, logclass, verbosity, msg, args=None)
+
+class ConnectionVerdict(object):
+    """<class internal="yes"/>"""
+    __MIN_VALUE               = 0
+    ACCEPTED                  = 0
+    DENIED_BY_POLICY          = 1
+    DENIED_BY_LIMIT           = 2
+    DENIED_BY_CONNECTION_FAIL = 3
+    DENIED_BY_UNKNOWN_FAIL    = 4
+    ABORTED_BY_POLICY_ACTION  = 5
+    INVALID_POLICY_CALL       = 6
+    __MAX_VALUE               = 6
+
+    __str_rep = {
+        ACCEPTED                  : "ACCEPTED",
+        DENIED_BY_POLICY          : "DENIED_BY_POLICY",
+        DENIED_BY_LIMIT           : "DENIED_BY_LIMIT",
+        DENIED_BY_CONNECTION_FAIL : "DENIED_BY_CONNECTION_FAIL",
+        DENIED_BY_UNKNOWN_FAIL    : "DENIED_BY_UNKNOWN_FAIL",
+        ABORTED_BY_POLICY_ACTION  : "ABORTED_BY_POLICY_ACTION",
+        INVALID_POLICY_CALL       : "INVALID_POLICY_CALL",
+    }
+
+    def __init__(self, verdict_value):
+        if verdict_value < ConnectionVerdict.__MIN_VALUE or \
+           verdict_value > ConnectionVerdict.__MAX_VALUE:
+            raise ValueError
+
+        self.value = verdict_value
+
+    def __str__(self):
+        return ConnectionVerdict.__str_rep[self.value]
+
+    def __eq__(self, other):
+        if other is not None and \
+           isinstance(other, ConnectionVerdict) and \
+           self.value == other.value:
+            return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+

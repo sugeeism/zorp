@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -53,8 +54,11 @@ import Zorp
 from Zorp import *
 from Zone import Zone
 from Exceptions import *
+import time
 
 import inspect
+
+import Globals
 
 class AbstractSession(object):
     """
@@ -105,27 +109,6 @@ class AbstractSession(object):
         """
         if self.client_stream:
             self.client_stream.close()
-
-
-class ClientInfo(object):
-    """
-    <class maturity="stable" internal="yes"/>
-    """
-    def __init__(self, client_stream, client_local, client_listen, client_address):
-        """<method internal="yes">"""
-        self.client_stream = client_stream
-        self.client_local = client_local
-        self.client_listen = client_listen
-        self.client_address = client_address
-
-        if client_address is not None:
-            try:
-                self.client_zone = Zone.lookup(client_address)
-            except ZoneException:
-                self.client_zone = None
-        else:
-            self.client_zone = None
-
 
 def get_protocol_name(protocol):
     """<function internal="yes"/>"""
@@ -266,7 +249,7 @@ class MasterSession(AbstractSession):
     </class>
     """
 
-    def __init__(self, protocol, service, client_info, instance_id):
+    def __init__(self, service, client_stream, client_local, client_listen, client_address, **kwargs):
         """
         <method internal="yes">
           <summary>
@@ -283,12 +266,43 @@ class MasterSession(AbstractSession):
           </metainfo>
         </method>
         """
+        if client_address is None and hasattr(kwargs, 'client_zone') is True:
+            raise AttributeError
+
         super(MasterSession, self).__init__()
 
-        self.base_session_id = 'svc'
+        self.service = service
+        self.client_stream = client_stream
+        self.client_local = client_local
+        self.client_listen = client_listen
+        self.client_address = client_address
+        self.client_zone = getattr(kwargs, 'client_zone', None)
+        self.rule_id = getattr(kwargs, 'rule_id', None)
+        self.server_address = getattr(kwargs, "server_address", None)
+        self.server_zone = getattr(kwargs, "server_zone", None)
+        self.server_local = None
 
-        for method in ['client_stream', 'client_local', 'client_listen', 'client_address', 'client_zone']:
-            setattr(self, method, getattr(client_info, method))
+        self.target_address = getattr(kwargs, "target_address", ())
+        self.target_local = getattr(kwargs, "target_local", None)
+        self.target_zone = getattr(kwargs, "target_zone", ())
+
+        self.instance_id = 0
+        for arg_name,value in kwargs.items():
+            setattr(self, arg_name, value)
+            log(None, CORE_DEBUG, 8,
+                "Added value to the session; name='%s', value='%s'" % (arg_name, value))
+
+        if self.client_address is not None and self.client_zone is None:
+            try:
+                self.client_zone = Zone.lookup(client_address)
+            except ZoneException:
+                self.client_zone = None
+
+        if self.server_address is not None and self.server_zone is None:
+            try:
+                self.server_zone = Zone.lookup(server_address)
+            except ZoneException:
+                self.server_zone = None
 
         # these are set by the router to indicate how target address
         # selection should work based on the type of the router used
@@ -296,22 +310,20 @@ class MasterSession(AbstractSession):
         self.target_local_loose = TRUE
         self.target_local_random = FALSE
 
+        self.proxy = None
+        self.started = 0
+
         self.auth_user = ""
         self.auth_groups = ()
         self.authorized = FALSE
 
-        self.started = 0
-        self.service = service
-        self.instance_id = 0
+        self.protocol = self.client_listen.protocol
+        self.protocol_name = get_protocol_name(self.protocol)
 
-        self.protocol = protocol
-        self.protocol_name = get_protocol_name(protocol)
-        self.proxy = None
-
-        self.instance_id = instance_id
-
-        self.session_id = "%s/%s:%d" % (self.base_session_id, self.service.name, instance_id)
+        self.base_session_id = 'svc'
+        self.session_id = "%s/%s/%s:%d" % (self.base_session_id, Globals.virtual_instance_name, self.service.name, self.instance_id)
         self.master_session_id = self.session_id
+        self.verdict = ConnectionVerdict(ConnectionVerdict.ACCEPTED)
 
     def __del__(self):
         """
@@ -331,8 +343,68 @@ class MasterSession(AbstractSession):
           </metainfo>
         </method>
         """
+        self.logVerdict()
         if self.service:
             self.service.stopInstance(self)
+
+    def logVerdict(self, info=''):
+        rule_id = self.rule_id if self.rule_id is not None else "N/A"
+        session_start = self.service.start_time
+        session_end = int(time.time())
+        client_zone_name = self.client_zone.name if self.client_zone is not None else "(NULL)"
+        server_zone_name = self.server_zone.name if self.server_zone is not None else "(NULL)"
+        client_ip = self.client_address.ip_s if self.client_address is not None else "(NULL)"
+        client_port = self.client_address.port if self.client_address is not None else 0
+        server_ip = self.server_address.ip_s if self.server_address is not None else "(NULL)"
+        server_port = self.server_address.port if self.server_address is not None else 0
+        client_protocol_name = self.protocol_name
+        server_protocol_name = client_protocol_name
+        server_protocol = self.service.chainer.getProtocol()
+        if server_protocol != ZD_PROTO_AUTO:
+            server_protocol_name = get_protocol_name(server_protocol)
+        client_local_ip = self.client_local.ip_s if self.client_local is not None else "(NULL)"
+        client_local_port = self.client_local.port if self.client_local is not None else 0
+        server_local_ip = self.server_local.ip_s if self.server_local is not None else "(NULL)"
+        server_local_port = self.server_local.port if self.server_local is not None else 0
+        conn_verdict = self.verdict
+        log(self.session_id, CORE_SUMMARY, 4,
+            ("Connection summary; " +
+             "rule_id='%s', "
+             "session_start='%d', "
+             "session_end='%d', "
+             "client_proto='%s', "
+             "client_address='%s', "
+             "client_port='%d', "
+             "client_zone='%s', "
+             "server_proto='%s', "
+             "server_address='%s', "
+             "server_port='%d', "
+             "server_zone='%s', "
+             "client_local='%s', "
+             "client_local_port='%d', "
+             "server_local='%s', "
+             "server_local_port='%d', "
+             "verdict='%s', "
+             "info='%s'"
+             ) % (
+             rule_id,
+             session_start,
+             session_end,
+             client_protocol_name,
+             client_ip,
+             client_port,
+             client_zone_name,
+             server_protocol_name,
+             server_ip,
+             server_port,
+             server_zone_name,
+             client_local_ip,
+             client_local_port,
+             server_local_ip,
+             server_local_port,
+             conn_verdict,
+             info
+            ))
 
 class StackedSession(AbstractSession):
     """
@@ -546,7 +618,7 @@ class StackedSession(AbstractSession):
         if self._get_secondary_connection() != 0:
             secondary_part = ":%d" % self._get_secondary_connection()
 
-        self.session_id = "%s%s/%s" % (self.master_session_id, secondary_part, proxy.name)
+        self.session_id = "%s/%s%s/%s" % (self.master_session_id, Globals.virtual_instance_name, secondary_part, proxy.name)
 
     def setServerAddress(self, addr):
         """
@@ -558,6 +630,8 @@ class StackedSession(AbstractSession):
         """
         self.server_address = addr
         self.server_zone = Zone.lookup(addr)
+        self.owner.server_address = addr
+        self.owner.server_zone = self.server_zone
 
     def isServerPermitted(self):
         """
@@ -671,7 +745,6 @@ class StackedSession(AbstractSession):
     def registerStart(self, timestamp=None):
         """<method internal="yes"/>"""
         if timestamp is None:
-            import time
             timestamp = str(time.time())
 
         self.updateSzigConns(Z_SZIG_CONNECTION_PROPS, {
@@ -681,7 +754,7 @@ class StackedSession(AbstractSession):
                         'proxy_class': self.proxy.__class__.__name__,
                         'client_address': str(self.client_address),
                         'client_local': str(self.client_local),
-                        'client_zone': self.client_zone.getName(),
+                        'client_zone': self.client_zone.getName() if self.client_zone else '',
                         })
 
         szigEvent(Z_SZIG_CONNECTION_START,
@@ -700,7 +773,7 @@ class StackedSession(AbstractSession):
         self.updateSzigConns(Z_SZIG_CONNECTION_PROPS, {
                 'server_address': str(self.server_address),
                 'server_local': str(self.server_local),
-                'server_zone': self.server_zone.getName(),
+                'server_zone': self.server_zone.getName() if self.server_zone else '',
                 })
 
     def updateSzigConns(self, event, data):
@@ -708,3 +781,4 @@ class StackedSession(AbstractSession):
         szigEvent(event,
                   (Z_SZIG_TYPE_CONNECTION_PROPS,
                    (self.service.name, self.instance_id, self._get_secondary_connection(), 0, data)))
+

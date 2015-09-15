@@ -7,9 +7,9 @@ pkglibexec_PROGRAMS = zorp
 
 zorp_SOURCES = main.cc
 
-sysconf_DATA = policy.py.sample
+sysconf_DATA = policy.py.http.sample policy.py.https.sample policy.py.ssh.sample
 
-EXTRA_DIST = policy.py.sample logtags.txt logtags_gperf.c logtags_gperf.h logtags.gperf
+EXTRA_DIST = $(sysconf_DATA) logtags.txt logtags_gperf.c logtags_gperf.h logtags.gperf
 
 install-exec-local:
 	mkdir -p $(DESTDIR)/$(sysconfdir)

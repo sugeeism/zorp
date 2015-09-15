@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -55,7 +56,7 @@ from Zorp import *
 from SockAddr import SockAddrInet, SockAddrInet6
 from Subnet import InetSubnet
 from Cache import ShiftCache, TimedCache
-from Exceptions import DACException, LimitException
+from Exceptions import DACException, UserException, LimitException
 from socket import inet_ntoa
 from Util import makeSequence
 import Globals
@@ -63,7 +64,6 @@ import types
 
 from random import choice, randint, SystemRandom
 
-import kzorp.messages
 import socket
 
 NAT_SNAT = 0
@@ -178,7 +178,7 @@ Service(name="office_http_inter", proxy_class=HttpProxy, snat_policy="demo_natpo
             cached = self.nat_cache.lookup(key)
             if cached:
                 addr = cached.clone(FALSE)
-                addr.ip_s = addrs[nat_type].port
+                addr.port = addrs[nat_type].port
             else:
                 addr = self.nat.performTranslation(session, addrs, nat_type)
                 self.nat_cache.store(key, addr.clone(FALSE) if addr else None)
@@ -410,6 +410,7 @@ class GeneralNAT(AbstractNAT):
         </method>
         """
         def subnetToKZorpTuple(subnet):
+            import kzorp.messages
             return (kzorp.messages.KZ_SVC_NAT_MAP_IPS, socket.ntohl(subnet.network()), socket.ntohl(subnet.broadcast()), 0, 0)
 
         result = []

@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -61,6 +56,9 @@ ftp_policy_bounce_check(FtpProxy *self, guint  side, ZSockAddr *remote, gboolean
   if ((res == NULL) || !z_policy_var_parse(res, "i", &ret))
     ret = FALSE;
 
+  if (!ret)
+    z_proxy_report_policy_abort(&(self->super));
+
   z_policy_var_unref(res);
   z_policy_var_unref(zsock);
   z_policy_unlock(self->super.thread);
@@ -84,6 +82,7 @@ ftp_policy_parse_authinfo(FtpProxy *self, const gchar *cmd, GString *param)
 
   if (!called)
     {
+      z_proxy_report_policy_abort(&(self->super));
       z_policy_unlock(self->super.thread);
       z_proxy_return(self, FALSE);
     }
@@ -93,6 +92,10 @@ ftp_policy_parse_authinfo(FtpProxy *self, const gchar *cmd, GString *param)
 
   if (result)
     z_policy_var_unref(result);
+
+  if (!ret)
+    z_proxy_report_policy_abort(&(self->super));
+
   z_policy_unlock(self->super.thread);
 
   z_proxy_return(self, ret);
@@ -178,6 +181,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
         rejects the request. Check the 'request' attribute.
        */
       z_proxy_log(self, FTP_POLICY, 1, "Policy type invalid; req='%s", self->request_cmd->str);
+      z_proxy_report_invalid_policy(&(self->super));
       z_policy_unlock(self->super.thread);
       z_proxy_return(self, FTP_REQ_REJECT);
     }
@@ -186,8 +190,14 @@ ftp_policy_command_hash_do(FtpProxy *self)
   switch(command_do)
     {
     case FTP_REQ_ACCEPT:
+      ret = FTP_REQ_ACCEPT;
+      break;
+
     case FTP_REQ_ABORT:
-      ret = command_do;
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
+      ret = FTP_REQ_ABORT;
       break;
 
     case FTP_REQ_REJECT:
@@ -215,6 +225,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
             parameter for the FTP_REQ_POLICY is invalid.
            */
           z_proxy_log(self, FTP_POLICY, 1, "Cannot parse policy line; req='%s'", self->request_cmd->str);
+          z_proxy_report_invalid_policy(&(self->super));
           ret = FTP_REQ_ABORT;
         }
       else
@@ -230,6 +241,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
                 parameter for the FTP_REQ_POLICY is invalid.
                */
               z_proxy_log(self, FTP_POLICY, 1, "Error in policy calling; req='%s'", self->request_cmd->str);
+              z_proxy_report_policy_abort(&(self->super));
               ret = FTP_REQ_ABORT;
             }
           else if (!z_policy_var_parse(res,"i",&ret))
@@ -239,6 +251,7 @@ ftp_policy_command_hash_do(FtpProxy *self)
                 is invalid and Zorp rejects the request. Check the callback function.
                */
               z_proxy_log(self, FTP_POLICY, 1, "Can't parsing return code; command='%s'", self->request_cmd->str);
+              z_proxy_report_policy_abort(&(self->super));
               ret = FTP_REQ_ABORT;
             }
           else
@@ -322,6 +335,8 @@ ftp_policy_answer_hash_do(FtpProxy *self)
         rejects the request. Check the 'request' attribute.
        */
       z_proxy_log(self, FTP_POLICY, 1, "Answer type invalid; req='%s', rsp='%s'", self->request_cmd->str, self->answer_cmd->str);
+      z_proxy_report_invalid_policy(&(self->super));
+      z_policy_unlock(self->super.thread);
       z_proxy_return(self, FTP_RSP_REJECT);
     }
   z_policy_unlock(self->super.thread);
@@ -354,6 +369,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
     case FTP_RSP_ABORT:
       ret = FTP_RSP_ABORT;
       z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
       if (!z_policy_var_parse(tmp, "(is)", &answer_do, &msg))
         {
           g_string_assign(self->answer_cmd, "500");
@@ -382,6 +398,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
           z_proxy_log(self, FTP_POLICY, 1, "Bad policy line; command='%s', answer='%s'", self->request_cmd->str, self->answer_cmd->str);
           g_string_assign(self->answer_cmd, "500");
           g_string_assign(self->answer_param, "Error parsing answer (bad policy)");
+          z_proxy_report_invalid_policy(&(self->super));
           ret = FTP_RSP_ABORT;
         }
       else
@@ -397,6 +414,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
               z_proxy_log(self, FTP_POLICY, 1, "Error in policy calling; command='%s', answer='%s'", self->request_cmd->str, self->answer_cmd->str);
               g_string_assign(self->answer_cmd, "500");
               g_string_assign(self->answer_param, "Error parsing answer (bad policy)");
+              z_proxy_report_policy_abort(&(self->super));
               ret = FTP_RSP_ABORT;
             }
           else if (!z_policy_var_parse(res, "i", &ret))
@@ -408,6 +426,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
               z_proxy_log(self, FTP_POLICY, 1, "Return code invalid from policy function; command='%s', answer='%s'", self->request_cmd->str, self->answer_cmd->str);
               g_string_assign(self->answer_cmd, "500");
               g_string_assign(self->answer_param, "Error parsing answer (bad policy)");
+              z_proxy_report_policy_abort(&(self->super));
               ret = FTP_RSP_ABORT;
             }
           else
@@ -427,6 +446,7 @@ ftp_policy_answer_hash_do(FtpProxy *self)
                 default:
                   g_string_assign(self->answer_cmd, "500");
                   g_string_assign(self->answer_param, "Error parsing answer, connection dropped.");
+                  z_proxy_report_policy_abort(&(self->super));
                   ret = FTP_RSP_ABORT;
                   break;
                 }
@@ -438,6 +458,11 @@ ftp_policy_answer_hash_do(FtpProxy *self)
     default:
       g_string_assign(self->answer_cmd, "500");
       g_string_assign(self->answer_param, "Error parsing answer, connection dropped.");
+
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
+
       ret = FTP_RSP_ABORT;
       break;
     }

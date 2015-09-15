@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *   - comments
  *
@@ -41,7 +36,9 @@
 #include <zorp/pystream.h>
 #include <zorp/pyproxy.h>
 #include <zorp/pysockaddr.h>
+#include <zorp/pyx509.h>
 #include <zorp/pyproxygroup.h>
+#include <zorp/pyencryption.h>
 
 /* for capability management */
 #include <zorp/cap.h>
@@ -920,22 +917,39 @@ z_policy_thread_destroy(ZPolicyThread *self)
   g_free(self);
 }
 
+
 /**
  * z_policy_free:
  * @self: this
  *
  * Destroys a ZPolicy by freeing its filename and destroying its threads.
+ * NOTE: This will be called from the main loop.
+ *
+ * Returns: FALSE - To remove the GSource from the main loop.
  */
-static void
+static gboolean
 z_policy_free(ZPolicy *self)
 {
-  /* FIXME: we should acquire a thread state to be able to free ourselves */
-
   g_free(self->policy_filename);
   /* NOTE: This must be the last because that destroyer assume that he is the last men standing. */
   z_policy_thread_destroy(self->main_thread);
   g_free(self);
+
+  return FALSE;
 }
+
+/**
+ * z_policy_want_free:
+ * @self: this
+ *
+ * Adds an idle main loop callback to free up the policy in the main loop.
+ */
+static void
+z_policy_want_free(ZPolicy *self)
+{
+  g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc) z_policy_free, self, NULL);
+}
+
 
 /**
  * z_policy_ref:
@@ -997,7 +1011,7 @@ z_policy_unref(ZPolicy *self)
     {
       /* ok, only the notification thread & main thread remains, start destructing them now */
       G_UNLOCK(policy_ref_lock);
-      z_policy_free(self);
+      z_policy_want_free(self);
     }
   else
     {
@@ -1089,6 +1103,8 @@ z_policy_boot(ZPolicy *self)
   z_policy_proxy_module_init();
   z_policy_sockaddr_module_init();
   z_policy_proxy_group_module_init();
+  z_policy_zorp_certificate_module_init();
+  z_policy_encryption_module_init();
 
 
 

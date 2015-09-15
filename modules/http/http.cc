@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *   Slightly based on the code by: Viktor Peter Kovacs <vps__@freemail.hu>
  *
@@ -864,6 +859,13 @@ http_error_message(HttpProxy *self, gint response_code, guint message_code, GStr
   gchar *error_msg;
 
   z_proxy_enter(self);
+
+  if (message_code != HTTP_MSG_CONNECT_ERROR)
+    {
+      z_policy_lock(self->super.thread);
+      z_proxy_report_policy_abort(&(self->super));
+      z_policy_unlock(self->super.thread);
+    }
 
   if (message_code >= (sizeof(messages) / sizeof(char *)))
     {
@@ -1886,7 +1888,7 @@ http_process_request(HttpProxy *self)
                 }
             }
 
-          g_snprintf(buf, sizeof(buf), "%s://%s", self->super.ssl_opts.ssl_sessions[EP_CLIENT] ? "https" : "http", self->remote_server->str);
+          g_snprintf(buf, sizeof(buf), "%s://%s", self->super.tls_opts.ssl_sessions[EP_CLIENT] ? "https" : "http", self->remote_server->str);
           g_string_prepend(self->request_url, buf);
         }
     }
@@ -2159,6 +2161,7 @@ http_filter_request(HttpProxy *self)
             configuration.
           */
           z_proxy_log(self, HTTP_POLICY, 1, "Invalid item in request hash; method='%s'", self->request_method->str);
+          z_proxy_report_invalid_policy(&(self->super));
           z_policy_unlock(self->super.thread);
           z_proxy_return(self, FALSE);
 
@@ -2180,6 +2183,7 @@ http_filter_request(HttpProxy *self)
                 should contain a valid call-back function in the tuple.
               */
               z_proxy_log(self, HTTP_POLICY, 1, "Error parsing HTTP_REQ_POLICY tuple in request hash; method='%s'", self->request_method->str);
+              z_proxy_report_invalid_policy(&(self->super));
               z_policy_unlock(self->super.thread);
               z_proxy_return(self, FALSE);
             }
@@ -2193,6 +2197,7 @@ http_filter_request(HttpProxy *self)
             {
               rc = HTTP_REQ_REJECT;
               g_string_assign(self->error_info, "Error in policy handler, or returned value not integer;");
+              z_proxy_report_policy_abort(&(self->super));
             }
 
           z_policy_var_unref(res);
@@ -2212,6 +2217,7 @@ http_filter_request(HttpProxy *self)
                 client.
               */
               z_proxy_log(self, HTTP_POLICY, 1, "Error parsing HTTP_REQ_REJECT in request hash; req='%s'", self->request_method->str);
+              z_proxy_report_invalid_policy(&(self->super));
               z_policy_unlock(self->super.thread);
               z_proxy_return(self, FALSE);
             }
@@ -2719,6 +2725,7 @@ http_filter_response(HttpProxy *self)
                 configuration.
               */
               z_proxy_log(self, HTTP_POLICY, 1, "Invalid response hash item; request='%s', response='%d'", self->request_method->str, self->response_code);
+              z_proxy_report_invalid_policy(&(self->super));
               z_policy_unlock(self->super.thread);
               z_proxy_return(self, FALSE);
             }
@@ -2742,6 +2749,7 @@ http_filter_response(HttpProxy *self)
                   z_proxy_log(self, HTTP_POLICY, 1,
                               "Error parsing HTTP_RSP_POLICY in response hash; request='%s', response='%d'",
                               self->request_method->str, self->response_code);
+                  z_proxy_report_invalid_policy(&(self->super));
                   z_policy_unlock(self->super.thread);
                   z_proxy_return(self, FALSE);
                 }
@@ -2751,6 +2759,7 @@ http_filter_response(HttpProxy *self)
               if (!z_policy_var_parse(res, "i", &rc))
                 {
                   g_string_assign(self->error_info, "Error in policy handler.");
+                  z_proxy_report_policy_abort(&(self->super));
                   rc = HTTP_RSP_REJECT;
                 }
 
@@ -3028,6 +3037,7 @@ http_handle_connect(HttpProxy *self)
         event to the Zorp QA team (at devel@balabit.com).
       */
       z_proxy_log(self, HTTP_ERROR, 1, "Internal error, connectMethod is expected to return a proxy instance;");
+      z_proxy_report_policy_abort(&(self->super));
       self->error_code = HTTP_MSG_POLICY_SYNTAX;
       z_policy_var_unref(res);
       z_policy_unlock(self->super.thread);

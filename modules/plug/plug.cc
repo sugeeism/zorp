@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  *
  ***************************************************************************/
@@ -170,6 +165,7 @@ plug_packet_stat_event(ZPlugSession *session G_GNUC_UNUSED,
                 is expected to return ZV_REJECT or ZV_ACCEPT.
                */
               z_proxy_log(self, PLUG_POLICY, 1, "Invalid return value of packetStats(), integer required;");
+              z_proxy_report_policy_abort(&(self->super));
             }
           else if (resc != ZV_ACCEPT)
             {
@@ -178,6 +174,7 @@ plug_packet_stat_event(ZPlugSession *session G_GNUC_UNUSED,
                 packetStats() function requests to terminate the session.
                */
               z_proxy_log(self, PLUG_POLICY, 1, "packetStats() requested to abort session; verdict='%d'", resc);
+              z_proxy_report_policy_abort(&(self->super));
             }
         }
     }
@@ -236,6 +233,7 @@ plug_request_stack_event(PlugProxy *self, ZStackedProxy **stacked)
   else if (called)
     {
       rc = FALSE;
+      z_proxy_report_policy_abort(&(self->super));
     }
   z_policy_var_unref(res);
   z_policy_unlock(self->super.thread);

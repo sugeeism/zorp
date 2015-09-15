@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -25,21 +26,26 @@
   </summary>
   <description>
     <para>
-      This module defines classes encapsulating service descriptions. Zorp
-      services define how incoming connection requests are handled.
+      This module defines classes encapsulating service descriptions. The
+      services define how Zorp handles incoming connection requests.
       When a connection is accepted by a <link
       linkend="python.Rule">Rule</link>, the service specified in the
       Rule creates an instance of itself.
-      This instance handles the connection and
+      This instance handles the connection, and
       proxies the traffic between the client and the server.
+      It also handles TLS and SSL encryption of the traffic if needed, as
+      configured in the <parameter>encryption_policy</parameter> parameter
+      of the service. (Note that in Zorp version 5 and earlier, encryption
+      was handled by the Proxy class.)
       The instance of the selected service is created using the <link
       linkend="python.Service.Service.startInstance">'startInstance()'</link>
       method.
     </para>
     <para>
-    A service does not perform useful activity on its own, it needs
+    A service is not usable on its own, it needs
     a <link linkend="python.Rule">Rule</link> to bind the
-    service to a network interface of the firewall. New instances of the
+    service to a network interface of the firewall and activate it when a
+    matching connection request is received. New instances of the
     service are started as the Rule accepts new connections.
     </para>
     <section>
@@ -85,13 +91,11 @@ from Router import TransparentRouter, DirectedRouter
 from Auth import AuthPolicy, getAuthPolicyObsolete, getAuthenticationPolicy
 from Resolver import DNSResolver, getResolverPolicy, ResolverPolicy
 from NAT import getNATPolicy, NATPolicy, NAT_SNAT, NAT_DNAT
-from Encryption import getEncryptionPolicy
+from Encryption import getEncryptionPolicy, Encryption
 from Exceptions import LimitException
 from Util import enum
 
 import types, thread, time, socket
-
-import kzorp.messages
 
 Z_SESSION_LIMIT_NOT_REACHED        = 0
 Z_SESSION_LIMIT_GRACEFULLY_REACHED = 1
@@ -251,14 +255,26 @@ class Service(AbstractService):
       <description>
         <para>
           A service is one of the fundamental objects in Zorp. It
-          stores the names of proxy related parameters, and is also
+          stores the names of proxy-related parameters, and is also
           used for access control purposes to decide what kind
           of traffic is permitted.
         </para>
-        <note><para>The Service class transfers application-level (proxy)
-         services. To transfer connections on the application-level,
-         use the <link linkend="python.Service.Service">Service</link>
-         class.</para></note>
+        <note>
+            <para>The Service class transfers application-level (proxy)
+         services.</para>
+            <itemizedlist>
+               <listitem>
+                 <para>To transfer connections on the packet-filter level,
+                    use the <link linkend="python.Service.PFService">PFService</link>
+                    class.</para>
+               </listitem>
+               <listitem>
+                 <para>To transfer connections on the application-level,
+                    use the <link linkend="python.Service.Service">Service</link>
+                    class.</para>
+               </listitem>
+            </itemizedlist>
+         </note>
        <example>
        <title>Service example</title>
        <para>The following service transfers HTTP connections. Every
@@ -403,6 +419,16 @@ Rule(src_zone='office',
               Z_KEEPALIVE_CLIENT, Z_KEEPALIVE_SERVER,
               Z_KEEPALIVE_BOTH values.
             </description>
+          </attribute>
+          <attribute>
+            <name>encryption_policy</name>
+            <type>
+              <class filter="encryptionpolicy" existing="yes"/>
+            </type>
+            <default>None</default>
+            <description>Name of the Encryption policy instance used to
+            encrypt the sessions and verify the certificates used.
+            For details, see <xref linkend="python.Encryption"/>.</description>
           </attribute>
         </attributes>
       </metainfo>
@@ -601,6 +627,16 @@ Rule(src_zone='office',
                   are applied if the list is empty. Use this parameter to replace the obsolete <parameter>inbound_services</parameter> parameter of the Zone class.
                 </description>
               </argument>
+              <argument>
+                <name>encryption_policy</name>
+                <type>
+                  <class filter="encryptionpolicy" existing="yes"/>
+                </type>
+                <default>None</default>
+                <description>Name of the Encryption policy instance used to
+                encrypt the sessions and verify the certificates used.
+                For details, see <xref linkend="python.Encryption"/>.</description>
+              </argument>
             </arguments>
           </metainfo>
         </method>
@@ -665,6 +701,7 @@ Rule(src_zone='office',
         self.num_instances = 0
         self.proxy_group = ProxyGroup(self.max_sessions)
         self.lock = thread.allocate_lock()
+        self.start_time = 0
 
     def startInstance(self, session):
         """
@@ -716,7 +753,9 @@ Rule(src_zone='office',
         # route session
         self.router.routeConnection(ss)
 
-        timestamp = str(time.time())
+        start_time = time.time()
+        timestamp = str(start_time)
+        self.start_time = int(start_time)
 
         szigEvent(Z_SZIG_SERVICE_COUNT,
                     (Z_SZIG_TYPE_PROPS,
@@ -734,7 +773,7 @@ Rule(src_zone='office',
             self.proxy_group = ProxyGroup(self.max_sessions)
             if not self.proxy_group.start(proxy):
                 raise RuntimeError, "Error starting proxy in group"
-        return TRUE
+        return ss
 
     def stopInstance(self, session):
         """
@@ -781,6 +820,7 @@ Rule(src_zone='office',
         """<method internal="yes">
         </method>
         """
+        import kzorp.messages
         return [kzorp.messages.KZorpAddProxyServiceMessage(self.name), ];
 
 
@@ -792,10 +832,22 @@ class PFService(AbstractService):
       </summary>
       <description>
        <para>PFServices allow you to replace the FORWARD rules of iptables, and configure application-level and packet-filter rules from Zorp.</para>
-       <note><para>The PFService class transfers packet-filter level
-         services. To transfer connections on the packet-filter level,
-         use the <link linkend="python.Service.PFService">PFService</link>
-         class.</para></note>
+       <note>
+         <para>The PFService class transfers packet-filter level
+         services.</para>
+         <itemizedlist>
+           <listitem>
+             <para>To transfer connections on the packet-filter level,
+                use the <link linkend="python.Service.PFService">PFService</link>
+                class.</para>
+           </listitem>
+           <listitem>
+             <para>To transfer connections on the application-level,
+                use the <link linkend="python.Service.Service">Service</link>
+                class.</para>
+           </listitem>
+         </itemizedlist>
+       </note>
        <example>
        <title>PFService example</title>
        <para>The following packet-filtering service transfers TCP connections
@@ -875,6 +927,7 @@ Rule(dst_port=5555,
         </method>
         """
         def addNATMappings(messages, nat_type, nat_policy):
+            import kzorp.messages
             if nat_type == NAT_SNAT:
                 msg_class = kzorp.messages.KZorpAddServiceSourceNATMappingMessage
             else:
@@ -884,6 +937,7 @@ Rule(dst_port=5555,
                 for src_tuple, dst_tuple, map_tuple in nat_mappings:
                     messages.append(msg_class(self.name, src_tuple, map_tuple, dst_tuple))
 
+        import kzorp.messages
         flags = kzorp.messages.KZF_SVC_LOGGING
         if isinstance(self.router, TransparentRouter):
             flags = flags | kzorp.messages.KZF_SVC_TRANSPARENT
@@ -1043,5 +1097,6 @@ class DenyService(AbstractService):
         """
         <method maturity="stable" internal="yes"></method>
         """
+        import kzorp.messages
         return [kzorp.messages.KZorpAddDenyServiceMessage(self.name, \
                 self.logging, 0, self.ipv4_setting, self.ipv6_setting), ]

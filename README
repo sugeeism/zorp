@@ -11,9 +11,8 @@ proxy authentication had to be hacked into the protocol).
 Quickstarting Zorp
 ------------------
 
-After installing zorp (described in the file INSTALL), you have to
-come up with a policy.py file, which may not be the easiest thing to
-do at first time. 
+After installing zorp, you have to come up with a policy.py file, which may
+not be the easiest thing to do at first time.
 
 A sample policy file is provided named /etc/zorp/policy.py.sample to
 be renamed to /etc/zorp/policy.py after local modifications are

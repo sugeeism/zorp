@@ -1,26 +1,27 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
 from Zorp import log, CORE_SESSION, CORE_POLICY, Globals, TRUE, ZD_PROTO_AUTO
-from Session import ClientInfo
 from Dispatch import BaseDispatch
+from Session import MasterSession
 from Proxy import Proxy
 from Detector import DetectResult
 
@@ -51,12 +52,13 @@ class DetectorProxy(Proxy):
             self.need_server_connect = True
 
     def startService(self, service):
-        client_info = ClientInfo(client_stream=self.session.client_stream,
-                                 client_local=self.session.client_local,
-                                 client_listen=self.session.client_listen,
-                                 client_address=self.session.client_address)
+        session = MasterSession(service=service,
+                                client_stream=self.session.client_stream,
+                                client_local=self.session.client_local,
+                                client_listen=self.session.client_listen,
+                                client_address=self.session.client_address)
 
-        BaseDispatch._startInstance(client_info, service)
+        BaseDispatch.startService(service, session)
 
     def detect(self, side, data):
         service = None

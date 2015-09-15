@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 
@@ -121,20 +122,22 @@ class ZorpctlConfig(object):
             return Zorp.Config.config.dirs.pidfiledir
 
         try:
-            value = self.config.get('zorpctl', key)
-            return value
-        except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+            default_value = self.config.get('DEFAULT', key)
             try:
-                value = self.config.get('DEFAULT', key)
-            except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
-                raise KeyError(key)
+                config_value = self.config.get('zorpctl', key)
 
-        try:
-             value = float(value)
-             if round(value - int(value), 6) == 0:
-                 value = int(value)
-        except ValueError:
-             pass
+                # permissions have to be octal values
+                if key.endswith('_MODE'):
+                    value = int(config_value, base=8)
+                else:
+                    # since ConfigParser only uses strings as values,
+                    # cast the value to the type of the default one
+                    default_type = type(default_value)
+                    value = default_type(config_value)
+            except:
+                value = default_value
+        except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+            raise KeyError(key)
 
         return value
 

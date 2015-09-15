@@ -1,20 +1,21 @@
 ############################################################################
 ##
-## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## You should have received a copy of the GNU General Public License along
+## with this program; if not, write to the Free Software Foundation, Inc.,
+## 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ##
 ############################################################################
 """
@@ -85,7 +86,6 @@ from Util import makeSequence
 from Util import parseIfaceGroupAliases
 from Subnet import Subnet
 from Zone import Zone
-import kzorp.messages as kzorp
 import Globals
 import Dispatch
 
@@ -209,23 +209,24 @@ class Rule(object):
         </metainfo>
     </class>
     """
-    valid_dimensions = { 'reqid'         : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
-                         'iface'         : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
-                         'ifgroup'       : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
-                         'proto'         : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
-                         'proto_type'    : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
-                         'proto_subtype' : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
-                         'src_port'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
-                         'dst_port'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
-                         'src_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
-                         'src_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
-                         'src_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
-                         'dst_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
-                         'dst_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
-                         'dst_iface'     : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
-                         'dst_ifgroup'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
-                         'dst_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE,
-                       }
+    valid_dim_names = set([
+                         'reqid'         ,
+                         'iface'         ,
+                         'ifgroup'       ,
+                         'proto'         ,
+                         'proto_type'    ,
+                         'proto_subtype' ,
+                         'src_port'      ,
+                         'dst_port'      ,
+                         'src_subnet'    ,
+                         'src_subnet6'   ,
+                         'src_zone'      ,
+                         'dst_subnet'    ,
+                         'dst_subnet6'   ,
+                         'dst_iface'     ,
+                         'dst_ifgroup'   ,
+                         'dst_zone'      ,
+                         ])
 
     dimension_aliases = {
                           'src_iface'    : 'iface',
@@ -274,7 +275,7 @@ class Rule(object):
                     <argument>
                         <name>proto</name>
                         <type><integer/></type>
-                        <description>Permit only connections using the specified transport protocol. This is the transport layer (Layer 4) protocol of the OSI model, for example, TCP, UDP, ICMP, and so on. The protocol must be specified using a number: the decimal value of the "protocol" field of the IP header. This value is 6 for the TCP and 17 for the UDP protocol. For a list of protocol numbers, see the <ulink url="http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xml">Assigned Internet Protocol Numbers page of IANA</ulink>. For example: <parameter>proto=(6,17)</parameter>.
+                        <description>Permit only connections using the specified transport protocol. This is the transport layer (Layer 4) protocol of the OSI model, for example, TCP, UDP, ICMP, and so on. The protocol must be specified using a number: the decimal value of the "protocol" field of the IP header. This value is 6 for the TCP and 17 for the UDP protocol. For a list of protocol numbers, see the <link xmlns:ns1="http://www.w3.org/1999/xlink" ns1:href="http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xml">Assigned Internet Protocol Numbers page of IANA</link>. For example: <parameter>proto=(6,17)</parameter>.
                         <para>To permit any protocol, do not add the <parameter>proto</parameter> parameter to the rule.</para></description>
                     </argument>
                     <argument>
@@ -438,7 +439,7 @@ class Rule(object):
             # store values specified
             self._dimensions = {}
             for key, value in parameters.items():
-                if key not in self.valid_dimensions:
+                if key not in self.valid_dim_names:
                     if key in self.dimension_aliases:
                         key = self.dimension_aliases[key]
                     else:
@@ -490,13 +491,32 @@ class Rule(object):
         <method internal="yes">
         </method>
         """
+        import kzorp.messages as kzorp
+        dim_name_to_attr_type = { 'reqid'         : kzorp.KZNL_ATTR_N_DIMENSION_REQID,
+                                  'iface'         : kzorp.KZNL_ATTR_N_DIMENSION_IFACE,
+                                  'ifgroup'       : kzorp.KZNL_ATTR_N_DIMENSION_IFGROUP,
+                                  'proto'         : kzorp.KZNL_ATTR_N_DIMENSION_PROTO,
+                                  'proto_type'    : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
+                                  'proto_subtype' : kzorp.KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
+                                  'src_port'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_PORT,
+                                  'dst_port'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_PORT,
+                                  'src_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP,
+                                  'src_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_SRC_IP6,
+                                  'src_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_SRC_ZONE,
+                                  'dst_subnet'    : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP,
+                                  'dst_subnet6'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IP6,
+                                  'dst_iface'     : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFACE,
+                                  'dst_ifgroup'   : kzorp.KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
+                                  'dst_zone'      : kzorp.KZNL_ATTR_N_DIMENSION_DST_ZONE,
+                                }
+
         messages = []
 
         # determine maximum dimension length
 
         kzorp_dimensions = {}
         for (key, value) in self._dimensions.items():
-            kzorp_dimensions[self.valid_dimensions[key]] = value
+            kzorp_dimensions[dim_name_to_attr_type[key]] = value
 
         kzorp_dimension_sizes = dict(map(lambda (key, value): (key, len(value)), kzorp_dimensions.items()))
         max_dimension_length = max(kzorp_dimension_sizes.values()) if len(kzorp_dimension_sizes) > 0 else 0

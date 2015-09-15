@@ -6,7 +6,7 @@ SUBDIRS += . messages tests
 DIST_SUBDIRS += . messages tests
 
 pkgdatadir = @ZORP_PYTHON_DIR@
-pkglibdir = @libdir@/zorp
+pkglibdir = @zorp_libdir@
 LIBS = @MODULES_LIBS@
 CPPFLAGS = @MODULES_CPPFLAGS@
 AM_CFLAGS = @CFLAGS@ -W

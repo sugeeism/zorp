@@ -1,25 +1,20 @@
 /***************************************************************************
  *
- * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2015 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation.
- *
- * Note that this permission is granted for only version 2 of the GPL.
- *
- * As an additional exemption you are allowed to compile & link against the
- * OpenSSL libraries as published by the OpenSSL project. See the file
- * COPYING for details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  ***************************************************************************/
 
@@ -138,7 +133,7 @@ telnet_tls_switch_stream_to_ssl(TelnetProxy *self, ZEndpoint ep)
     }
   else
     {
-      if (!self->super.ssl_opts.handshake_pending[ep]) /* SSL handshake is now completed on both sides */
+      if (!self->super.tls_opts.handshake_pending[ep]) /* SSL handshake is now completed on both sides */
         {
           telnet_tls_complete_negotiation(self, ep);
 
@@ -229,7 +224,7 @@ telnet_tls_client_sm_handle_none_status(TelnetProxy *self, guint8 command, TlsSt
       /* Client requested for STARTTLS */
       if (command == TELNET_CMD_WILL)
         {
-          if (self->super.ssl_opts.security[EP_CLIENT] != PROXY_SSL_SEC_ACCEPT_STARTTLS)
+          if (self->super.encryption->ssl_opts.security[EP_CLIENT] != ENCRYPTION_SEC_ACCEPT_STARTTLS)
             res = telnet_send_opneg(self, EP_CLIENT, TELNET_CMD_DONT, TELNET_OPTION_STARTTLS);
           else
             res = telnet_tls_client_negotiation_start(self);
@@ -342,7 +337,7 @@ telnet_tls_server_sm_negotiate_continue_if_possible(TelnetProxy *self)
 {
   gboolean res;
 
-  if (self->super.ssl_opts.security[EP_SERVER] != PROXY_SSL_SEC_FORWARD_STARTTLS)
+  if (self->super.encryption->ssl_opts.security[EP_SERVER] != ENCRYPTION_SEC_FORWARD_STARTTLS)
     res = telnet_send_opneg(self, EP_SERVER, TELNET_CMD_WONT, TELNET_OPTION_STARTTLS);
   else
     res = telnet_tls_server_sm_negotiate_continue(self);
