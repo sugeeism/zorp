@@ -1,3 +1,5 @@
+[![Travis Build Status](https://secure.travis-ci.org/balabit/zorp.svg?branch=6.0.7)](http://travis-ci.org/balabit/zorp)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/balabit-zorp/badge.svg)](https://scan.coverity.com/projects/balabit-zorp)
 
 This is Zorp, welcome.
 ----------------------
