@@ -1,0 +1,11 @@
+[Unit]
+Description=Zorp firewall
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/zorpctl start
+ExecStop=/usr/sbin/zorpctl stop
+ExecReload=/usr/sbin/zorpctl reload
+
+[Install]
+WantedBy=default.target
